@@ -1,0 +1,6 @@
+{
+  "name": "Hollywood Rising",
+  "description": "Your Journey To Stardom - Full Phase 2 Hollywood Actor Simulation with Talent Systems, Acting School & Persistent Navigation",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
