@@ -46,12 +46,12 @@ export const HowToPlayModal: React.FC = () => {
     {
       title: '4. Decision Results & Inbox',
       icon: <Clock className="w-8 h-8 text-amber-400" />,
-      description: 'When an audition timer reaches zero, you receive an official Acceptance or Rejection letter in your Inbox under CASTING. Accepted roles automatically enter Booking.',
+      description: 'When an audition timer reaches zero, you receive an official Acceptance or Rejection letter in your Inbox under CASTING. Accepted roles automatically enter Production Hub.',
     },
     {
-      title: '5. Booking & Production Boost',
+      title: '5. Production Hub & Cast Management',
       icon: <Video className="w-8 h-8 text-amber-400" />,
-      description: 'Filming takes multiple weeks. You can spend 2 Energy each week to Boost Production and shave 1 week off the filming schedule.',
+      description: 'Filming takes multiple weeks. Manage cast chemistry, director relations, schedule activities, press promotion, and contract terms directly in Production Hub.',
     },
     {
       title: '6. Movie Releases & Box Office',
@@ -61,7 +61,7 @@ export const HowToPlayModal: React.FC = () => {
     {
       title: '7. SAG-AFTRA Guild Membership',
       icon: <ShieldCheck className="w-8 h-8 text-amber-400" />,
-      description: 'Membership requires $2,000 AND 4 completed Lead Roles (Principal or Support roles do NOT count). Unlocks professional auditions and major studio contracts.',
+      description: 'Membership requires $2,000 AND 4 completed Principal or Lead Roles. Unlocks professional auditions and major studio contracts.',
     },
     {
       title: '8. Dating & Relationships',

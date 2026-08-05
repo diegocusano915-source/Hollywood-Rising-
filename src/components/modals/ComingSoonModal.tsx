@@ -10,7 +10,8 @@ import { useGame } from '../../context/GameContext';
 import { GlowButton } from '../common/GlowButton';
 
 export const ComingSoonModal: React.FC = () => {
-  const { comingSoonFeatureName, setActiveModal } = useGame();
+  const { setActiveModal } = useGame();
+  const comingSoonFeatureName = 'MODULE';
 
   const featureDescriptions: Record<string, string> = {
     TALENT: 'Advanced acting class workshops, vocal coaching, stunt training, and multi-skill specialization trees.',

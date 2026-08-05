@@ -1,21 +1,38 @@
 /**
  * HOLLYWOOD RISING - Talent Agency Representation Modal
- * Sign with boutique, mid-range, or elite Hollywood talent agencies.
+ * Sign with boutique, mid-range, or elite Hollywood talent agencies across global regions.
  */
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Building2, CheckCircle2, Shield, Star } from 'lucide-react';
+import { X, Building2, CheckCircle2 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { GlowButton } from '../common/GlowButton';
+import { RepresentationService } from '../../services/representationService';
 
 export const RepresentationModal: React.FC = () => {
-  const { agencies, player, signAgency, setActiveModal } = useGame();
+  const { player, setActiveModal } = useGame();
+  const [repState, setRepState] = useState(() => RepresentationService.getState());
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleSign = (agencyId: string) => {
-    const res = signAgency(agencyId);
-    setFeedback(res);
+  const handleSign = (regionId: string, agencyName: string, fee: number) => {
+    if (player.money < fee) {
+      setFeedback({ success: false, message: `Insufficient funds. Required: $${fee.toLocaleString()}.` });
+      return;
+    }
+
+    const currentState = RepresentationService.getState();
+    const updatedAgencies = currentState.regionalAgencies.map((agency) =>
+      agency.id === regionId ? { ...agency, isUnlocked: true, signedAgencyName: agencyName } : agency
+    );
+
+    RepresentationService.saveState({
+      ...currentState,
+      regionalAgencies: updatedAgencies,
+    });
+
+    setRepState(RepresentationService.getState());
+    setFeedback({ success: true, message: `Successfully signed with ${agencyName}!` });
   };
 
   return (
@@ -34,12 +51,12 @@ export const RepresentationModal: React.FC = () => {
             </div>
             <div>
               <h3 className="text-base font-bold text-white uppercase tracking-wider">Talent Agencies Roster</h3>
-              <p className="text-xs text-[#999999]">Secure official Hollywood representation</p>
+              <p className="text-xs text-[#999999]">Secure official Hollywood & global representation</p>
             </div>
           </div>
           <button
             onClick={() => setActiveModal('none')}
-            className="p-2 rounded-xl bg-[#050510] border border-[#222244] text-[#999999] hover:text-white transition-all"
+            className="p-2 rounded-xl bg-[#050510] border border-[#222244] text-[#999999] hover:text-white transition-all cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -53,9 +70,10 @@ export const RepresentationModal: React.FC = () => {
 
         {/* Agency Cards */}
         <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-3">
-          {agencies.map((agency) => {
-            const isSigned = agency.isSigned;
-            const meetsFame = player.fameLevel >= agency.requiredFameLevel;
+          {repState.regionalAgencies.map((agency) => {
+            const isSigned = !!agency.signedAgencyName;
+            const meetsFame = player.fameXp >= agency.minFameXpRequired;
+            const agencyFee = 25000;
 
             return (
               <div
@@ -69,9 +87,11 @@ export const RepresentationModal: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FF8C00]/20 text-[#FF8C00]">
-                      {agency.tier}
+                      {agency.regionName}
                     </span>
-                    <h4 className="text-sm font-bold text-white mt-1">{agency.name}</h4>
+                    <h4 className="text-sm font-bold text-white mt-1">
+                      {agency.signedAgencyName || `${agency.regionName} Major Talent Agency`}
+                    </h4>
                   </div>
                   {isSigned && (
                     <span className="flex items-center gap-1 text-xs font-bold text-[#FFCC33]">
@@ -80,31 +100,31 @@ export const RepresentationModal: React.FC = () => {
                   )}
                 </div>
 
-                <p className="text-xs text-[#999999]">{agency.description}</p>
+                <p className="text-xs text-[#999999]">{agency.perks}</p>
 
                 <div className="grid grid-cols-3 gap-2 bg-[#111122] p-2.5 rounded-xl border border-[#222244] text-[11px]">
                   <div>
                     <span className="text-[#999999] block text-[10px]">Commission</span>
-                    <span className="font-bold text-white">{agency.commissionRate}%</span>
+                    <span className="font-bold text-white">{agency.commissionPercent}%</span>
                   </div>
                   <div>
-                    <span className="text-[#999999] block text-[10px]">Upfront Retainer</span>
-                    <span className="font-bold text-[#33CC55]">${agency.upfrontFee.toLocaleString()}</span>
+                    <span className="text-[#999999] block text-[10px]">Headquarters</span>
+                    <span className="font-bold text-[#33CC55]">{agency.headquarters}</span>
                   </div>
                   <div>
-                    <span className="text-[#999999] block text-[10px]">Min. Fame Req.</span>
-                    <span className="font-bold text-[#5599FF]">Lvl {agency.requiredFameLevel}</span>
+                    <span className="text-[#999999] block text-[10px]">Min. Fame XP</span>
+                    <span className="font-bold text-[#5599FF]">{agency.minFameXpRequired} XP</span>
                   </div>
                 </div>
 
                 {!isSigned && (
                   <GlowButton
-                    variant="orange"
+                    variant="gold"
                     size="sm"
-                    disabled={!meetsFame || player.money < agency.upfrontFee}
-                    onClick={() => handleSign(agency.id)}
+                    disabled={!meetsFame || player.money < agencyFee}
+                    onClick={() => handleSign(agency.id, `${agency.regionName} Global Agency`, agencyFee)}
                   >
-                    SIGN CONTRACT (${agency.upfrontFee})
+                    SIGN CONTRACT (${agencyFee.toLocaleString()})
                   </GlowButton>
                 )}
               </div>

@@ -23,18 +23,74 @@ export interface BoxOfficeItem {
   id: string;
   title: string;
   type: 'Movie' | 'Series';
-  grossWorldwide: number;
-  grossDomestic: number;
-  grossInternational: number;
-  viewership?: number; // for TV series
-  weeksInRelease: number;
-  trend: 'UP' | 'DOWN' | 'STABLE';
+  currentRank: number;
+  previousRank: number | null;
+  weeklyGross: number;
+  domesticGross: number;
+  internationalGross: number;
+  worldwideGross: number;
+  lifetimeGross: number;
+  weeksReleased: number;
+  weeksInRelease?: number; // legacy alias
+  grossWorldwide?: number; // legacy alias
+  grossDomestic?: number; // legacy alias
+  grossInternational?: number; // legacy alias
+  movement: 'NEW' | 'UP' | 'DOWN' | 'STABLE' | 'OUT';
+  trend?: 'UP' | 'DOWN' | 'STABLE';
   studio: string;
   genres: string[];
   posterUrl: string;
   isPlayerMovie?: boolean;
+  playerMovieId?: string;
+  budget?: number;
+  marketing?: number;
+  criticRating?: number;
+  audienceRating?: number;
+  wordOfMouth?: number;
+  inTheaters?: boolean;
+  releaseWeek?: number;
+  releaseYear?: number;
+  openingWeekendGross?: number;
+  viewership?: number; // for TV series
   sequelPart?: number;
   seriesSeason?: number;
+  director?: string;
+}
+
+export type RecordCategoryType =
+  | 'Highest Opening Weekend'
+  | 'Highest Lifetime Gross'
+  | 'Longest #1'
+  | 'Biggest Flop'
+  | 'Highest ROI'
+  | 'Fastest to $100M'
+  | 'Fastest to $500M';
+
+export interface BoxOfficeRecordItem {
+  id: string;
+  recordType: RecordCategoryType;
+  movieTitle: string;
+  studio: string;
+  valueFormatted: string;
+  numericValue: number;
+  year: number;
+  posterUrl?: string;
+  isPlayerMovie?: boolean;
+  description?: string;
+}
+
+export interface StudioPerformance {
+  id: string;
+  studioName: string;
+  logoUrl: string;
+  totalReleases: number;
+  hitsCount: number; // 3x+ ROI
+  flopsCount: number; // <0.8x ROI
+  totalWorldwideGross: number;
+  marketSharePct: number;
+  averageGross: number;
+  reputationScore: number; // 0-100
+  topReleaseTitle?: string;
 }
 
 export interface StreamingPlatform {
@@ -158,16 +214,73 @@ export interface HiredWriter {
   postsThisWeek: number;
   qualityBoost: number;
   hired: boolean;
+  agencyName?: string;
+  minFame?: number;
+  minLeadRoles?: number;
+  bio?: string;
+  avatar?: string;
 }
+
+export type AwardPrestige = 'Local' | 'Regional' | 'National' | 'International' | 'Global' | 'Legendary';
+
+export type AwardPrediction = 'Current Favorite' | 'Strong Contender' | 'Dark Horse' | 'Outside Chance' | 'Long Shot';
+
+export type AwardSeasonStage =
+  | 'Eligibility'
+  | 'Industry Predictions'
+  | 'Official Nominees'
+  | 'Media Campaign'
+  | 'Red Carpet'
+  | 'Award Ceremony'
+  | 'Winner Announcement'
+  | 'After Party'
+  | 'Entertainment News';
 
 export interface AwardItem {
   id: string;
-  eventName: 'Oscars' | 'Emmys' | 'Golden Globes' | 'SAG Awards';
+  eventName: string; // e.g. Oscars, Emmys, Golden Globes, SAG Awards, Cannes, BAFTA, Critics Choice
   categoryName: string;
+  prestige: AwardPrestige;
   workTitle: string;
   nomineeName: string;
-  status: 'Eligible' | 'Nominated' | 'Won';
+  isPlayer?: boolean;
+  status: 'Eligible' | 'Nominated' | 'Won' | 'Lost' | 'Eliminated';
   year: number;
+  stage?: AwardSeasonStage;
+  prediction?: AwardPrediction;
+  votingScore?: number;
+  campaignSpent?: number;
+  description?: string;
+  winnerName?: string;
+  winnerWork?: string;
+}
+
+export interface AwardCampaignOption {
+  id: string;
+  name: string;
+  type: 'Interviews' | 'Magazine Covers' | 'Premieres' | 'Talk Shows' | 'Special Screenings' | 'Fan Events';
+  cost: number;
+  votingScoreBoost: number;
+  fameXpBoost: number;
+  description: string;
+}
+
+export interface CareerAwardHistory {
+  totalWins: number;
+  totalNominations: number;
+  totalFinalists: number;
+  ceremoniesAttended: number;
+  currentStreak: number;
+  bestStreak: number;
+  recordsLog: {
+    id: string;
+    year: number;
+    eventName: string;
+    categoryName: string;
+    workTitle: string;
+    result: 'Won' | 'Nominated' | 'Lost';
+    votingScore: number;
+  }[];
 }
 
 export interface LawFirm {

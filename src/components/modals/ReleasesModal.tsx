@@ -23,10 +23,25 @@ import { generateImdbBiography, getCareerStatusTier } from '../../utils/imdbBioG
 import { THEMES } from '../../theme/colors';
 
 export const ReleasesModal: React.FC = () => {
-  const { setActiveModal, player, releasedMovies, settings } = useGame();
+  const {
+    setActiveModal,
+    player,
+    releasedMovies,
+    settings,
+    setSelectedFycMovieId,
+    bookedProjects,
+    auditions,
+    careerTimeline,
+    awardHistory,
+  } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
-  const bioText = generateImdbBiography(player, releasedMovies);
+  const bioText = generateImdbBiography(player, releasedMovies, {
+    bookedProjects,
+    auditions,
+    careerTimeline,
+    awardHistory,
+  });
   const careerTier = getCareerStatusTier(player, releasedMovies.length);
 
   // Stats calculation
@@ -191,7 +206,7 @@ export const ReleasesModal: React.FC = () => {
                 <Film className="w-12 h-12 mx-auto text-gray-600 animate-pulse" />
                 <p className="text-gray-400 text-sm font-medium">No theatrical releases credited on IMDb yet.</p>
                 <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                  Complete filming contracts in Booking to premiere your movies in theaters worldwide.
+                  Complete filming contracts in Production Hub to premiere your movies in theaters worldwide.
                 </p>
               </div>
             ) : (
@@ -232,23 +247,47 @@ export const ReleasesModal: React.FC = () => {
                     </div>
 
                     {/* Gross Box Office Stats */}
-                    <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-black/50 border border-white/10 text-center text-xs md:text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-xl bg-black/50 border border-white/10 text-center text-xs">
                       <div>
                         <span className="text-[10px] text-gray-400 uppercase font-bold block">Opening Wknd</span>
-                        <span className="text-white font-extrabold">${(movie.openingWeekendGross / 1000000).toFixed(1)}M</span>
+                        <span className="text-white font-extrabold">${((movie.openingWeekendGross || 0) / 1000000).toFixed(1)}M</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-bold block">Domestic Gross</span>
-                        <span className="text-white font-extrabold">${(movie.domesticGross / 1000000).toFixed(1)}M</span>
+                        <span className="text-[10px] text-gray-400 uppercase font-bold block">Domestic</span>
+                        <span className="text-white font-extrabold">${((movie.domesticGross || 0) / 1000000).toFixed(1)}M</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-bold block">Worldwide Gross</span>
-                        <span className="text-amber-300 font-black">${(movie.worldwideGross / 1000000).toFixed(1)}M</span>
+                        <span className="text-[10px] text-gray-400 uppercase font-bold block">International</span>
+                        <span className="text-white font-extrabold">${((movie.internationalGross || (movie.worldwideGross - movie.domesticGross)) / 1000000).toFixed(1)}M</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 uppercase font-bold block">Worldwide</span>
+                        <span className="text-amber-300 font-black">${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M</span>
                       </div>
                     </div>
 
-                    {/* Ratings & Position */}
-                    <div className="flex flex-wrap items-center justify-between text-xs md:text-sm pt-2 border-t border-white/5 gap-2">
+                    {/* Secondary Metrics: Budget, Awards, Streaming, Royalties */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-xl bg-white/5 text-xs text-gray-300">
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">Budget</span>
+                        <span className="font-extrabold text-white">${((movie.budget || 25000000) / 1000000).toFixed(1)}M</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">Awards (Won/Nom)</span>
+                        <span className="font-extrabold text-amber-300">{movie.awardsWon || 0} / {movie.awardsNominated || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">Streaming Rev</span>
+                        <span className="font-extrabold text-sky-300">${((movie.streamingRevenue || 1200000) / 1000000).toFixed(1)}M</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-400 block font-bold uppercase">Lifetime Royalties</span>
+                        <span className="font-extrabold text-emerald-400">${(movie.lifetimeRoyalties || (movie.playerEarnings * 0.05)).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Ratings, Rank & FYC Campaign Action */}
+                    <div className="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-white/5 gap-2">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5 text-yellow-400 font-bold">
                           <Star className="w-4 h-4 fill-current" />
@@ -260,9 +299,21 @@ export const ReleasesModal: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="text-xs font-bold text-gray-300 bg-black/60 px-3 py-1 rounded-lg border border-white/10">
-                        Box Office Rank: <strong className="text-amber-400">#{movie.boxOfficePosition}</strong>
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedFycMovieId(movie.id);
+                            setActiveModal('fyc_campaign');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <Award className="w-3.5 h-3.5" />
+                          <span>{movie.fycCampaignLevel ? `FYC: ${movie.fycCampaignLevel}` : 'Launch FYC Campaign'}</span>
+                        </button>
+                        <span className="text-xs font-bold text-gray-300 bg-black/60 px-2.5 py-1 rounded-lg border border-white/10">
+                          Rank: <strong className="text-amber-400">#{movie.boxOfficePosition}</strong>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -57,10 +57,11 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   // UNLOCKING REQUIREMENTS CHECK
-  const hasCareerLevel = player.fameXp >= 100 || (player.level && player.level >= 5);
+  const hasCareerLevel = player.fameXp >= 100 || ((player as any).level && (player as any).level >= 5);
   const hasNetWorth = (player.money || 0) >= 1000000;
   const hasManager = !!player.representation?.manager;
-  const hasLeadRoles = (player.leadRolesCount || 0) >= 4;
+  const totalPrincipalRoles = (player.principalRolesCount || 0) + (player.leadRolesCount || 0);
+  const hasLeadRoles = totalPrincipalRoles >= 4;
 
   const isPersonalStudioUnlocked = hasCareerLevel && hasNetWorth && hasManager && hasLeadRoles;
 
@@ -313,7 +314,7 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
                 <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
               )}
               <span className={hasLeadRoles ? 'text-emerald-300 font-bold' : 'text-gray-400'}>
-                Complete 4 Lead Roles ({(player.leadRolesCount || 0)} / 4 Lead Roles)
+                Complete 4 Principal / Lead Roles ({totalPrincipalRoles} / 4)
               </span>
             </div>
           </div>

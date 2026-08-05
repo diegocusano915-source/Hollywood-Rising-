@@ -13,7 +13,8 @@ export const MembershipModal: React.FC = () => {
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const hasCash = player.money >= 2000;
-  const hasLeads = player.leadRolesCount >= 4;
+  const totalPrincipalRoles = (player.principalRolesCount || 0) + (player.leadRolesCount || 0);
+  const hasLeads = totalPrincipalRoles >= 4;
   const canJoin = hasCash && hasLeads && !player.isUnionMember;
 
   const benefits = [
@@ -105,7 +106,7 @@ export const MembershipModal: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Requirement 2: 4 Lead Roles */}
+                {/* Requirement 2: 4 Principal / Lead Roles */}
                 <div
                   className="p-3 rounded-lg border flex items-center justify-between"
                   style={{
@@ -116,12 +117,12 @@ export const MembershipModal: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Crown className={`w-4 h-4 ${hasLeads ? 'text-emerald-400' : 'text-gray-500'}`} />
                     <div>
-                      <span className="text-white font-medium block">4 Completed Lead Roles</span>
-                      <span className="text-[10px] text-gray-500 block">ONLY Lead roles count. Principal/Support do not count.</span>
+                      <span className="text-white font-medium block">4 Completed Principal / Lead Roles</span>
+                      <span className="text-[10px] text-gray-500 block">Both Principal and Lead roles count toward membership.</span>
                     </div>
                   </div>
                   <span className={`font-bold ${hasLeads ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {player.leadRolesCount} / 4 Lead Roles
+                    {totalPrincipalRoles} / 4 Principal Roles
                   </span>
                 </div>
               </div>

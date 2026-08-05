@@ -121,19 +121,23 @@ const AVAILABLE_MANAGERS: LocalManager[] = [
   },
 ];
 
+import { HollywoodInsiderView } from '../representation/HollywoodInsiderView';
+import { Newspaper } from 'lucide-react';
+
 export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }) => {
-  const { player, signAgentContract, settings } = useGame();
+  const { player, signAgentContract, updatePlayer, settings } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTab, setActiveTab] = useState<'AGENT' | 'MANAGER'>('AGENT');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showInsider, setShowInsider] = useState(false);
 
   const currentAgent = player.representation?.agent;
   const currentManager = player.representation?.manager;
 
   // Progression Checks
   const isUnionMember = player.isUnionMember;
-  const leadRolesCount = player.leadRolesCount || 0;
+  const leadRolesCount = (player.principalRolesCount || 0) + (player.leadRolesCount || 0);
   const isUnlocked = isUnionMember && leadRolesCount >= 4;
 
   const handleHireAgent = (agent: LocalAgent) => {
@@ -157,13 +161,51 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
     setTimeout(() => setFeedback(null), 3500);
   };
 
-  const handleFireManager = () => {
-    if (player.representation) {
-      player.representation.manager = undefined;
+  const handleFireAgent = () => {
+    const penalty = 5000;
+    if (player.money < penalty) {
+      setFeedback(`Insufficient funds to terminate agent contract. Cancellation Penalty: $${penalty.toLocaleString()}`);
+      setTimeout(() => setFeedback(null), 3500);
+      return;
     }
-    setFeedback('Manager contract terminated.');
-    setTimeout(() => setFeedback(null), 3500);
+
+    if (confirm(`Are you sure you want to dismiss your Talent Agent? Cancellation penalty is $${penalty.toLocaleString()}. Commission deductions will stop immediately.`)) {
+      if (player.representation) {
+        player.representation.agent = undefined;
+      }
+      updatePlayer({
+        money: player.money - penalty,
+        representation: player.representation,
+      });
+      setFeedback(`Talent Agent contract terminated! Paid $${penalty.toLocaleString()} cancellation penalty. Weekly commission stopped.`);
+      setTimeout(() => setFeedback(null), 3500);
+    }
   };
+
+  const handleFireManager = () => {
+    const penalty = 3500;
+    if (player.money < penalty) {
+      setFeedback(`Insufficient funds to terminate manager contract. Cancellation Penalty: $${penalty.toLocaleString()}`);
+      setTimeout(() => setFeedback(null), 3500);
+      return;
+    }
+
+    if (confirm(`Are you sure you want to dismiss your Personal Manager? Cancellation penalty is $${penalty.toLocaleString()}. Weekly fee deductions will stop immediately.`)) {
+      if (player.representation) {
+        player.representation.manager = undefined;
+      }
+      updatePlayer({
+        money: player.money - penalty,
+        representation: player.representation,
+      });
+      setFeedback(`Manager contract terminated! Paid $${penalty.toLocaleString()} cancellation penalty. Weekly fees stopped.`);
+      setTimeout(() => setFeedback(null), 3500);
+    }
+  };
+
+  if (showInsider) {
+    return <HollywoodInsiderView onBack={() => setShowInsider(false)} />;
+  }
 
   return (
     <div
@@ -180,10 +222,20 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
           <span>Back to World Ecosystem</span>
         </button>
 
-        <span className="text-xs font-black text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-1.5">
-          <Briefcase className="w-4 h-4 text-amber-400" />
-          Hollywood Representation Portal
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowInsider(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-black font-black text-xs transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
+          >
+            <Newspaper className="w-4 h-4" />
+            <span>Hollywood Insider News</span>
+          </button>
+
+          <span className="text-xs font-black text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-1.5">
+            <Briefcase className="w-4 h-4 text-amber-400" />
+            Hollywood Representation Portal
+          </span>
+        </div>
       </div>
 
       {/* Header Banner */}
@@ -281,7 +333,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
                     <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   )}
                   <span className={leadRolesCount >= 4 ? 'text-emerald-300 font-bold' : 'text-gray-400'}>
-                    Completed 4 Lead Roles ({leadRolesCount} / 4)
+                    Completed 4 Principal Roles ({leadRolesCount} / 4)
                   </span>
                 </div>
               </div>
@@ -293,19 +345,29 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
           ) : currentAgent ? (
             /* ACTIVE AGENT SIGNED */
             <div className="p-6 rounded-3xl border border-amber-400/40 bg-black/50 space-y-4 shadow-2xl">
-              <div className="flex items-center gap-4">
-                <img
-                  src={currentAgent.avatarUrl}
-                  alt={currentAgent.name}
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-400 shadow"
-                />
-                <div>
-                  <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    EXCLUSIVE TALENT AGENT
-                  </span>
-                  <h2 className="text-xl font-black text-white mt-1">{currentAgent.name}</h2>
-                  <p className="text-xs text-amber-300 font-bold">{currentAgent.agencyName}</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={currentAgent.avatarUrl}
+                    alt={currentAgent.name}
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-400 shadow"
+                  />
+                  <div>
+                    <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      EXCLUSIVE TALENT AGENT
+                    </span>
+                    <h2 className="text-xl font-black text-white mt-1">{currentAgent.name}</h2>
+                    <p className="text-xs text-amber-300 font-bold">{currentAgent.agencyName}</p>
+                  </div>
                 </div>
+
+                <button
+                  onClick={handleFireAgent}
+                  className="px-4 py-2 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/40 text-xs font-black cursor-pointer transition-all flex items-center gap-1.5"
+                >
+                  <UserMinus className="w-4 h-4 text-rose-400" />
+                  Dismiss Agent ($5,000 Fee)
+                </button>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs p-3 rounded-2xl bg-black/60 border border-white/10">
@@ -346,7 +408,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
 
                       <div className="p-3 rounded-2xl bg-black/60 border border-white/5 text-[10px] space-y-1">
                         <div>Commission Rate: <strong className="text-amber-400">{ag.commissionPercent}%</strong></div>
-                        <div>Role Requirement: <strong className="text-emerald-400">4 Lead Roles (Satisfied)</strong></div>
+                        <div>Role Requirement: <strong className="text-emerald-400">4 Principal Roles (Satisfied)</strong></div>
                       </div>
                     </div>
 
@@ -381,7 +443,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
                 </span>
                 <h2 className="text-2xl font-black text-white">Career Requirements Not Met</h2>
                 <p className="text-xs text-gray-300">
-                  Personal managers will only represent established actors with union status and significant lead credits.
+                  Personal managers will only represent established actors with union status and significant principal credits.
                 </p>
               </div>
 
@@ -408,7 +470,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
                     <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   )}
                   <span className={leadRolesCount >= 4 ? 'text-emerald-300 font-bold' : 'text-gray-400'}>
-                    Completed 4 Lead Roles ({leadRolesCount} / 4)
+                    Completed 4 Principal Roles ({leadRolesCount} / 4)
                   </span>
                 </div>
               </div>

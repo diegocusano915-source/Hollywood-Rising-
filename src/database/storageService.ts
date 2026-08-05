@@ -7,6 +7,7 @@ import {
   SaveData,
   Player,
   CallboardProject,
+  ProjectCategory,
   InboxMessage,
   NpcProfile,
   GiftItem,
@@ -101,74 +102,241 @@ const PRODUCERS = [
 
 const GENRES = ['Drama', 'Thriller', 'Action', 'Romance', 'Comedy', 'Sci-Fi', 'Horror', 'Indie'];
 
-export function generateCallboardProjects(count: number = 5): CallboardProject[] {
-  const roleTypes: RoleType[] = ['Lead', 'Principal', 'Support', 'Recurring', 'Guest Star', 'Cameo', 'Background'];
-  const posterImages = [
-    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400',
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=400',
-    'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&q=80&w=400',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&q=80&w=400',
-    'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&q=80&w=400',
-  ];
+const CALLBOARD_POSTERS = [
+  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=400',
+  'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?auto=format&fit=crop&q=80&w=400',
+];
 
-  const decisionTimes = [3, 5, 8, 12, 18, 25, 40];
+export function getActorTier(fameXp: number): 'Beginner' | 'Rising Actor' | 'Established Star' | 'A-List' {
+  if (fameXp >= 800) return 'A-List';
+  if (fameXp >= 300) return 'Established Star';
+  if (fameXp >= 100) return 'Rising Actor';
+  return 'Beginner';
+}
 
-  const projects: CallboardProject[] = [];
+export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex: number = 0): CallboardProject {
+  const tier = getActorTier(playerFameXp);
+  const posterUrl = CALLBOARD_POSTERS[Math.floor(Math.random() * CALLBOARD_POSTERS.length)];
+  const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
+  const title = MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)];
+  const director = DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)];
+  const producer = PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)];
 
-  for (let i = 0; i < count; i++) {
-    const title = MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)];
-    const roleType = roleTypes[Math.floor(Math.random() * roleTypes.length)];
-    const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
-    const studio = STUDIOS[Math.floor(Math.random() * STUDIOS.length)];
+  let salary = 5000;
+  let budget = 10000000;
+  let studio = 'A24';
+  let category: ProjectCategory = 'Feature Film';
+  let description = 'Principal dramatic role offering pivotal narrative depth.';
+  let roleType: RoleType = Math.random() > 0.5 ? 'Lead' : 'Principal';
 
-    let salary = 1200;
-    let budget = 3500000;
-    let filmingWeeks = 4;
-
-    if (roleType === 'Lead') {
-      salary = Math.floor(15000 + Math.random() * 35000);
-      budget = Math.floor(25000000 + Math.random() * 75000000);
-      filmingWeeks = Math.floor(6 + Math.random() * 6);
-    } else if (roleType === 'Principal') {
-      salary = Math.floor(8000 + Math.random() * 12000);
-      budget = Math.floor(15000000 + Math.random() * 35000000);
-      filmingWeeks = Math.floor(4 + Math.random() * 4);
-    } else if (roleType === 'Support') {
-      salary = Math.floor(4000 + Math.random() * 6000);
-      budget = Math.floor(5000000 + Math.random() * 15000000);
-      filmingWeeks = Math.floor(3 + Math.random() * 3);
-    } else if (roleType === 'Recurring' || roleType === 'Guest Star') {
-      salary = Math.floor(2500 + Math.random() * 3500);
-      budget = Math.floor(3000000 + Math.random() * 8000000);
-      filmingWeeks = Math.floor(2 + Math.random() * 3);
-    } else { // Cameo / Background
-      salary = Math.floor(500 + Math.random() * 1000);
-      budget = Math.floor(1000000 + Math.random() * 3000000);
-      filmingWeeks = Math.floor(1 + Math.random() * 2);
-    }
-
-    const decisionTimeWeeks = decisionTimes[Math.floor(Math.random() * decisionTimes.length)];
-
-    projects.push({
-      id: `proj_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
-      posterUrl: posterImages[i % posterImages.length],
-      title: `${title}`,
-      genre,
-      productionCompany: `${studio} Productions`,
-      studio,
-      director: DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)],
-      producer: PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)],
-      budget,
-      filmingWeeks,
-      estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
-      roleType,
-      salary,
-      description: `A compelling ${genre.toLowerCase()} production seeking dedicated actors to bring authentic performance to ${title}.`,
-      decisionTimeWeeks,
-    });
+  if (tier === 'Beginner') {
+    salary = Math.floor(3000 + Math.random() * 5000);
+    budget = Math.floor(2000000 + Math.random() * 6000000);
+    studio = ['A24', 'Blumhouse', 'Sundance Workshop', 'Indie Syndicate', 'Neon'][Math.floor(Math.random() * 5)];
+    category = Math.random() > 0.4 ? 'Independent Film' : 'Feature Film';
+    description = `Promising ${category.toLowerCase()} seeking a co-lead principal actor to anchor pivotal dramatic arcs.`;
+  } else if (tier === 'Rising Actor') {
+    salary = Math.floor(15000 + Math.random() * 30000);
+    budget = Math.floor(15000000 + Math.random() * 30000000);
+    studio = ['Lionsgate', 'Focus Features', 'Hulu Originals', 'Sony Pictures', 'Netflix'][Math.floor(Math.random() * 5)];
+    category = Math.random() > 0.5 ? 'Feature Film' : 'TV Series';
+    description = `High-profile studio ${category.toLowerCase()} casting a co-lead principal character with intense screen presence.`;
+  } else if (tier === 'Established Star') {
+    salary = Math.floor(60000 + Math.random() * 140000);
+    budget = Math.floor(50000000 + Math.random() * 90000000);
+    studio = ['Warner Bros.', 'Universal Pictures', 'Paramount Pictures', 'HBO Max'][Math.floor(Math.random() * 4)];
+    category = 'Feature Film';
+    description = `Major theatrical release seeking a marquee principal/lead actor to star opposite A-list talent.`;
+  } else { // A-List
+    salary = Math.floor(300000 + Math.random() * 1200000);
+    budget = Math.floor(150000000 + Math.random() * 200000000);
+    studio = ['Marvel Studios', 'Universal Blockbusters', 'Paramount Tentpoles', 'Searchlight Pictures'][Math.floor(Math.random() * 4)];
+    category = 'Feature Film';
+    description = `Global tentpole blockbuster franchise offering prime awards exposure and worldwide box office backend.`;
+    roleType = 'Lead';
   }
 
-  return projects;
+  return {
+    id: `proj_p_${Date.now()}_${seedIndex}_${Math.random().toString(36).substr(2, 4)}`,
+    posterUrl,
+    title,
+    genre,
+    category,
+    productionCompany: `${studio} Pictures`,
+    studio,
+    director,
+    producer,
+    budget,
+    filmingWeeks: Math.floor(4 + Math.random() * 5),
+    estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
+    roleType,
+    salary,
+    description,
+    decisionTimeWeeks: Math.floor(2 + Math.random() * 4),
+    requiredFameXp: tier === 'A-List' ? 500 : tier === 'Established Star' ? 200 : tier === 'Rising Actor' ? 50 : 0,
+    requiredActing: Math.max(10, Math.floor(playerFameXp / 5)),
+    coStars: ['Timothée Chalamet', 'Zendaya', 'Florence Pugh'].slice(0, 2),
+    proposedContract: {
+      salary,
+      backendPercent: roleType === 'Lead' ? 3.0 : 1.5,
+      profitSharePercent: roleType === 'Lead' ? 5.0 : 2.0,
+      boxOfficeBonus: salary * 2,
+    },
+  };
+}
+
+export function generateSingleSupportingRole(playerFameXp: number = 0, seedIndex: number = 0): CallboardProject {
+  const tier = getActorTier(playerFameXp);
+  const posterUrl = CALLBOARD_POSTERS[Math.floor(Math.random() * CALLBOARD_POSTERS.length)];
+  const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
+  const title = `${MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)]}`;
+  const studio = STUDIOS[Math.floor(Math.random() * STUDIOS.length)];
+  const roleType: RoleType = Math.random() > 0.5 ? 'Support' : 'Recurring';
+
+  const salaryMultiplier = tier === 'A-List' ? 10 : tier === 'Established Star' ? 5 : tier === 'Rising Actor' ? 2.5 : 1;
+  const salary = Math.floor((2500 + Math.random() * 3500) * salaryMultiplier);
+  const budget = Math.floor((5000000 + Math.random() * 10000000) * salaryMultiplier);
+
+  return {
+    id: `proj_s_${Date.now()}_${seedIndex}_${Math.random().toString(36).substr(2, 4)}`,
+    posterUrl,
+    title,
+    genre,
+    category: Math.random() > 0.5 ? 'Independent Film' : 'TV Series',
+    productionCompany: `${studio} Productions`,
+    studio,
+    director: DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)],
+    producer: PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)],
+    budget,
+    filmingWeeks: Math.floor(2 + Math.random() * 3),
+    estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
+    roleType,
+    salary,
+    description: `Supporting role delivering crucial key scene performances and ensemble dialogue.`,
+    decisionTimeWeeks: Math.floor(2 + Math.random() * 4),
+    requiredFameXp: 0,
+    requiredActing: 10,
+    coStars: ['Adam Driver', 'Margot Robbie'].slice(0, 1),
+    proposedContract: {
+      salary,
+      backendPercent: 0.5,
+      profitSharePercent: 1.0,
+      boxOfficeBonus: salary,
+    },
+  };
+}
+
+export function generateSingleMinorRole(playerFameXp: number = 0, seedIndex: number = 0): CallboardProject {
+  const tier = getActorTier(playerFameXp);
+  const posterUrl = CALLBOARD_POSTERS[Math.floor(Math.random() * CALLBOARD_POSTERS.length)];
+  const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
+  const studio = STUDIOS[Math.floor(Math.random() * STUDIOS.length)];
+  const categories: ProjectCategory[] = ['Streaming Original', 'TV Series', 'Voice Acting', 'Motion Capture'];
+  const category = categories[Math.floor(Math.random() * categories.length)];
+  const roleType: RoleType = category === 'Voice Acting' ? 'Recurring' : category === 'Motion Capture' ? 'Support' : 'Guest Star';
+
+  const salaryMultiplier = tier === 'A-List' ? 8 : tier === 'Established Star' ? 4 : tier === 'Rising Actor' ? 2 : 1;
+  const salary = Math.floor((1200 + Math.random() * 2000) * salaryMultiplier);
+  const budget = Math.floor((3000000 + Math.random() * 8000000) * salaryMultiplier);
+
+  return {
+    id: `proj_m_${Date.now()}_${seedIndex}_${Math.random().toString(36).substr(2, 4)}`,
+    posterUrl,
+    title: `${MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)]}`,
+    genre,
+    category,
+    productionCompany: `${studio} Digital`,
+    studio,
+    director: DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)],
+    producer: PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)],
+    budget,
+    filmingWeeks: Math.floor(1 + Math.random() * 2),
+    estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
+    roleType,
+    salary,
+    description: `Specialized ${category.toLowerCase()} role calling for dynamic performance in concise shooting schedule.`,
+    decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
+    requiredFameXp: 0,
+    requiredActing: 5,
+    proposedContract: {
+      salary,
+      backendPercent: 0,
+      profitSharePercent: 0.5,
+      boxOfficeBonus: Math.floor(salary * 0.5),
+    },
+  };
+}
+
+/**
+ * MANDATORY FAILSAFE VALIDATION
+ * Guarantees every weekly Callboard refresh ALWAYS contains:
+ * - Minimum 2 Principal Roles (Lead or Principal)
+ * - Minimum 2 Supporting Roles (Support or Recurring)
+ * - Minimum 1 Minor / Cameo Role (Guest Star, Cameo, Background, Voice, MoCap)
+ */
+export function validateAndEnforceCallboardRoster(
+  currentProjects: CallboardProject[],
+  playerFameXp: number = 0
+): CallboardProject[] {
+  let roster = [...currentProjects];
+
+  // Count existing role types
+  let principalCount = roster.filter(p => p.roleType === 'Lead' || p.roleType === 'Principal').length;
+  let supportCount = roster.filter(p => p.roleType === 'Support' || p.roleType === 'Recurring').length;
+  let minorCount = roster.filter(p => p.roleType === 'Cameo' || p.roleType === 'Guest Star' || p.roleType === 'Background').length;
+
+  // FAILSAFE 1: Enforce Minimum 2 Principal Roles
+  while (principalCount < 2) {
+    const newPrincipal = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
+    roster.unshift(newPrincipal);
+    principalCount++;
+  }
+
+  // FAILSAFE 2: Enforce Minimum 2 Supporting Roles
+  while (supportCount < 2) {
+    const newSupport = generateSingleSupportingRole(playerFameXp, roster.length + 1);
+    roster.push(newSupport);
+    supportCount++;
+  }
+
+  // FAILSAFE 3: Enforce Minimum 1 Minor Role
+  while (minorCount < 1) {
+    const newMinor = generateSingleMinorRole(playerFameXp, roster.length + 1);
+    roster.push(newMinor);
+    minorCount++;
+  }
+
+  return roster;
+}
+
+export function generateCallboardProjects(count: number = 7, playerFameXp: number = 0): CallboardProject[] {
+  const projects: CallboardProject[] = [];
+
+  // Always seed initial batch with guaranteed mix
+  projects.push(generateSinglePrincipalRole(playerFameXp, 1));
+  projects.push(generateSinglePrincipalRole(playerFameXp, 2));
+  projects.push(generateSingleSupportingRole(playerFameXp, 3));
+  projects.push(generateSingleSupportingRole(playerFameXp, 4));
+  projects.push(generateSingleMinorRole(playerFameXp, 5));
+
+  while (projects.length < count) {
+    const r = Math.random();
+    if (r < 0.4) {
+      projects.push(generateSinglePrincipalRole(playerFameXp, projects.length + 1));
+    } else if (r < 0.75) {
+      projects.push(generateSingleSupportingRole(playerFameXp, projects.length + 1));
+    } else {
+      projects.push(generateSingleMinorRole(playerFameXp, projects.length + 1));
+    }
+  }
+
+  // Run mandatory validation filter
+  return validateAndEnforceCallboardRoster(projects, playerFameXp);
 }
 
 export function generateInitialInbox(): InboxMessage[] {
@@ -180,7 +348,7 @@ export function generateInitialInbox(): InboxMessage[] {
       senderRole: 'Industry Advisor',
       senderAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150',
       subject: 'Welcome to Hollywood! Core Gameplay Guide',
-      body: 'Welcome to Los Angeles! Apply for roles on the Callboard (costs 20 Energy). Track pending callbacks in Auditions, manage bookings in Filming, and aim for SAG Membership ($2,000 + 4 Lead Roles).',
+      body: 'Welcome to Los Angeles! Apply for roles on the Callboard (costs 20 Energy). Track pending callbacks in Auditions, manage bookings in Filming, and aim for SAG Membership ($2,000 + 4 Principal / Lead Roles).',
       date: 'Week 1, 2026',
       read: false,
     },
@@ -191,7 +359,7 @@ export function generateInitialInbox(): InboxMessage[] {
       senderRole: 'Guild Director',
       senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
       subject: 'SAG-AFTRA Membership Qualifications',
-      body: 'To unlock professional auditions, major studio access, and residual payments, you must accumulate $2,000 in cash AND complete 4 Lead Roles in feature or indie films. Principal or Support roles do NOT count toward membership.',
+      body: 'To unlock professional auditions, major studio access, and residual payments, you must accumulate $2,000 in cash AND complete 4 Principal or Lead Roles in feature or indie films. Both Principal and Lead roles count toward membership.',
       date: 'Week 1, 2026',
       read: false,
     },
@@ -239,14 +407,53 @@ export function generateNpcProfiles(count: number = 8): NpcProfile[] {
   return profiles;
 }
 
+export interface SaveSlotSummary {
+  slotNumber: number;
+  customTitle?: string;
+  hasData: boolean;
+  playerName: string;
+  avatarUrl: string;
+  year: number;
+  week: number;
+  fameLevel: string;
+  netWorth: number;
+  money: number;
+  moviesCompleted: number;
+  awardsWon: number;
+  currentMovie?: string;
+  currentStudio?: string;
+  lastSavedAt: string;
+  hasBackup: boolean;
+}
+
 export class StorageService {
   /** Get key for slot */
-  private static getSlotKey(slot: 1 | 2 | 3): string {
+  private static getSlotKey(slot: number): string {
     return `${STORAGE_KEY_PREFIX}${slot}`;
   }
 
+  /** Get backup key for slot */
+  private static getBackupKey(slot: number): string {
+    return `${STORAGE_KEY_PREFIX}${slot}_backup`;
+  }
+
+  /** Get title key for slot */
+  private static getTitleKey(slot: number): string {
+    return `${STORAGE_KEY_PREFIX}${slot}_title`;
+  }
+
+  /** Get save slot title */
+  public static getSlotTitle(slot: number): string {
+    return localStorage.getItem(this.getTitleKey(slot)) || `Save Slot ${slot}`;
+  }
+
+  /** Set save slot title */
+  public static setSlotTitle(slot: number, title: string): void {
+    localStorage.setItem(this.getTitleKey(slot), title);
+  }
+
   /** Load save data for active slot */
-  public static loadSaveData(slot: 1 | 2 | 3 = 1): SaveData {
+  public static loadSaveData(slot: number = 1): SaveData {
     try {
       const raw = localStorage.getItem(this.getSlotKey(slot));
       if (raw) {
@@ -274,6 +481,15 @@ export class StorageService {
           if (!parsed.player.availableSchoolCourses || parsed.player.availableSchoolCourses.length === 0) {
             parsed.player.availableSchoolCourses = generateWeeklyCourses(parsed.player.completedCourseIds);
           }
+          if (!parsed.trophies) parsed.trophies = [];
+          if (!parsed.awardHistory) parsed.awardHistory = [];
+          if (!parsed.careerTimeline) parsed.careerTimeline = [];
+          if (parsed.player.fameXp === undefined) parsed.player.fameXp = 0;
+          if (parsed.player.industryRespect === undefined) parsed.player.industryRespect = 50;
+          if (parsed.player.publicReputation === undefined) parsed.player.publicReputation = 50;
+          if (parsed.player.criticReputation === undefined) parsed.player.criticReputation = 50;
+
+          parsed.callboard = validateAndEnforceCallboardRoster(parsed.callboard || [], parsed.player.fameXp || 0);
           return parsed;
         }
       }
@@ -284,7 +500,7 @@ export class StorageService {
   }
 
   /** Create new save data for slot */
-  public static createNewSaveData(player: Player, slot: 1 | 2 | 3 = 1): SaveData {
+  public static createNewSaveData(player: Player, slot: number = 1): SaveData {
     const newPlayer: Player = {
       ...DEFAULT_PLAYER,
       ...player,
@@ -295,7 +511,7 @@ export class StorageService {
     };
 
     const data: SaveData = {
-      version: '1.0.0',
+      version: '1.4.0',
       lastSavedAt: new Date().toISOString(),
       slotNumber: slot,
       player: newPlayer,
@@ -314,13 +530,22 @@ export class StorageService {
     return data;
   }
 
-  /** Save state to localStorage */
-  public static saveGameData(data: SaveData, slot?: 1 | 2 | 3): boolean {
+  /** Save state to localStorage & create backup */
+  public static saveGameData(data: SaveData, slot?: number): boolean {
     try {
       const activeSlot = slot || data.slotNumber || 1;
+      const key = this.getSlotKey(activeSlot);
+
+      // Create backup before overwrite if current raw exists
+      const existing = localStorage.getItem(key);
+      if (existing) {
+        localStorage.setItem(this.getBackupKey(activeSlot), existing);
+      }
+
       data.lastSavedAt = new Date().toISOString();
       data.slotNumber = activeSlot;
-      localStorage.setItem(this.getSlotKey(activeSlot), JSON.stringify(data));
+      const json = JSON.stringify(data);
+      localStorage.setItem(key, json);
       return true;
     } catch (e) {
       console.error('Failed to save data to localStorage', e);
@@ -328,14 +553,130 @@ export class StorageService {
     }
   }
 
+  /** Restore slot from backup */
+  public static restoreBackupSave(slot: number): SaveData | null {
+    try {
+      const backupRaw = localStorage.getItem(this.getBackupKey(slot));
+      if (backupRaw) {
+        const parsed = JSON.parse(backupRaw) as SaveData;
+        if (parsed && parsed.player) {
+          localStorage.setItem(this.getSlotKey(slot), backupRaw);
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to restore backup for slot ${slot}`, e);
+    }
+    return null;
+  }
+
+  /** Get summaries for all 5 save slots */
+  public static getSaveSlotSummaries(): SaveSlotSummary[] {
+    const summaries: SaveSlotSummary[] = [];
+    for (let s = 1; s <= 5; s++) {
+      const raw = localStorage.getItem(this.getSlotKey(s));
+      const hasBackup = !!localStorage.getItem(this.getBackupKey(s));
+      const customTitle = this.getSlotTitle(s);
+
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as SaveData;
+          if (parsed && parsed.player) {
+            const currentMovie = parsed.bookedProjects?.[0]?.movieTitle || parsed.releasedMovies?.[0]?.movieTitle || 'None';
+            const currentStudio = parsed.bookedProjects?.[0]?.studio || 'Independent';
+
+            summaries.push({
+              slotNumber: s,
+              customTitle,
+              hasData: true,
+              playerName: `${parsed.player.firstName} ${parsed.player.lastName}`,
+              avatarUrl: parsed.player.avatarUrl || DEFAULT_PLAYER.avatarUrl,
+              year: parsed.player.dateYear || 2026,
+              week: parsed.player.dateWeek || 1,
+              fameLevel: getActorTier(parsed.player.fameXp || 0),
+              netWorth: parsed.player.netWorth || parsed.player.money || 0,
+              money: parsed.player.money || 0,
+              moviesCompleted: parsed.player.moviesCompleted || 0,
+              awardsWon: parsed.player.awardsWon || 0,
+              currentMovie,
+              currentStudio,
+              lastSavedAt: parsed.lastSavedAt || new Date().toISOString(),
+              hasBackup,
+            });
+            continue;
+          }
+        } catch (e) {
+          console.warn(`Error parsing slot summary for slot ${s}`, e);
+        }
+      }
+
+      summaries.push({
+        slotNumber: s,
+        customTitle,
+        hasData: false,
+        playerName: 'Empty Save Slot',
+        avatarUrl: DEFAULT_PLAYER.avatarUrl,
+        year: 2026,
+        week: 1,
+        fameLevel: 'Beginner',
+        netWorth: 0,
+        money: 0,
+        moviesCompleted: 0,
+        awardsWon: 0,
+        lastSavedAt: '-',
+        hasBackup: false,
+      });
+    }
+    return summaries;
+  }
+
+  /** Export Save Data as JSON string */
+  public static exportSaveToJson(slot: number): string | null {
+    try {
+      const raw = localStorage.getItem(this.getSlotKey(slot));
+      if (!raw) return null;
+      // Sanity check JSON
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch (e) {
+      console.error(`Export save failed for slot ${slot}`, e);
+      return null;
+    }
+  }
+
+  /** Import Save Data from JSON string into target slot */
+  public static importSaveFromJson(jsonString: string, targetSlot: number): { success: boolean; message: string; saveData?: SaveData } {
+    try {
+      const parsed = JSON.parse(jsonString) as SaveData;
+      if (!parsed || typeof parsed !== 'object' || !parsed.player || !parsed.player.firstName) {
+        return { success: false, message: 'Invalid save file structure. Missing player profile data.' };
+      }
+
+      parsed.slotNumber = targetSlot;
+      parsed.lastSavedAt = new Date().toISOString();
+
+      const key = this.getSlotKey(targetSlot);
+      localStorage.setItem(key, JSON.stringify(parsed));
+
+      return {
+        success: true,
+        message: `Successfully imported save for ${parsed.player.firstName} ${parsed.player.lastName} into Slot ${targetSlot}!`,
+        saveData: parsed,
+      };
+    } catch (e: any) {
+      return { success: false, message: `Failed to parse import JSON: ${e?.message || 'Unknown error'}` };
+    }
+  }
+
   /** Delete slot save data */
-  public static deleteSaveData(slot: 1 | 2 | 3): SaveData {
+  public static deleteSaveData(slot: number): SaveData {
     localStorage.removeItem(this.getSlotKey(slot));
+    localStorage.removeItem(this.getBackupKey(slot));
     return this.createNewSaveData(DEFAULT_PLAYER, slot);
   }
 
   /** Reset current slot data completely */
-  public static resetSaveData(slot: 1 | 2 | 3 = 1): SaveData {
+  public static resetSaveData(slot: number = 1): SaveData {
     return this.deleteSaveData(slot);
   }
 }

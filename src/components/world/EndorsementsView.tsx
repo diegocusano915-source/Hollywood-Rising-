@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { EndorsementOffer } from '../../types/world';
 import { INITIAL_ENDORSEMENT_OFFERS } from '../../database/worldDatabase';
+import { RepresentationService } from '../../services/representationService';
 import {
   Award,
   DollarSign,
@@ -36,11 +37,36 @@ export const EndorsementsView: React.FC<EndorsementsViewProps> = ({ onBack }) =>
     const offer = offers.find((o) => o.id === offerId);
     if (!offer) return;
 
+    if (offer.requirements.includes('Fans') && (player.fans || 0) < 5000 && offer.category !== 'Local') {
+      setFeedback('Requires more Fans & Star Power to sign this brand endorsement!');
+      setTimeout(() => setFeedback(null), 4000);
+      return;
+    }
+
     setOffers((prev) =>
       prev.map((o) => (o.id === offerId ? { ...o, isSigned: true } : o))
     );
 
-    setFeedback(`SIGNED ${offer.category.toUpperCase()} ENDORSEMENT WITH ${offer.brandName}! Earned +$${offer.payPerYear.toLocaleString()}/yr.`);
+    const repState = RepresentationService.getState();
+    const weeklyPayout = Math.max(50, Math.round(offer.payPerYear / 52));
+    repState.brandOffers.unshift({
+      id: `end_deal_${offer.id}_${Date.now()}`,
+      brandName: offer.brandName,
+      brandCategory: offer.category === 'Luxury' ? 'Luxury Watch' : 'Fashion',
+      brandLogoUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=150',
+      contractLengthWeeks: offer.durationYears * 52,
+      weeklyPayment: weeklyPayout,
+      totalValue: offer.payPerYear * offer.durationYears,
+      requiredFame: 0,
+      requiredReputation: 0,
+      status: 'ACTIVE',
+      weeksRemaining: offer.durationYears * 52,
+      deliverables: offer.requirements,
+      dateSigned: `Week ${player.dateWeek}, ${player.dateYear}`,
+    });
+    RepresentationService.saveState(repState);
+
+    setFeedback(`SIGNED ${offer.category.toUpperCase()} ENDORSEMENT WITH ${offer.brandName}! Earning $${weeklyPayout.toLocaleString()}/wk ($${offer.payPerYear.toLocaleString()}/yr).`);
     setTimeout(() => setFeedback(null), 4000);
   };
 
