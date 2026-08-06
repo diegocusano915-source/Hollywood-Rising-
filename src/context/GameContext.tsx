@@ -1323,48 +1323,90 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (filmingWeeks <= 0) {
-          // Wrapped filming! Deposit salary
+          // Wrapped filming! Automatic Immediate Theatrical Box Office Debut
           salaryEarnedThisWeek += book.salary;
           p.moviesCompleted += 1;
           if (book.roleType === 'Lead') p.leadRolesCount += 1;
           else if (book.roleType === 'Principal') p.principalRolesCount += 1;
 
-          const wrapFame = book.roleType === 'Lead' || book.roleType === 'Principal' ? 15 : book.roleType === 'Support' ? 8 : 4;
-          fameGainedThisWeek += wrapFame;
-          careerTraining.push(`🌟 +${wrapFame} Fame XP - Wrapped filming as ${book.roleType} on '${book.movieTitle}'`);
+          const baseBudget = book.budget || 35000000;
+          const actingTalent = p.talents?.acting || 50;
+          const dramaTalent = p.talents?.drama || 50;
+          const fameBonus = (p.fameXp || 0) * 3500;
+          const finalHype = hype + 30;
 
-          stage = 'Post Production';
-          stageWeeks = 2; // 2 weeks of post-production
-          logs.unshift({
-            week: newWeek,
-            year: newYear,
-            stage: 'Post Production',
-            eventText: `WRAPPED FILMING! Salary of $${book.salary.toLocaleString()} deposited. Project entered Post-Production (Editing, VFX, Score).`,
-            type: 'milestone',
-          });
+          const openingGross = Math.floor(
+            (baseBudget * 0.22) + (finalHype * 380000) + fameBonus + Math.floor(Math.random() * 8000000)
+          );
+          const domesticGross = Math.floor(openingGross * (2.4 + Math.random() * 0.6));
+          const worldwideGross = Math.floor(domesticGross * (1.8 + Math.random() * 1.0));
 
-          careerFilmingProgress.push(`WRAPPED FILMING: '${book.movieTitle}' ($${book.salary.toLocaleString()})`);
+          const audienceRating = Math.min(100, Math.max(45, Math.floor(68 + (actingTalent * 0.25) + Math.random() * 12)));
+          const criticRating = Math.min(100, Math.max(40, Math.floor(62 + (dramaTalent * 0.25) + Math.random() * 18)));
+
+          const releaseFame = book.roleType === 'Lead' ? 350 : book.roleType === 'Principal' ? 250 : 150;
+          fameGainedThisWeek += releaseFame;
+
+          const newReleasedMovie: ReleasedMovie = {
+            id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            movieTitle: book.movieTitle,
+            posterUrl: book.posterUrl,
+            roleType: book.roleType,
+            category: book.category,
+            playerEarnings: book.salary,
+            openingWeekendGross: openingGross,
+            domesticGross,
+            worldwideGross,
+            audienceRating,
+            criticRating,
+            boxOfficePosition: 1,
+            weeksInCinemas: 1,
+            awardsWon: 0,
+            awardsNominated: 0,
+            inCinemas: true,
+            studio: book.studio || 'Universal Pictures',
+            director: book.director || 'Denis Villeneuve',
+            genre: book.genre || 'Drama',
+            budget: book.budget || baseBudget,
+            releaseWeek: newWeek,
+            releaseYear: newYear,
+          };
+
+          newReleasedMovies.unshift(newReleasedMovie);
+
+          careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office!`);
+          careerTraining.push(`🌟 +${releaseFame} Fame XP - Theatrical Release of '${book.movieTitle}'`);
 
           newTimelineEvents.push({
-            id: `tl_wrap_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            id: `tl_rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             year: newYear,
             week: newWeek,
-            category: 'ROLE',
-            title: `Filming Completed: ${book.movieTitle}`,
-            description: `Wrapped principal photography as ${book.roleType} on "${book.movieTitle}". Salary of $${book.salary.toLocaleString()} deposited.`,
+            category: 'RELEASE',
+            title: `Theatrical Debut: ${book.movieTitle}`,
+            description: `"${book.movieTitle}" completed production and debuted in theaters worldwide with an opening gross of $${(openingGross / 1000000).toFixed(1)}M. Contract salary: $${book.salary.toLocaleString()}.`,
           });
 
           newInboxMessages.unshift({
-            id: `msg_wrap_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            category: 'CASTING',
-            sender: `${book.studio || 'Studio'} Production`,
-            senderRole: 'Producer',
+            id: `msg_theatrical_debut_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            category: 'CAREER',
+            sender: `${book.studio || 'Studio'} Distribution`,
+            senderRole: 'VP Theatrical Distribution',
             senderAvatar: book.posterUrl,
-            subject: `Filming Complete: ${book.movieTitle}`,
-            body: `Principal photography on "${book.movieTitle}" has officially wrapped! Contract salary of $${book.salary.toLocaleString()} has been deposited. The film is now in Post-Production.`,
+            subject: `THEATRICAL DEBUT: "${book.movieTitle}" Opens at $${(openingGross / 1000000).toFixed(1)}M Box Office!`,
+            body: `THEATRICAL DEBUT REPORT\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\nDirector: ${book.director || 'Director'}\n\nBOX OFFICE OPENING RESULTS:\n• Opening Weekend Gross: $${openingGross.toLocaleString()}\n• Domestic Projection: $${domesticGross.toLocaleString()}\n• Worldwide Projection: $${worldwideGross.toLocaleString()}\n• Rotten Tomatoes Audience: ${audienceRating}%\n• Rotten Tomatoes Critics: ${criticRating}%\n\nYour salary of $${book.salary.toLocaleString()} has been fully paid. Residuals and royalties will accrue weekly in your IMDb Releases tab!`,
             date: dateInfo.fullDateText,
             read: false,
           });
+
+          // Trigger Breaking Hollywood Insider Article
+          try {
+            HollywoodInsiderService.onMovieReleased(newReleasedMovie, p, true);
+          } catch (e) {
+            console.error('Error triggering Hollywood Insider release article:', e);
+          }
+
+          // Movie is completed & released — do not push back into updatedBookedProjects
+          return;
         } else {
           logs.unshift({
             week: newWeek,
@@ -1375,106 +1417,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           careerFilmingProgress.push(`FILMING: '${book.movieTitle}' - ${filmingWeeks} weeks left`);
         }
-      }
-
-      // 3. POST-FILMING PRODUCTION PIPELINE
-      else if (stage === 'Post Production') {
-        stage = 'Editing';
-        hype += 10;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Editing',
-          eventText: `Editing Stage: Assembly cut assembled. Directors and editors locking scene pacing (+10 Hype).`,
-          type: 'info',
-        });
-      }
-      else if (stage === 'Editing') {
-        stage = 'Color Grading';
-        hype += 10;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Color Grading',
-          eventText: `Color Grading Stage: Establishing cinematic lighting, color tone, and digital intermediate (+10 Hype).`,
-          type: 'info',
-        });
-      }
-      else if (stage === 'Color Grading') {
-        stage = 'Sound Mixing';
-        hype += 10;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Sound Mixing',
-          eventText: `Sound Mixing Stage: Mastering Foley sound FX, dialogue clarity, and orchestral score (+10 Hype).`,
-          type: 'info',
-        });
-      }
-      else if (stage === 'Sound Mixing') {
-        stage = 'Visual Effects';
-        hype += 15;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Visual Effects',
-          eventText: `Visual Effects (VFX) Stage: CGI rendering, stunt cleanup, and visual polish finalized (+15 Hype).`,
-          type: 'success',
-        });
-      }
-      else if (stage === 'Visual Effects') {
-        stage = 'Marketing Campaign';
-        hype += 20;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Marketing Campaign',
-          eventText: `Marketing Campaign Stage: Studio launched official trailer drops, billboard ads, and press tours (+20 Hype).`,
-          type: 'milestone',
-        });
-      }
-      else if (stage === 'Marketing Campaign' || stage === 'Marketing') {
-        stage = 'Distribution Preparation';
-        hype += 10;
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Distribution Preparation',
-          eventText: `Distribution Preparation Stage: Theater screen allocations and DCP master prints finalized (+10 Hype).`,
-          type: 'info',
-        });
-      }
-      else if (stage === 'Distribution Preparation' || stage === 'Premiere') {
-        stage = 'Ready for Release';
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Ready for Release',
-          eventText: `FINALIZED & READY FOR RELEASE! Master prints delivered. Configure release settings in Release Center to launch in theaters.`,
-          type: 'milestone',
-        });
-
-        newInboxMessages.unshift({
-          id: `msg_rfr_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'EVENTS',
-          sender: `${book.studio || 'Studio'} Distribution`,
-          senderRole: 'VP Theatrical Distribution',
-          senderAvatar: book.posterUrl,
-          subject: `READY FOR RELEASE: "${book.movieTitle}"`,
-          body: `Post-production and distribution prep for "${book.movieTitle}" are 100% complete! The film is officially Ready for Release. Open your Release Center to select your release week, marketing budget, screen count, and premiere type.`,
-          date: dateInfo.fullDateText,
-          read: false,
-        });
-      }
-      else if (stage === 'Ready for Release') {
-        // Stays in Ready for Release waiting for player confirmation in Release Center!
-        logs.unshift({
-          week: newWeek,
-          year: newYear,
-          stage: 'Ready for Release',
-          eventText: `Awaiting player release confirmation in Release Center.`,
-          type: 'info',
-        });
       }
 
       updatedBookedProjects.push({

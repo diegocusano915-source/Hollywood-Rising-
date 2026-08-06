@@ -786,17 +786,10 @@ export const BookingModal: React.FC = () => {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => {
-                    const res = boostProduction(currentProject.id);
-                    if (!res.success) triggerFeedback(res.message);
-                    else triggerFeedback('Boosted Production! Filming week completed ahead of schedule.');
-                  }}
-                  className="w-full py-2 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                >
-                  <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
-                  <span>BOOST PRODUCTION (-2 ENERGY)</span>
-                </button>
+                <div className="w-full py-2.5 px-3 rounded-xl text-[11px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-center gap-2 text-center">
+                  <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Shooting advances 1 week each time you click END WEEK</span>
+                </div>
               </div>
 
               {/* CARD 5: CONTRACT */}
@@ -1219,18 +1212,22 @@ export const BookingModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-black/60 border border-white/5 text-[10px] text-gray-400">
-                  {currentProject.status === 'Ready for Release'
-                    ? 'Post-production complete! Select your release week, marketing spend, screen count, and premiere type in the Release Center.'
-                    : `Current Stage: ${currentProject.status || 'In Production'}. Will be Ready for Release once distribution prep completes.`}
+                <div className="p-3 rounded-xl bg-black/60 border border-white/5 text-[11px] text-gray-300 leading-relaxed space-y-1.5">
+                  <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Automatic Theatrical Box Office Debut</span>
+                  </div>
+                  <p className="text-gray-400 text-[10px]">
+                    Once all {currentProject.totalFilmingWeeks} filming weeks conclude (progressed by clicking END WEEK), this feature will automatically premiere in theaters worldwide, calculate opening gross, and appear on IMDb Box Office charts!
+                  </p>
                 </div>
 
                 <button
-                  onClick={() => setShowReleaseCenter(true)}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-102 cursor-pointer flex items-center justify-center gap-2"
+                  onClick={() => setActiveModal('releases')}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-102 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <Clapperboard className="w-4 h-4 text-black" />
-                  <span>OPEN RELEASE CENTER</span>
+                  <TrendingUp className="w-4 h-4 text-black" />
+                  <span>VIEW BOX OFFICE RELEASES</span>
                 </button>
               </div>
             </div>
