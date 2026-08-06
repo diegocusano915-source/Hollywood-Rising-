@@ -334,12 +334,22 @@ export const HollywoodInsiderView: React.FC<HollywoodInsiderViewProps> = ({ onBa
         </div>
 
         {filteredArticles.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl border border-white/10 bg-black/40 space-y-3">
+          <div className="p-8 sm:p-12 text-center rounded-3xl border border-white/10 bg-black/40 space-y-3">
             <Newspaper className="w-12 h-12 text-gray-500 mx-auto" />
             <h3 className="text-base font-black text-white uppercase">NO MATCHING ARTICLES FOUND</h3>
             <p className="text-xs text-gray-400 max-w-md mx-auto">
-              No news stories match your current search parameters. Articles are automatically published whenever real game events, releases, awards, or studio contracts occur!
+              No news stories match your active search or saved bookmarks filter.
             </p>
+            <button
+              onClick={() => {
+                setSelectedCategory('ALL');
+                setActiveFilter('ALL');
+                setSearchQuery('');
+              }}
+              className="px-4 py-2 rounded-xl bg-amber-400 text-black font-black text-xs hover:bg-amber-300 transition-all cursor-pointer shadow"
+            >
+              Reset Filters & View All Stories
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

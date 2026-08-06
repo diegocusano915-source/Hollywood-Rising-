@@ -1508,6 +1508,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
+
+    // Trigger Hollywood Insider weekly trade news tick
+    try {
+      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, updatedPlayer);
+    } catch (e) {
+      console.error('Error processing Hollywood Insider weekly news tick:', e);
+    }
     const updatedReleasedMovies = newReleasedMovies.map((movie) => {
       // Find matching item in Box Office simulation chart or active releases
       const chartItem = boState.items.find(
