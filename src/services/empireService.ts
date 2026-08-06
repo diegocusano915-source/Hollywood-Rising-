@@ -759,7 +759,7 @@ export class EmpireService {
           achievements: parsed.achievements?.length
             ? (() => {
                 // Merge achievements: keep existing progress, fill missing from defaults
-                const existingMap = new Map((parsed.achievements || []).map((a: EmpireAchievement) => [a.id, a]));
+                const existingMap = new Map<string, EmpireAchievement>((parsed.achievements || []).map((a: EmpireAchievement) => [a.id, a]));
                 return defaultState.achievements.map((initAch) => {
                   const existing = existingMap.get(initAch.id);
                   return existing ? { ...initAch, ...existing } : initAch;

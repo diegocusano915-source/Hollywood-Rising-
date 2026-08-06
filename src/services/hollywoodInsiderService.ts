@@ -13,7 +13,6 @@ import {
   RelatedEntities,
 } from '../types/hollywoodInsider';
 import { Player, ReleasedMovie, BookedProject } from '../types/game';
-import { WORLD_MOVIES, WORLD_STUDIOS } from '../database/worldDatabase';
 
 const STORAGE_KEY = 'hollywood_insider_state_v1';
 
@@ -378,11 +377,11 @@ export class HollywoodInsiderService {
     const state = this.getState();
     const reporter = TRADE_REPORTERS[Math.floor(Math.random() * TRADE_REPORTERS.length)];
 
-    const title = movie.title || 'Untitled Feature';
+    const title = movie.movieTitle || 'Untitled Feature';
     const studio = movie.studio || 'Indie Distributor';
-    const director = movie.directorName || 'A-List Filmmaker';
+    const director = movie.director || 'A-List Filmmaker';
     const budget = movie.budget || 25000000;
-    const actorName = isPlayerMovie ? (player.stageName || player.name) : (movie.coStarNames?.[0] || 'Starring Actor');
+    const actorName = isPlayerMovie ? `${player.firstName} ${player.lastName}`.trim() : (movie.coStarNames?.[0] || 'Starring Actor');
     const criticScore = movie.criticScore || 78;
     const audienceScore = movie.audienceScore || 82;
 
@@ -741,7 +740,7 @@ export class HollywoodInsiderService {
     const state = this.getState();
     state.articles = state.articles.map((art) => {
       if (art.id === articleId) {
-        const playerName = player.stageName || player.name || 'Star Player';
+        const playerName = `${player.firstName} ${player.lastName}`.trim() || 'Star Player';
         const playerHandle = `@${playerName.replace(/\s+/g, '')}`;
 
         const playerComment: NPCComment = {

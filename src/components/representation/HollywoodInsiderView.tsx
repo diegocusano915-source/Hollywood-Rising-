@@ -571,7 +571,7 @@ export const HollywoodInsiderView: React.FC<HollywoodInsiderViewProps> = ({ onBa
                   type="text"
                   value={playerCommentText}
                   onChange={(e) => setPlayerCommentText(e.target.value)}
-                  placeholder={`Comment as ${player.stageName || player.name}...`}
+                  placeholder={`Comment as ${player.firstName} ${player.lastName}...`}
                   className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-400"
                 />
                 <button

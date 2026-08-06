@@ -28,7 +28,7 @@ export const CharacterCreationScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col p-6 select-none overflow-y-auto"
+      className="w-full min-h-full flex flex-col p-6 select-none overflow-y-auto pb-12"
       style={{ backgroundColor: theme.background }}
     >
       {/* Top Bar */}

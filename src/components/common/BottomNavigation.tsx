@@ -26,7 +26,7 @@ export const BottomNavigation: React.FC = () => {
     { id: 'WORLD' as const, label: 'WORLD', icon: Globe },
     { id: 'NETWORK' as const, label: 'NETWORK', icon: Users },
     { id: 'EMPIRE' as const, label: 'EMPIRE', icon: Building2 },
-    { id: 'REPRESENTATION' as const, label: 'REPRESENTATION', icon: Briefcase },
+    { id: 'REPRESENTATION' as const, label: 'REP', icon: Briefcase },
   ];
 
   return (

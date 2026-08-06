@@ -383,7 +383,7 @@ export const EmpireScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-gray-950 via-black to-gray-950 text-white p-4 select-none pb-28">
+    <div className="w-full min-h-full bg-gradient-to-b from-gray-950 via-black to-gray-950 text-white p-3 sm:p-4 select-none pb-12">
       {activeFeature ? (
         renderSubView()
       ) : (

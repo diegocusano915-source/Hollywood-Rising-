@@ -304,7 +304,7 @@ export const NetworkScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col p-3 sm:p-5 select-none overflow-y-auto pb-28 space-y-5"
+      className="w-full min-h-full flex flex-col p-3 sm:p-5 select-none pb-12 space-y-4"
       style={{ backgroundColor: theme.background }}
     >
       {/* HEADER BANNER */}

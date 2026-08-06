@@ -245,7 +245,7 @@ export const RepresentationScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col p-4 select-none overflow-y-auto pb-24"
+      className="w-full min-h-full flex flex-col p-3 sm:p-4 select-none pb-12"
       style={{ backgroundColor: theme.background }}
     >
       {/* Header Bar */}

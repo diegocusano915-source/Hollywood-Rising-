@@ -164,7 +164,7 @@ export const TalentScreen: React.FC = () => {
 
     return (
       <div
-        className="min-h-screen w-full flex flex-col p-4 select-none overflow-y-auto pb-20"
+        className="w-full min-h-full flex flex-col p-4 select-none pb-12"
         style={{ backgroundColor: theme.background }}
       >
         {/* Back Button & Header */}
@@ -397,7 +397,7 @@ export const TalentScreen: React.FC = () => {
   // =========================================================================
   return (
     <div
-      className="min-h-screen w-full flex flex-col p-4 select-none overflow-y-auto pb-20"
+      className="w-full min-h-full flex flex-col p-4 select-none pb-12"
       style={{ backgroundColor: theme.background }}
     >
       {/* Top Header Card */}

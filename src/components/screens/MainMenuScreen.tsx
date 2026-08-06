@@ -15,7 +15,7 @@ export const MainMenuScreen: React.FC = () => {
 
   return (
     <div
-      className="relative min-h-screen w-full flex flex-col justify-between select-none overflow-hidden"
+      className="relative w-full min-h-full flex flex-col justify-between select-none overflow-y-auto"
       style={{ backgroundColor: theme.background }}
     >
       {/* Background Graphic Accents */}

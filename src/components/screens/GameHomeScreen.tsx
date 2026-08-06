@@ -75,7 +75,7 @@ export const GameHomeScreen: React.FC = () => {
       default:
         return (
           <div
-            className="min-h-screen w-full flex flex-col p-4 select-none overflow-y-auto pb-10"
+            className="w-full min-h-full flex flex-col p-4 select-none pb-10"
             style={{ backgroundColor: theme.background }}
           >
             {/* Top Status Header Bar */}
@@ -412,9 +412,9 @@ export const GameHomeScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col justify-between" style={{ backgroundColor: theme.background }}>
+    <div className="h-full min-h-screen w-full flex flex-col justify-between overflow-hidden" style={{ backgroundColor: theme.background }}>
       {/* Active Tab Screen Content */}
-      <div className="flex-1 w-full">
+      <div className="flex-1 w-full overflow-y-auto min-h-0">
         {renderActiveScreen()}
       </div>
 
