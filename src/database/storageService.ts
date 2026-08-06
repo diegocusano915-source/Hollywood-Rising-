@@ -30,13 +30,13 @@ export const DEFAULT_TALENTS: PlayerTalents = {
 
 export const DEFAULT_PLAYER: Player = {
   id: 'player_001',
-  firstName: 'Jordan',
-  lastName: 'Vance',
+  firstName: '',
+  lastName: '',
   gender: 'Male',
   age: 21,
   country: 'United States',
   city: 'Los Angeles',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
   personality: 'Confident',
   dateWeek: 1,
   dateYear: 2026,

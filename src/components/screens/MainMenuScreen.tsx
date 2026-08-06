@@ -13,6 +13,13 @@ export const MainMenuScreen: React.FC = () => {
   const { setCurrentScreen, setActiveModal, player, settings } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
+  const hasSavedCharacter = Boolean(
+    player &&
+    player.firstName &&
+    player.firstName.trim().length > 0 &&
+    player.firstName !== 'Jordan'
+  );
+
   return (
     <div
       className="relative w-full min-h-full flex flex-col justify-between select-none overflow-y-auto"
@@ -41,17 +48,17 @@ export const MainMenuScreen: React.FC = () => {
       <div className="w-full max-w-sm mx-auto space-y-3 z-10 my-auto px-6">
         <button
           onClick={() => setCurrentScreen('character_creation')}
-          className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          className="w-full py-4 rounded-2xl font-black text-sm tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           style={{
             backgroundColor: theme.primary,
             color: '#000000',
           }}
         >
           <UserPlus className="w-5 h-5" />
-          NEW GAME
+          {hasSavedCharacter ? 'NEW GAME' : 'START GAME (CREATE CHARACTER)'}
         </button>
 
-        {player && player.firstName && (
+        {hasSavedCharacter && (
           <button
             onClick={() => setCurrentScreen('game_home')}
             className="w-full py-3.5 rounded-2xl font-bold text-xs tracking-wide bg-white/10 hover:bg-white/15 text-white border border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"

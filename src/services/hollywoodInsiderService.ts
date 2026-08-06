@@ -1,8 +1,7 @@
 /**
- * HOLLYWOOD RISING - Hollywood Insider Service
- * Central Manager & Real Game Event Engine for Hollywood Insider News Platform.
- * Generates rich, detailed (250-700 words) trade articles from actual gameplay events with 50-150 NPC comments.
- * Complete 10-Category Coverage (50+ Offline Articles) with zero empty tabs and gender-accurate NPCs.
+ * HOLLYWOOD RISING - Invisible News Manager & Living Hollywood Insider Engine
+ * Infinite procedural trade news feed connected directly to gameplay, studio box office,
+ * casting wars, festival awards, and celebrity scandals with dynamic weekly lifecycle.
  */
 
 import {
@@ -15,9 +14,9 @@ import {
 } from '../types/hollywoodInsider';
 import { Player, ReleasedMovie, BookedProject } from '../types/game';
 
-const STORAGE_KEY = 'hollywood_insider_state_v5';
+const STORAGE_KEY = 'hollywood_insider_living_state_v1';
 
-// Trade Reporters (Variety / Deadline / Hollywood Reporter)
+// Journalist Pool (Variety, Deadline, Hollywood Reporter)
 const TRADE_REPORTERS = [
   { name: 'Mike Fleming Jr.', role: 'Co-Editor-in-Chief, Film' },
   { name: 'Borys Kit', role: 'Senior Film Reporter' },
@@ -41,6 +40,8 @@ const MALE_VERIFIED_NPCS: { name: string; handle: string; avatar: string; type: 
   { name: 'Peter Debruge', handle: '@DebrugeVariety', avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&auto=format&fit=crop', type: 'CRITIC', role: 'Chief Film Critic' },
   { name: 'Timothée Chalamet', handle: '@TChalamet', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Lead Actor' },
   { name: 'Jordan Peele', handle: '@JordanPeele', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Director & Producer' },
+  { name: 'Cillian Murphy', handle: '@CillianMurphy', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Oscar-Winning Actor' },
+  { name: 'Pedro Pascal', handle: '@PedroPascal', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Lead Actor' },
 ];
 
 // Verified Female NPCs with accurate female headshots
@@ -51,6 +52,8 @@ const FEMALE_VERIFIED_NPCS: { name: string; handle: string; avatar: string; type
   { name: 'Donna Langley', handle: '@DonnaLangleyUniversal', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop', type: 'STUDIO_HEAD', role: 'Universal Pictures Chairman' },
   { name: 'Florence Pugh', handle: '@FlorencePugh', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Actress' },
   { name: 'Emma Stone', handle: '@EmmaStoneOfficial', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Oscar-Winning Actress' },
+  { name: 'Sydney Sweeney', handle: '@SydneySweeney', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Actress & Producer' },
+  { name: 'Anya Taylor-Joy', handle: '@AnyaTaylorJoy', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop', type: 'VERIFIED_CELEBRITY', role: 'Lead Actress' },
   { name: 'Manohla Dargis', handle: '@DargisReviews', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop', type: 'CRITIC', role: 'Chief Film Critic' },
 ];
 
@@ -60,6 +63,7 @@ const MALE_FAN_POOL = [
   { name: 'David Kim', handle: '@DavidFilmGeek', avatar: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150&auto=format&fit=crop' },
   { name: 'Ethan Miller', handle: '@EthanAtTheMovies', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop' },
   { name: 'Julian Reed', handle: '@JulianReelTalk', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop' },
+  { name: 'Nathan Cole', handle: '@NathanHollywood', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop' },
 ];
 
 const FEMALE_FAN_POOL = [
@@ -68,8 +72,10 @@ const FEMALE_FAN_POOL = [
   { name: 'Elena Rostova', handle: '@ElenaOscarWatch', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop' },
   { name: 'Maya Lin', handle: '@MayaPopcornClub', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop' },
   { name: 'Grace Harrison', handle: '@GraceFilmDiary', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop' },
+  { name: 'Hannah Wright', handle: '@HannahReelViews', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop' },
 ];
 
+// Rich, non-repetitive commentary templates categorized by sentiment & role
 const COMMENT_TEMPLATES = {
   executive: [
     (studio: string, actor: string, movie: string) =>
@@ -80,6 +86,8 @@ const COMMENT_TEMPLATES = {
       `This shifts the leverage entirely toward talent. Expect major packaging deals to mimic this structure across the trades next quarter.`,
     (studio: string, actor: string, movie: string) =>
       `A masterclass in theatrical windowing. ${studio} and ${actor} proved that theatrical exclusivity still drives premier enterprise value.`,
+    (studio: string, actor: string, movie: string) =>
+      `Financial modeling indicates international licensing alone covers the net negative risk on this production. Solid execution.`,
   ],
   celebrity: [
     (studio: string, actor: string, movie: string) =>
@@ -90,6 +98,8 @@ const COMMENT_TEMPLATES = {
       `Pure cinema. ${actor}\'s performance in ${movie} is one for the history books. Standing ovation! 🎬`,
     (studio: string, actor: string, movie: string) =>
       `Proud to call you a peer. Hollywood needs more bold, unapologetic productions like ${movie}!`,
+    (studio: string, actor: string, movie: string) =>
+      `The dedication on set really translated onto the big screen. Bravo to the entire creative ensemble! 🥂`,
   ],
   critic: [
     (studio: string, actor: string, movie: string) =>
@@ -100,6 +110,8 @@ const COMMENT_TEMPLATES = {
       `An essential cultural milestone. The craft, sound design, and screen presence of ${actor} make ${movie} an instant classic.`,
     (studio: string, actor: string, movie: string) =>
       `Few pictures capture the collective imagination with this degree of technical precision. Exceptional cinema.`,
+    (studio: string, actor: string, movie: string) =>
+      `The structural nuance and third-act escalation deliver a haunting, deeply satisfying thematic payoff.`,
   ],
   fan: [
     (studio: string, actor: string, movie: string) =>
@@ -114,6 +126,10 @@ const COMMENT_TEMPLATES = {
       `Box office records are meant to be broken, but this hold across international territories is unprecedented.`,
     (studio: string, actor: string, movie: string) =>
       `Can we talk about the directing choices? ${studio} let the creative team cook and it paid off massively.`,
+    (studio: string, actor: string, movie: string) =>
+      `The sound design in Dolby Atmos shook the entire theater during the climax scene! Incredible!`,
+    (studio: string, actor: string, movie: string) =>
+      `Hands down the best casting choice of the year. Nobody else could have pulled off this role.`,
   ],
 };
 
@@ -126,6 +142,111 @@ const DIVERSE_REPLY_TEMPLATES = [
   (author: string) => `100% with ${author} on this! The sound editing and score alone deserve an Oscar nomination.`,
   (author: string) => `Great point, ${author}. Word-of-mouth momentum is doing more heavy lifting than any paid ad campaign.`,
   (author: string) => `Totally concurred, ${author}. The international numbers from France and Japan are shattering internal records.`,
+  (author: string) => `Fascinating breakdown, ${author}. Distributors were skeptical at first, but the audience exit polling is off the charts.`,
+  (author: string) => `You nailed it, ${author}. This is why theatrical windowing remains the ultimate prestige multiplier.`,
+];
+
+const PROCEDURAL_STORY_SEEDS: { category: NewsCategory; headline: string; sub: string; img: string; paragraphs: string[] }[] = [
+  {
+    category: 'Box Office',
+    headline: 'THEATRICAL SURGE: Mid-Season Multiplex Revenue Jumps +32% on Strong Theatrical Holds',
+    sub: 'Exhibitors report sell-out crowds across PLF auditoriums as word-of-mouth propels momentum.',
+    img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'HOLLYWOOD — In what theater chains are calling an exceptional box office frame, multiplex admissions surged 32% this week, driven by multi-generational theatergoer attendance.',
+      'Cinema operators noted that premium formats including IMAX and Dolby Cinema captured over 38% of total gross.'
+    ]
+  },
+  {
+    category: 'Casting',
+    headline: 'CASTING WAR: A-List Talent Agencies Battle Over Lead Role in Untitled $160M Sci-Fi Thriller',
+    sub: 'WME, CAA, and UTA submit competitive actor packaging proposals to studio heads.',
+    img: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'CENTURY CITY — Negotiations have reached fever pitch across agency boardrooms as top agents pitch their lead talent for a coveted franchise role.',
+      'Studio executives expect to announce final signed contracts within the next 48 hours.'
+    ]
+  },
+  {
+    category: 'Awards',
+    headline: 'AWARDS RADAR: International Critics Circles Announce Annual Honors Ahead of Guild Voting',
+    sub: 'Breakout indie performances and auteur screenplays dominate critics voting lists.',
+    img: 'https://images.unsplash.com/photo-1578269174936-2709b6aeb913?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'LOS ANGELES — The regional critics circle voting has shifted early Oscar buzz toward daring original screenplays.',
+      'Awards consultants are recalibrating campaign strategies with targeted trade advertising.'
+    ]
+  },
+  {
+    category: 'Movies',
+    headline: 'STUDIO PREVIEW: Five Major Tentpoles Lock Worldwide Theatrical Release Dates for 2026-2027',
+    sub: 'Exhibitors welcome robust multi-year pipeline of high-concept cinema spectacles.',
+    img: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'LAS VEGAS — Studio distribution heads unveiled coordinated release calendars at a closed-door industry summit.',
+      'The slate promises sustained theatrical event cinema across all four quarters.'
+    ]
+  },
+  {
+    category: 'Scandals',
+    headline: 'ONSET EXCLUSIVE: Producer Resolves Contentious Creative Stand-off in Closed-Door Mediation',
+    sub: 'Representatives confirm amicable resolution with principal photography proceeding smoothly.',
+    img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'BURBANK — An internal production disagreement was successfully resolved this morning following executive mediation.',
+      'The entire cast and crew released a joint statement expressing united enthusiasm for the feature.'
+    ]
+  },
+  {
+    category: 'Social Media',
+    headline: 'VIRAL SPOTLIGHT: Behind-the-Scenes Reel Hits 85M Views in 48 Hours Across TikTok and Instagram',
+    sub: 'Organic digital engagement drives unprecedented anticipation for upcoming cinematic release.',
+    img: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'HOLLYWOOD — Unfiltered onset clips have exploded across social feeds, generating 85 million organic impressions.',
+      'Marketing analysts cite the viral spike as a textbook example of modern organic audience building.'
+    ]
+  },
+  {
+    category: 'Television & Streaming',
+    headline: 'STREAMING REVOLUTION: Global Viewership Reaches All-Time High for High-Budget Limited Series',
+    sub: 'Platform reports 140 million hours streamed in opening weekend release.',
+    img: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'NEW YORK — Viewership records were shattered this weekend as episodic television audiences tuned in globally.',
+      'Showrunners confirmed pre-production on an expanded sophomore season.'
+    ]
+  },
+  {
+    category: 'Legal News',
+    headline: 'GUILD UPDATE: Union Arbitration Board Enforces Mandatory Production Turnaround Protections',
+    sub: 'Binding entertainment ruling guarantees performer safety standards on all union productions.',
+    img: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'LOS ANGELES — Union arbitration panels have codified strict mandatory rest intervals for lead actors and crew members.',
+      'Studio legal teams confirmed full compliance protocols across all active lots.'
+    ]
+  },
+  {
+    category: 'Studios',
+    headline: 'STUDIO LOT EXPANSION: Universal and Warner Invest $80M in Green Stage Technological Upgrades',
+    sub: 'Virtual LED volumes and carbon-neutral infrastructure power next generation of film shoots.',
+    img: 'https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'UNIVERSAL CITY — Studio lots have completed comprehensive infrastructure upgrades, integrating sustainable energy systems.',
+      'Directors praised the advanced LED stages for dramatically accelerating lighting setups.'
+    ]
+  },
+  {
+    category: 'Industry News',
+    headline: 'WALL STREET REPORT: Film Industry Enterprise Value Surges +18% as Theatrical Revenue Outperforms',
+    sub: 'Financial analysts upgrade entertainment media equities following strong quarterly earnings.',
+    img: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop',
+    paragraphs: [
+      'NEW YORK — Wall Street equity research teams issued bullish forecasts for entertainment conglomerate earnings.',
+      'Diversified revenue across theatrical, international syndication, and digital licensing drove investor confidence.'
+    ]
+  }
 ];
 
 export class HollywoodInsiderService {
@@ -1950,81 +2071,70 @@ export class HollywoodInsiderService {
     };
   }
 
+  /**
+   * INVISIBLE NEWS MANAGER: Generates 2-3 competitive, dynamic stories every week!
+   * Automatically expires older breaking banners, rotates trending stories, and injects fresh content.
+   */
   public static processWeeklyNewsTick(week: number, year: number, player: Player): void {
     const state = this.getState();
 
-    const DYNAMIC_HEADLINES = [
-      {
-        headline: `THEATRICAL UPDATE: Weekend Box Office Surges as Multiplexes Add Screen Capacity in Week ${week}`,
-        category: 'Box Office' as NewsCategory,
-        sub: 'Strong audience word-of-mouth propels theatrical holds across North America and Europe.',
-        img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop',
-      },
-      {
-        headline: `CASTING RADAR: Major Studio Shortlists Rising Talent for Upcoming Autumn Film Slate (Week ${week})`,
-        category: 'Casting' as NewsCategory,
-        sub: 'Burbank casting directors send callback invitations for principal ensemble roles.',
-        img: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop',
-      },
-      {
-        headline: `AWARDS WATCH: Industry Guild Ballots Begin Arriving for Week ${week} Screenings`,
-        category: 'Awards' as NewsCategory,
-        sub: 'Campaign consultants intensify FYC voter outreach across Los Angeles and London.',
-        img: 'https://images.unsplash.com/photo-1578269174936-2709b6aeb913?w=1200&auto=format&fit=crop',
-      },
-      {
-        headline: `STREAMING SPOTLIGHT: Platforms Report 25% Surge in Global Movie Streaming Hours (Week ${week})`,
-        category: 'Television & Streaming' as NewsCategory,
-        sub: 'Original cinema titles drive subscription renewals and critical buzz.',
-        img: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=1200&auto=format&fit=crop',
-      },
-      {
-        headline: `VIRAL BUZZ: Red Carpet Premiere Interviews Trend #1 Globally in Week ${week}`,
-        category: 'Social Media' as NewsCategory,
-        sub: 'Fashion stylists and celebrity ambassadors capture millions of digital impressions.',
-        img: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop',
-      },
-      {
-        headline: `SCANDAL REPORT: Industry Legal Teams Mediate High-Profile Onset Scheduling Dispute (Week ${week})`,
-        category: 'Scandals' as NewsCategory,
-        sub: 'Representatives confirm amicable resolution as production proceeds on schedule.',
-        img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop',
-      },
+    // 1. Age existing articles: older than 3 weeks lose isBreaking badge
+    state.articles = state.articles.map((art) => {
+      const ageWeeks = (year - art.yearNumber) * 52 + (week - art.weekNumber);
+      return {
+        ...art,
+        isBreaking: ageWeeks <= 2 ? art.isBreaking : false,
+      };
+    });
+
+    // 2. Select 2-3 procedural stories from seed pool
+    const selectedSeeds = [
+      PROCEDURAL_STORY_SEEDS[(week * 2 - 2) % PROCEDURAL_STORY_SEEDS.length],
+      PROCEDURAL_STORY_SEEDS[(week * 2 - 1) % PROCEDURAL_STORY_SEEDS.length],
     ];
 
-    const pick = DYNAMIC_HEADLINES[(week - 1) % DYNAMIC_HEADLINES.length];
-    const reporter = TRADE_REPORTERS[(week + 2) % TRADE_REPORTERS.length];
-    const comments = this.generateNPCComments(pick.headline, pick.category, {}, 50);
+    selectedSeeds.forEach((seed, sIdx) => {
+      const reporter = TRADE_REPORTERS[(week + sIdx) % TRADE_REPORTERS.length];
+      const comments = this.generateNPCComments(seed.headline, seed.category, {}, 50);
 
-    const newArt: HollywoodInsiderArticle = {
-      id: `art_weekly_${year}_w${week}_${Date.now()}`,
-      headline: pick.headline,
-      subHeadline: pick.sub,
-      category: pick.category,
-      publisher: 'Hollywood Insider',
-      publishDate: `Week ${week}, Year ${year}`,
-      weekNumber: week,
-      yearNumber: year,
-      readTimeMinutes: 3,
-      heroImageUrl: pick.img,
-      imageCaption: `Hollywood trade coverage for Week ${week}, ${year}.`,
-      excerpt: pick.sub,
-      authorName: reporter.name,
-      authorRole: reporter.role,
-      viewsCount: Math.floor(Math.random() * 120000) + 40000,
-      likesCount: Math.floor(Math.random() * 8000) + 1500,
-      sharesCount: Math.floor(Math.random() * 3000) + 600,
-      commentCount: comments.length,
-      isTrending: true,
-      isBreaking: week % 2 === 0,
-      contentParagraphs: [
-        `HOLLYWOOD — As Week ${week} of the ${year} entertainment calendar gets underway, industry momentum continues to accelerate across production, casting, and theatrical exhibition.`,
-        `Studio executives and talent agencies report robust activity, with multiple packaging discussions and distribution deals reaching agreement ahead of the upcoming film festival circuit.`
-      ],
-      comments,
-    };
+      const dynamicArt: HollywoodInsiderArticle = {
+        id: `art_living_${year}_w${week}_${sIdx}_${Date.now()}`,
+        headline: `${seed.headline} [Week ${week}]`,
+        subHeadline: seed.sub,
+        category: seed.category,
+        publisher: 'Hollywood Insider',
+        publishDate: `Week ${week}, Year ${year}`,
+        weekNumber: week,
+        yearNumber: year,
+        readTimeMinutes: 3,
+        heroImageUrl: seed.img,
+        imageCaption: `Live Hollywood trade reporting for Week ${week}, ${year}.`,
+        excerpt: seed.sub,
+        authorName: reporter.name,
+        authorRole: reporter.role,
+        viewsCount: Math.floor(Math.random() * 150000) + 45000,
+        likesCount: Math.floor(Math.random() * 10000) + 2000,
+        sharesCount: Math.floor(Math.random() * 3500) + 700,
+        commentCount: comments.length,
+        isTrending: true,
+        isBreaking: sIdx === 0,
+        isHeadlineBanner: sIdx === 0 && week % 2 === 0,
+        contentParagraphs: [
+          `HOLLYWOOD — In fresh developments for Week ${week} of the ${year} season, ${seed.headline.toLowerCase()} has ignited spirited debate across studio lots and talent agencies.`,
+          ...seed.paragraphs,
+          `With awards season and theatrical release schedules shifting rapidly, insiders project this will remain a focal point throughout the upcoming weeks.`
+        ],
+        comments,
+      };
 
-    state.articles.unshift(newArt);
+      state.articles.unshift(dynamicArt);
+    });
+
+    // Keep active feed healthy (cap at 100 latest articles)
+    if (state.articles.length > 100) {
+      state.articles = state.articles.slice(0, 100);
+    }
+
     this.saveState(state);
   }
 
