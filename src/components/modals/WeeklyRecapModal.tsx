@@ -89,12 +89,12 @@ export const WeeklyRecapModal: React.FC = () => {
   const isPositiveNet = recap.finance.netWeeklyChange >= 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-3 sm:p-5 select-none">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-2 sm:p-5 select-none">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="w-full max-w-2xl bg-[#0C0D18] border border-amber-400/40 rounded-3xl p-5 sm:p-6 text-white flex flex-col max-h-[92vh] shadow-[0_0_80px_rgba(251,191,36,0.2)] relative overflow-hidden"
+        className="w-full max-w-lg bg-[#0C0D18] border border-amber-400/40 rounded-3xl p-4 sm:p-6 text-white flex flex-col max-h-[94vh] shadow-[0_0_80px_rgba(251,191,36,0.2)] relative overflow-hidden"
       >
         {/* Glow Effects */}
         <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />

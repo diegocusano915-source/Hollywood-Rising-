@@ -146,7 +146,8 @@ interface GameContextType {
     gender: Gender,
     age: number,
     country: string,
-    personality: Personality
+    personality: Personality,
+    avatarUrl?: string
   ) => void;
 
   applyToCallboard: (projectId: string) => { success: boolean; message: string };
@@ -436,7 +437,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     gender: Gender,
     age: number,
     country: string,
-    personality: Personality
+    personality: Personality,
+    avatarUrl?: string
   ) => {
     soundService.playFanfare();
 
@@ -449,6 +451,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       age,
       country,
       personality,
+      avatarUrl: avatarUrl || DEFAULT_PLAYER.avatarUrl,
       money: 2500,
       energy: 100,
       fans: 0,
