@@ -4,6 +4,18 @@
  * Features: Auto-track advance, cross-fading, volume control, track title metadata, and SFX suite.
  */
 
+export type MusicTrackMode =
+  | 'menu'
+  | 'career'
+  | 'empire'
+  | 'relationships'
+  | 'awards'
+  | 'premiere'
+  | 'production'
+  | 'box_office'
+  | 'settings'
+  | string;
+
 export interface SoundtrackTrackInfo {
   id: number;
   title: string;
@@ -236,7 +248,7 @@ class SoundService {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
@@ -257,7 +269,9 @@ class SoundService {
   public setMusicVolume(volPercent: number) {
     this.musicVolume = Math.max(0, Math.min(1, volPercent / 100));
     if (this.musicGainNode && this.ctx) {
-      this.musicGainNode.gain.setValueAtTime(this.musicVolume * 0.15, this.ctx.currentTime);
+      try {
+        this.musicGainNode.gain.setValueAtTime(this.musicVolume * 0.15, this.ctx.currentTime);
+      } catch {}
     }
   }
 
@@ -276,6 +290,37 @@ class SoundService {
   // ==========================================
   // CONTINUOUS 15-TRACK OFFLINE SOUNDTRACK ENGINE
   // ==========================================
+
+  public playMusicTrack(mode?: MusicTrackMode) {
+    if (!this.musicEnabled) return;
+
+    let trackIdx = 0;
+    switch (mode) {
+      case 'menu':
+        trackIdx = 0;
+        break;
+      case 'relationships':
+        trackIdx = 1;
+        break;
+      case 'empire':
+      case 'box_office':
+        trackIdx = 4;
+        break;
+      case 'awards':
+      case 'premiere':
+        trackIdx = 3;
+        break;
+      case 'production':
+        trackIdx = 5;
+        break;
+      case 'career':
+      default:
+        trackIdx = this.currentTrackIndex % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
+        break;
+    }
+
+    this.playTrackAtIndex(trackIdx);
+  }
 
   public startContinuousSoundtrack() {
     if (!this.musicEnabled) return;
@@ -298,53 +343,52 @@ class SoundService {
     const ctx = this.getContext();
     if (!ctx) return;
 
-    this.musicGainNode = ctx.createGain();
-    this.musicGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
-    this.musicGainNode.gain.exponentialRampToValueAtTime(
-      Math.max(0.001, this.musicVolume * 0.14),
-      ctx.currentTime + 1.5
-    );
-    this.musicGainNode.connect(ctx.destination);
+    try {
+      this.musicGainNode = ctx.createGain();
+      this.musicGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
+      this.musicGainNode.gain.exponentialRampToValueAtTime(
+        Math.max(0.001, this.musicVolume * 0.14),
+        ctx.currentTime + 1.5
+      );
+      this.musicGainNode.connect(ctx.destination);
 
-    let step = 0;
-    const playChordStep = () => {
-      if (!this.isMusicPlaying || !this.ctx || !this.musicGainNode) return;
+      let step = 0;
+      const playChordStep = () => {
+        if (!this.isMusicPlaying || !this.ctx || !this.musicGainNode) return;
 
-      try {
-        const now = this.ctx.currentTime;
-        const currentChord = track.chords[step % track.chords.length];
+        try {
+          const now = this.ctx.currentTime;
+          const currentChord = track.chords[step % track.chords.length];
 
-        currentChord.forEach((freq, idx) => {
-          const osc = this.ctx!.createOscillator();
-          const gain = this.ctx!.createGain();
+          currentChord.forEach((freq, idx) => {
+            const osc = this.ctx!.createOscillator();
+            const gain = this.ctx!.createGain();
 
-          osc.type = idx === 0 ? 'sine' : idx === 1 ? 'triangle' : 'sine';
-          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            osc.type = idx === 0 ? 'sine' : idx === 1 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
 
-          gain.gain.setValueAtTime(0.001, now + idx * 0.08);
-          gain.gain.exponentialRampToValueAtTime(0.035, now + idx * 0.08 + 0.3);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + (track.tempoMs / 1000) * 0.95);
+            gain.gain.setValueAtTime(0.001, now + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.035, now + idx * 0.08 + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + (track.tempoMs / 1000) * 0.95);
 
-          osc.connect(gain);
-          gain.connect(this.musicGainNode!);
+            osc.connect(gain);
+            gain.connect(this.musicGainNode!);
 
-          osc.start(now + idx * 0.08);
-          osc.stop(now + (track.tempoMs / 1000));
-        });
+            osc.start(now + idx * 0.08);
+            osc.stop(now + (track.tempoMs / 1000));
+          });
 
-        step++;
-      } catch {
-        // Audio fallback
-      }
-    };
+          step++;
+        } catch {}
+      };
 
-    playChordStep();
-    this.musicInterval = window.setInterval(playChordStep, track.tempoMs);
+      playChordStep();
+      this.musicInterval = window.setInterval(playChordStep, track.tempoMs);
 
-    // Auto-advance to next track when duration concludes!
-    this.trackTimer = window.setTimeout(() => {
-      this.playNextTrack();
-    }, track.durationSeconds * 1000);
+      this.trackTimer = window.setTimeout(() => {
+        this.playNextTrack();
+      }, track.durationSeconds * 1000);
+    } catch {}
   }
 
   public stopMusic() {
@@ -360,9 +404,7 @@ class SoundService {
     if (this.musicGainNode && this.ctx) {
       try {
         this.musicGainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
-      } catch {
-        // Audio fallback
-      }
+      } catch {}
     }
   }
 
@@ -390,9 +432,7 @@ class SoundService {
 
       osc.start();
       osc.stop(ctx.currentTime + 0.05);
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playHover() {
@@ -415,9 +455,7 @@ class SoundService {
 
       osc.start();
       osc.stop(ctx.currentTime + 0.03);
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playSuccessSound() {
@@ -446,9 +484,7 @@ class SoundService {
         osc.start(now + idx * 0.05);
         osc.stop(now + idx * 0.05 + 0.25);
       });
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playFanfare() {
@@ -474,9 +510,7 @@ class SoundService {
         osc.start(now + i * 0.08);
         osc.stop(now + i * 0.08 + 0.4);
       });
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playLevelUp() {
@@ -502,9 +536,7 @@ class SoundService {
         osc.start(now);
         osc.stop(now + 0.8);
       });
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playCameraFlash() {
@@ -536,9 +568,7 @@ class SoundService {
       gain.connect(ctx.destination);
 
       noise.start(now);
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playApplause() {
@@ -576,9 +606,7 @@ class SoundService {
       gain.connect(ctx.destination);
 
       noise.start(now);
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playMoneyReceived() {
@@ -606,9 +634,7 @@ class SoundService {
 
       osc.start(now);
       osc.stop(now + 0.12);
-    } catch {
-      // Audio fallback
-    }
+    } catch {}
   }
 
   public playContractSigned() {
