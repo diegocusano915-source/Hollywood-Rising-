@@ -281,13 +281,17 @@ export class RepresentationService {
       return offer;
     });
 
-    // 5. Generate Brand Offers if Player Has Earned Fame
-    if (player.fameXp >= 15) {
+    // 5. Generate Brand Offers if Player Has Earned Fame - BALANCED TIER 1 (requires Fame 200 + 1 movie + 1000 fans, no offers first 4 weeks)
+    const hasCompletedMovieForBrand = (player.moviesCompleted || 0) >= 1;
+    const hasFanBaseForBrand = (player.fans || 0) >= 1000;
+    const meetsFameForBrand = player.fameXp >= 200;
+    const isIncubationPeriod = (player.dateWeek || 1) <= 4 && (player.dateYear || 2026) === 2026 && (player.moviesCompleted || 0) === 0;
+    if (meetsFameForBrand && hasCompletedMovieForBrand && hasFanBaseForBrand && !isIncubationPeriod) {
       const activePendingCount = state.brandOffers.filter(
         (b) => b.status === 'OFFER_PENDING' || b.status === 'ACTIVE'
       ).length;
 
-      if (activePendingCount < 3 && Math.random() < 0.45) {
+      if (activePendingCount < 2 && Math.random() < 0.20) {
         const generatedOffer = this.generateBrandOfferForPlayer(player);
         if (generatedOffer) {
           state.brandOffers.unshift(generatedOffer);
@@ -296,10 +300,15 @@ export class RepresentationService {
       }
     }
 
-    // 6. Generate Major Sponsorship Offers for A-List Fame
-    if (player.fameXp >= 50) {
+    // 6. Generate Major Sponsorship Offers - BALANCED TIER 1 (requires Fame 500 + 2 movies + 5000 fans + SAG, no offers first 4 weeks)
+    const hasCompletedMoviesForSponsor = (player.moviesCompleted || 0) >= 2;
+    const hasFanBaseForSponsor = (player.fans || 0) >= 5000;
+    const isSagForSponsor = player.isUnionMember === true;
+    const meetsFameForSponsor = player.fameXp >= 500;
+    const isIncubationForSponsor = (player.dateWeek || 1) <= 4;
+    if (meetsFameForSponsor && hasCompletedMoviesForSponsor && hasFanBaseForSponsor && isSagForSponsor && !isIncubationForSponsor) {
       const activeSponsorsCount = state.sponsorships.filter((s) => s.status === 'ACTIVE' || s.status === 'OFFER').length;
-      if (activeSponsorsCount < 2 && Math.random() < 0.35) {
+      if (activeSponsorsCount < 1 && Math.random() < 0.15) {
         const sponsorOffer = this.generateSponsorshipOfferForPlayer(player);
         if (sponsorOffer) {
           state.sponsorships.unshift(sponsorOffer);
@@ -407,7 +416,7 @@ export class RepresentationService {
     const chosen = BRANDS[Math.floor(Math.random() * BRANDS.length)];
     const id = `brand_offer_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
-    const weeklyPayment = Math.floor(180 + (player.fameXp || 0) * 85 + Math.random() * 300);
+    const weeklyPayment = Math.floor(300 + (player.fameXp || 0) * 12 + Math.random() * 200); // Balanced: was 180+ fame*85 (too high early)
     const lengthWeeks = [4, 8, 12, 26][Math.floor(Math.random() * 4)];
 
     return {
@@ -439,7 +448,7 @@ export class RepresentationService {
 
     const chosen = SPONSORS[Math.floor(Math.random() * SPONSORS.length)];
     const id = `spons_offer_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const weeklyVal = Math.floor(400 + (player.fameXp || 0) * 120);
+    const weeklyVal = Math.floor(500 + (player.fameXp || 0) * 8 + Math.random() * 300); // Balanced: was 400+fame*120
 
     return {
       id,

@@ -542,8 +542,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updatedTimeline = [auditionEvent, ...(saveData.careerTimeline || [])];
 
-    // Award instant Fame XP for audition submission
-    addFameXp(15, `Audition Tape Submitted: ${proj.title}`);
+    // Award instant Fame XP for audition submission - balanced (halved from 15)
+    addFameXp(8, `Audition Tape Submitted: ${proj.title}`);
 
     updateSave({
       ...saveData,
@@ -640,7 +640,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       player: updatedPlayer,
     });
 
-    addFameXp(50, `Enrolled in ${course.name}`);
+    addFameXp(25, `Enrolled in ${course.name}`);
 
     return {
       success: true,
@@ -683,7 +683,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `Signed exclusive talent representation contract with ${agent.agencyName} (${agent.commissionPercent}% commission).`
     );
 
-    addFameXp(150, `Signed with Agent ${agent.name}`);
+    addFameXp(75, `Signed with Agent ${agent.name}`);
 
     updateSave({
       ...saveData,
@@ -1257,7 +1257,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     newBookings.forEach(book => {
       let stage = book.status || 'Pre-Production';
-      let stageWeeks = book.stageWeeksRemaining !== undefined ? book.stageWeeksRemaining : 2;
+      let stageWeeks = book.stageWeeksRemaining !== undefined ? book.stageWeeksRemaining : 1;
       let filmingWeeks = book.weeksRemaining;
       let logs = book.productionLog ? [...book.productionLog] : [];
       let hype = book.hypeScore || 40;
@@ -1328,6 +1328,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (filmingWeeks <= 0) {
           // Wrapped filming! Automatic Immediate Theatrical Box Office Debut
           salaryEarnedThisWeek += book.salary;
+          // INBOX SALARY DEPOSIT NOTIFICATION - so player sees payment clearly (user request: "get paid but don't see it")
+          newInboxMessages.unshift({
+            id: `msg_salary_deposit_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            category: 'FINANCE',
+            sender: `${book.studio || 'Studio'} Payroll`,
+            senderRole: 'Production Finance Dept',
+            senderAvatar: book.posterUrl,
+            subject: `💰 SALARY DEPOSITED: $${book.salary.toLocaleString()} for "${book.movieTitle}"`,
+            body: `PAYROLL CONFIRMATION\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\n\nYour contract salary of $${book.salary.toLocaleString()} has been deposited directly to your Century Bank checking account.\n\nThis payment is also reflected in your Weekly Recap → FINANCE tab as "Film/TV Salary".\n\nNext: Box office residuals and backend will accrue weekly while the film is in theaters!`,
+            date: dateInfo.fullDateText,
+            read: false,
+          });
+          // Also push to WeeklyRecap finance visibility
+          careerMovies.push(`💰 SALARY PAID: $${book.salary.toLocaleString()} deposited for '${book.movieTitle}' (${book.roleType})`);
           p.moviesCompleted += 1;
           if (book.roleType === 'Lead') p.leadRolesCount += 1;
           else if (book.roleType === 'Principal') p.principalRolesCount += 1;
@@ -1356,7 +1370,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
           const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
 
-          const releaseFame = book.roleType === 'Lead' ? 350 : book.roleType === 'Principal' ? 250 : 150;
+          const releaseFame = book.roleType === 'Lead' ? 175 : book.roleType === 'Principal' ? 125 : 75;
           fameGainedThisWeek += releaseFame;
 
           const currentPart = book.franchisePart || 1;
@@ -1556,7 +1570,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Trigger Hollywood Insider weekly trade news tick
     try {
-      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, updatedPlayer);
+      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, p);
     } catch (e) {
       console.error('Error processing Hollywood Insider weekly news tick:', e);
     }
@@ -2050,7 +2064,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       careerTimeline: [sagTimelineEvent, ...(saveData.careerTimeline || [])],
     });
 
-    addFameXp(300, 'Joined SAG-AFTRA Union');
+    addFameXp(150, 'Joined SAG-AFTRA Union');
 
     return { success: true, message: 'SAG-AFTRA Membership unlocked successfully!' };
   };
@@ -2148,8 +2162,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Add to releasedMovies
     const updatedReleased = [newReleasedMovie, ...(saveData.releasedMovies || [])];
 
-    // Award Fame XP
-    const releaseFame = proj.roleType === 'Lead' ? 300 : proj.roleType === 'Principal' ? 250 : 150;
+    // Award Fame XP - balanced (halved)
+    const releaseFame = proj.roleType === 'Lead' ? 150 : proj.roleType === 'Principal' ? 125 : 75;
 
     // Timeline event & inbox message
     const dateInfo = formatCalendarDate(saveData.player.dateYear, saveData.player.dateWeek);

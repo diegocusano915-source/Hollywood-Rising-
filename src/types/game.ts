@@ -164,10 +164,12 @@ export type ProjectCategory =
   | 'Feature Film'
   | 'Streaming Original'
   | 'Independent Film'
+  | 'Short Film'
   | 'TV Series'
   | 'Voice Acting'
   | 'Motion Capture'
-  | 'Cameo';
+  | 'Cameo'
+  | 'Commercial / Web';
 
 export interface ProposedContract {
   salary: number;
@@ -309,6 +311,10 @@ export interface BookedProject {
   tvSeason?: number;
   isSequel?: boolean;
   parentMovieTitle?: string;
+  isFranchise?: boolean;
+  franchisePart?: number;
+  maxFranchisePart?: number;
+  maxTvSeason?: number;
 }
 
 export interface ReleasedMovie {

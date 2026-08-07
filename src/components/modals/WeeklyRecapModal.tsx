@@ -249,9 +249,9 @@ export const WeeklyRecapModal: React.FC = () => {
 
               <div className="space-y-2 text-xs">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-gray-300">
-                  <div className="bg-black/30 p-2.5 rounded-xl border border-white/5">
-                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Film/TV Salary</span>
-                    <span className="text-xs font-bold text-emerald-400">${recap.finance.salary.toLocaleString()}</span>
+                  <div className={`bg-black/30 p-2.5 rounded-xl border ${recap.finance.salary > 0 ? 'border-amber-400/60 bg-amber-500/10' : 'border-white/5'}`}>
+                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Film/TV Salary {recap.finance.salary > 0 ? '💰' : ''}</span>
+                    <span className={`text-xs font-black ${recap.finance.salary > 0 ? 'text-amber-300' : 'text-emerald-400'}`}>${recap.finance.salary.toLocaleString()}</span>
                   </div>
                   <div className="bg-black/30 p-2.5 rounded-xl border border-white/5">
                     <span className="text-[10px] text-gray-400 uppercase font-bold block">SAG Residuals</span>

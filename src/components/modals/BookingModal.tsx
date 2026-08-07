@@ -53,6 +53,8 @@ import { ReleaseCenterModal } from './ReleaseCenterModal';
 export const BookingModal: React.FC = () => {
   const {
     setActiveModal,
+    advanceWeek,
+    isProcessingWeek,
     bookedProjects,
     releasedMovies,
     boostProduction,
@@ -280,8 +282,8 @@ export const BookingModal: React.FC = () => {
         return {
           ...b,
           status: 'Pre-Production' as const,
-          stageWeeksRemaining: 2,
-          totalStageWeeks: 2,
+          stageWeeksRemaining: 1,
+          totalStageWeeks: 1,
           productionLog: [
             ...(b.productionLog || []),
             {
@@ -325,8 +327,8 @@ export const BookingModal: React.FC = () => {
           profitSharePercent: negotiatedBooked.profitSharePercent,
           boxOfficeBonus: negotiatedBooked.boxOfficeBonus,
           status: 'Pre-Production' as const,
-          stageWeeksRemaining: 2,
-          totalStageWeeks: 2,
+          stageWeeksRemaining: 1,
+          totalStageWeeks: 1,
           productionLog: [
             ...(b.productionLog || []),
             {
@@ -788,7 +790,7 @@ export const BookingModal: React.FC = () => {
 
                 <div className="w-full py-2.5 px-3 rounded-xl text-[11px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-center gap-2 text-center">
                   <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Shooting advances 1 week each time you click END WEEK</span>
+                  <span>▶ Use CONTINUE FILMING below or END WEEK to advance 1 week</span>
                 </div>
               </div>
 
@@ -1232,6 +1234,45 @@ export const BookingModal: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+        {/* PRODUCTION CONTINUE FOOTER - Tier 1 Fix: Direct Production Progression */}
+        <div className="p-4 bg-black/80 border-t-2 border-amber-400/60 shrink-0 backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-left">
+              <div className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Clapperboard className="w-3.5 h-3.5" />
+                <span>Production Control</span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px]">1-WEEK PRE-PROD</span>
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                {currentProject?.status === 'Pre-Production' ? 'Pre-production (1 week) — Filming starts next End Week!' : `Filming ${currentWeek}/${currentProject?.totalFilmingWeeks} — Progress ${progressPercent}%`}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                soundService.playClick();
+                setActiveModal('none');
+                setTimeout(() => advanceWeek(), 150);
+              }}
+              disabled={isProcessingWeek}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessingWeek ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  <span>PROCESSING WEEK...</span>
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-4 h-4" />
+                  <span>▶ CONTINUE FILMING — ADVANCE 1 WEEK</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="mt-2 text-[10px] text-gray-500 text-center sm:text-right">
+            Click to advance calendar + push production 1 week • Pre-production now 1 week (was 2)
+          </div>
         </div>
       </div>
 

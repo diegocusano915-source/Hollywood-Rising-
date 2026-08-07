@@ -742,36 +742,7 @@ export class SocialsService {
       youtubeChannelHealth: 'Good Standing',
       npcYouTubeChannels: DEFAULT_NPC_YOUTUBE_CHANNELS,
 
-      sponsorshipDeals: [
-        {
-          id: 'sp_balenciaga',
-          brandName: 'Balenciaga Paris',
-          brandCategory: 'Luxury Fashion',
-          brandLogo: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=150',
-          deliverable: 'Red Carpet Wardrobe Feature & 3 Instagram Posts',
-          lumpSumPayout: 50000,
-          weeklyPayout: 10000,
-          durationWeeks: 4,
-          weeksRemaining: 4,
-          status: 'OFFER',
-          minFollowersRequired: 25000,
-          minFameRequired: 50,
-        },
-        {
-          id: 'sp_rolex',
-          brandName: 'Rolex Geneva',
-          brandCategory: 'Watches',
-          brandLogo: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=150',
-          deliverable: 'Oscar Season Official Timepiece Placement',
-          lumpSumPayout: 150000,
-          weeklyPayout: 25000,
-          durationWeeks: 6,
-          weeksRemaining: 6,
-          status: 'OFFER',
-          minFollowersRequired: 100000,
-          minFameRequired: 200,
-        },
-      ],
+      sponsorshipDeals: [], // BALANCED: Removed pre-seeded fake offers - sponsorships now only appear after Fame 500 + fans 10000 (Tier 1)
       fanFeed: [
         {
           id: 'ff_1',
@@ -1071,9 +1042,13 @@ export class SocialsService {
 
     // 6. Generate New Brand Sponsorship Offers if requirements met
     const totalFollowersNow = Object.values(state.followers).reduce((a, b) => a + b, 0);
-    if (totalFollowersNow >= 25000 && player.fameXp >= 50) {
+    // BALANCED TIER 1: Sponsorships only after Fame 500 + 10000 followers + 2 movies + SAG, no spam in first 4 weeks
+    const hasMoviesForSocialSponsor = (player.moviesCompleted || 0) >= 2;
+    const hasSagForSocialSponsor = player.isUnionMember === true;
+    const isIncubation = (player.dateWeek || 1) <= 4;
+    if (totalFollowersNow >= 10000 && player.fameXp >= 500 && hasMoviesForSocialSponsor && hasSagForSocialSponsor && !isIncubation) {
       const pendingOffersCount = state.sponsorshipDeals.filter((d) => d.status === 'OFFER').length;
-      if (pendingOffersCount < 2 && Math.random() < 0.4) {
+      if (pendingOffersCount < 1 && Math.random() < 0.15) {
         const brandNames = ['Gucci', 'Porsche', 'Apple', 'Ferrari', 'Netflix', 'Red Bull', 'Armani', 'Sony'];
         const chosenBrand = brandNames[Math.floor(Math.random() * brandNames.length)];
         const newDeal: SponsorshipDeal = {
