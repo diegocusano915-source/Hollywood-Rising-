@@ -52,6 +52,7 @@ import { RoyaltyEngineService } from '../services/royaltyService';
 import { AwardsService } from '../services/awardsService';
 import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
+import { notificationService } from '../services/notificationService';
 import { ActiveJob, TransactionRecord } from '../types/network';
 
 type MainTab = 'HOME' | 'TALENT' | 'WORLD' | 'NETWORK' | 'EMPIRE' | 'REPRESENTATION';
@@ -379,11 +380,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // Update sound & music settings
+  // Update sound & music settings and schedule re-engagement notifications
   useEffect(() => {
     soundService.setSoundEnabled(saveData.settings.soundEnabled !== false);
     soundService.setMusicEnabled(saveData.settings.musicEnabled !== false);
-  }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled]);
+    notificationService.scheduleAwayNotifications(saveData.player);
+  }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData.player]);
 
   useEffect(() => {
     if (currentScreen === 'game_home') {
