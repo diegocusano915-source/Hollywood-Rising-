@@ -715,25 +715,27 @@ export class BoxOfficeEngineService {
           const prevIntl = item.internationalGross || item.grossInternational || 0;
           const prevWW = item.worldwideGross || item.grossWorldwide || item.lifetimeGross || 0;
 
-          item.domesticGross = prevDom + addDom;
-          item.internationalGross = prevIntl + addIntl;
-          item.worldwideGross = Math.max(prevWW, item.domesticGross + item.internationalGross);
+          // Enforce $5 Billion lifetime cap on movies
+          const MAX_MOVIE_LIFETIME = 5000000000;
+          item.domesticGross = Math.min(MAX_MOVIE_LIFETIME * 0.45, prevDom + addDom);
+          item.internationalGross = Math.min(MAX_MOVIE_LIFETIME * 0.55, prevIntl + addIntl);
+          item.worldwideGross = Math.min(MAX_MOVIE_LIFETIME, Math.max(prevWW, item.domesticGross + item.internationalGross));
           item.lifetimeGross = item.worldwideGross;
 
-          // Player movies stay in theaters for 15 weeks. NPC movies stay for 14 weeks.
+          // Player movies stay in theaters for exactly 15 weeks. NPC movies stay for 10 weeks.
           if (item.isPlayerMovie) {
-            if (item.weeksReleased > 15) {
+            if (item.weeksReleased >= 15) {
               item.inTheaters = false;
               item.weeklyGross = 0;
               item.movement = 'OUT';
-              logs.push(`🏛️ THEATRICAL RUN CONCLUDED: Player movie '${item.title}' finished 15-week theatrical run with $${(item.worldwideGross / 1000000).toFixed(1)}M Total Gross.`);
+              logs.push(`🏛️ THEATRICAL RUN CONCLUDED: After a long run of 15 weeks in cinemas, '${item.title}' has concluded its theatrical run with $${(item.worldwideGross / 1000000).toFixed(1)}M Total Gross.`);
             }
           } else {
-            if (item.weeksReleased > 14) {
+            if (item.weeksReleased >= 10) {
               item.inTheaters = false;
               item.weeklyGross = 0;
               item.movement = 'OUT';
-              logs.push(`🏛️ THEATRICAL RUN CONCLUDED: '${item.title}' finished 14-week theatrical run with $${(item.worldwideGross / 1000000).toFixed(1)}M Total Gross.`);
+              logs.push(`🏛️ THEATRICAL RUN CONCLUDED: After a 10-week run in cinemas, '${item.title}' has concluded its theatrical run with $${(item.worldwideGross / 1000000).toFixed(1)}M Total Gross.`);
             }
           }
         }
@@ -741,15 +743,15 @@ export class BoxOfficeEngineService {
         item.weeklyGross = 0;
       }
 
-      // Mandatory Cap Enforcement: Player max 15 weeks, NPC max 14 weeks
+      // Mandatory Cap Enforcement: Player max 15 weeks, NPC max 10 weeks
       if (item.isPlayerMovie) {
-        if ((item.weeksReleased && item.weeksReleased > 15) || (item.weeksInRelease && item.weeksInRelease > 15)) {
+        if ((item.weeksReleased && item.weeksReleased >= 15) || (item.weeksInRelease && item.weeksInRelease >= 15)) {
           item.inTheaters = false;
           item.weeklyGross = 0;
           item.movement = 'OUT';
         }
       } else {
-        if ((item.weeksReleased && item.weeksReleased > 14) || (item.weeksInRelease && item.weeksInRelease > 14)) {
+        if ((item.weeksReleased && item.weeksReleased >= 10) || (item.weeksInRelease && item.weeksInRelease >= 10)) {
           item.inTheaters = false;
           item.weeklyGross = 0;
           item.movement = 'OUT';

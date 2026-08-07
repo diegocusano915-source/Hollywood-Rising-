@@ -1605,16 +1605,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const nextWeeks = chartItem.weeksReleased || movie.weeksInCinemas + 1;
-        const nextInCinemas = nextWeeks > 15 ? false : (chartItem.inTheaters ?? movie.inCinemas);
+        const nextInCinemas = nextWeeks >= 15 ? false : (chartItem.inTheaters ?? movie.inCinemas);
 
         const currentWorldwide = movie.worldwideGross || movie.boxOfficeGross || 0;
         const currentDomestic = movie.domesticGross || 0;
         const chartWorldwide = chartItem.worldwideGross || 0;
         const chartDomestic = chartItem.domesticGross || 0;
 
-        const finalWorldwide = Math.max(currentWorldwide, chartWorldwide);
-        const finalDomestic = Math.max(currentDomestic, chartDomestic);
+        // Cap movie lifetime gross at $5 Billion
+        const MAX_CAP = 5000000000;
+        const finalWorldwide = Math.min(MAX_CAP, Math.max(currentWorldwide, chartWorldwide));
+        const finalDomestic = Math.min(MAX_CAP * 0.45, Math.max(currentDomestic, chartDomestic));
         const finalInternational = Math.max(0, finalWorldwide - finalDomestic);
+
+        // If movie completes its 15th week in cinemas, send official theatrical conclusion report to Inbox!
+        if (nextWeeks >= 15 && movie.inCinemas) {
+          newInboxMessages.unshift({
+            id: `msg_theatrical_end_${movie.id}_${Date.now()}`,
+            category: 'CAREER',
+            sender: `${movie.studio || 'Studio'} Distribution`,
+            senderRole: 'VP Theatrical Distribution',
+            senderAvatar: movie.posterUrl,
+            subject: `THEATRICAL RUN CONCLUDED: "${movie.movieTitle}"`,
+            body: `THEATRICAL RUN CONCLUSION REPORT\n\nMovie: "${movie.movieTitle}"\nRole: ${movie.roleType}\n\nAfter a long run of 15 weeks in cinemas, "${movie.movieTitle}" has officially concluded its theatrical exhibition run!\n\nFINAL BOX OFFICE TOTALS:\n• Lifetime Worldwide Gross: $${(finalWorldwide / 1000000).toFixed(1)}M\n• Domestic Box Office: $${(finalDomestic / 1000000).toFixed(1)}M\n• International Box Office: $${(finalInternational / 1000000).toFixed(1)}M\n• Final Rotten Tomatoes Rating: ${movie.audienceRating}%\n\nThe feature has now transitioned into permanent home streaming, digital licensing, and syndication catalogs. Weekly residuals and streaming royalties will continue to accrue automatically in your IMDb Releases tab!`,
+            date: dateInfo.fullDateText,
+            read: false,
+          });
+        }
 
         return {
           ...movie,
@@ -1634,7 +1651,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return {
         ...movie,
         weeksInCinemas: fallbackWeeks,
-        inCinemas: fallbackWeeks > 15 ? false : movie.inCinemas,
+        inCinemas: fallbackWeeks >= 15 ? false : movie.inCinemas,
         worldwideGross: fallbackGross,
         boxOfficeGross: fallbackGross,
       };
