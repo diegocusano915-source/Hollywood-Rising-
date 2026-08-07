@@ -284,8 +284,8 @@ export const INITIAL_ACHIEVEMENTS: EmpireAchievement[] = [
   { id: 'ach_e_4', title: 'Bel-Air Elite', description: 'Join the exclusive Hollywood Elite Club.', category: 'Empire', rewardCash: 250000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 1 },
   { id: 'ach_e_5', title: 'Philanthropic Legacy', description: 'Establish your Global Philanthropic Foundation.', category: 'Empire', rewardCash: 300000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 1 },
   { id: 'ach_e_6', title: '$1M Benefactor', description: 'Donate over $1,000,000 to charity causes.', category: 'Empire', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 1000000 },
-  { id: 'ach_e_7', title: 'International Footprint', description: 'Build your first overseas regional office.', category: 'Empire', rewardCash: 400000, rewardFameXp: 4000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_8', title: 'Global Hegemony', description: 'Build regional hubs in 3 continents.', category: 'Empire', rewardCash: 1000000, rewardFameXp: 10000, isUnlocked: false, progress: 0, maxProgress: 3 },
+  { id: 'ach_e_7', title: 'International Footprint', description: 'Build your first overseas regional office.', category: 'Empire', rewardCash: 50000, rewardFameXp: 500, isUnlocked: false, progress: 0, maxProgress: 1 }, // FIXED: Was 400k/4000 too big for Week 2, now 50k/500,
+  { id: 'ach_e_8', title: 'Global Hegemony', description: 'Build regional hubs in 3 continents.', category: 'Empire', rewardCash: 150000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 3 }, // FIXED: Was 1M/10000,
   { id: 'ach_e_9', title: 'Acting Conservatory', description: 'Found the Hollywood Acting Academy.', category: 'Empire', rewardCash: 350000, rewardFameXp: 3500, isUnlocked: false, progress: 0, maxProgress: 1 },
   { id: 'ach_e_10', title: 'Terrazzo Star', description: 'Unveil your Walk of Fame Star on Hollywood Blvd.', category: 'Empire', rewardCash: 1000000, rewardFameXp: 10000, isUnlocked: false, progress: 0, maxProgress: 1 },
 
@@ -1064,8 +1064,8 @@ export class EmpireService {
         case 'ach_e_4': if (state.eliteClub.isMember) shouldUnlock = true; break;
         case 'ach_e_5': if (state.foundation.isEstablished) shouldUnlock = true; break;
         case 'ach_e_6': currentProg = Math.min(1000000, totalDonated); if (totalDonated >= 1000000) shouldUnlock = true; break;
-        case 'ach_e_7': if ((state.globalHubs || []).length >= 1 || (state.globalRegions || []).some((r) => r?.officesBuilt > 0)) shouldUnlock = true; break;
-        case 'ach_e_8': if ((state.globalHubs || []).length >= 3 || (state.globalRegions || []).filter((r) => r?.officesBuilt > 0).length >= 3) shouldUnlock = true; break;
+        case 'ach_e_7': if ((state.globalHubs || []).length >= 1 || (state.globalRegions || []).some((r) => r?.id !== 'north_america' && r?.officesBuilt > 0)) shouldUnlock = true; break; // FIXED: Exclude home office
+        case 'ach_e_8': if ((state.globalHubs || []).length >= 3 || (state.globalRegions || []).filter((r) => r?.id !== 'north_america' && r?.officesBuilt > 0).length >= 3) shouldUnlock = true; break; // FIXED: Exclude home
         case 'ach_e_9': if (state.actingAcademy.isOpen) shouldUnlock = true; break;
         case 'ach_e_10': if (state.legacy.walkOfFameStar) shouldUnlock = true; break;
 

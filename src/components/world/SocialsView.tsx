@@ -819,6 +819,22 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
         {/* ============================================================ */}
         {activeNavTab === 'INSTAGRAM' && (
           <div className="space-y-6 max-w-4xl mx-auto">
+            {!socialsState.createdPlatforms.Instagram ? (
+              <div className="p-6 rounded-3xl bg-fuchsia-950/30 border border-fuchsia-500/30 text-center space-y-3">
+                <Camera className="w-10 h-10 text-fuchsia-400 mx-auto" />
+                <h2 className="text-lg font-black text-white">Create Official Instagram Profile</h2>
+                <p className="text-xs text-gray-400 max-w-md mx-auto">
+                  Build your visual brand with red carpet photos, behind-the-scenes reels, and lifestyle stories.
+                </p>
+                <button
+                  onClick={() => handleCreateAccount('Instagram')}
+                  className="px-6 py-2.5 rounded-xl bg-fuchsia-500 hover:bg-fuchsia-400 text-black font-black text-xs transition-all shadow-lg cursor-pointer"
+                >
+                  CREATE INSTAGRAM (@{player.firstName.toLowerCase()}{player.lastName.toLowerCase()})
+                </button>
+              </div>
+            ) : (
+              <>
             {/* INSTAGRAM STORIES BAR */}
             <div className="bg-black/60 border border-fuchsia-500/20 p-3 rounded-2xl flex items-center gap-4 overflow-x-auto no-scrollbar">
               {/* Player Story Bubble */}
@@ -990,6 +1006,8 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
                 ))}
               </div>
             )}
+              </>
+            )}
           </div>
         )}
 
@@ -998,6 +1016,22 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
         {/* ============================================================ */}
         {activeNavTab === 'YOUTUBE' && (
           <div className="space-y-6 max-w-5xl mx-auto">
+            {!socialsState.createdPlatforms.YouTube ? (
+              <div className="p-6 rounded-3xl bg-red-950/30 border border-red-500/30 text-center space-y-3">
+                <Play className="w-10 h-10 text-red-400 mx-auto" />
+                <h2 className="text-lg font-black text-white">Create Official YouTube Channel</h2>
+                <p className="text-xs text-gray-400 max-w-md mx-auto">
+                  Launch your video hub for trailers, vlogs, and behind-the-scenes content to build watch hours and subscribers.
+                </p>
+                <button
+                  onClick={() => handleCreateAccount('YouTube')}
+                  className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs transition-all shadow-lg cursor-pointer"
+                >
+                  CREATE YOUTUBE CHANNEL (@{player.firstName.toLowerCase()}{player.lastName.toLowerCase()})
+                </button>
+              </div>
+            ) : (
+              <>
             {/* Header & Studio Banner */}
             <div className="p-6 rounded-3xl bg-gradient-to-r from-red-950/60 via-red-900/20 to-black border border-red-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
@@ -1353,6 +1387,8 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
                   ))}
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}

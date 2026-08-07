@@ -743,18 +743,7 @@ export class SocialsService {
       npcYouTubeChannels: DEFAULT_NPC_YOUTUBE_CHANNELS,
 
       sponsorshipDeals: [], // BALANCED: Removed pre-seeded fake offers - sponsorships now only appear after Fame 500 + fans 10000 (Tier 1)
-      fanFeed: [
-        {
-          id: 'ff_1',
-          authorName: 'Jessica Miller',
-          authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop',
-          membershipTier: 'GOLD_VIP',
-          text: 'Super excited to be part of the official VIP fan society! Loving the exclusive behind the scenes clips!',
-          timestamp: '1d ago',
-          likes: 42,
-          commentsCount: 6,
-        },
-      ],
+      fanFeed: [], // FIXED: Removed auto Jessica Miller comment - fan club starts empty
       analyticsHistory: [],
       trendingTopics: ['#HollywoodRising', '#BoxOfficeRecord', '#OscarBuzz', '#SAGAwards', '#CaliforniaFilm'],
     };

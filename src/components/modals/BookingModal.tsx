@@ -1235,8 +1235,9 @@ export const BookingModal: React.FC = () => {
             </div>
           )}
         </div>
-        {/* PRODUCTION CONTINUE FOOTER - Tier 1 Fix: Direct Production Progression */}
-        <div className="p-4 bg-black/80 border-t-2 border-amber-400/60 shrink-0 backdrop-blur-md">
+        {/* PRODUCTION CONTINUE FOOTER - Tier 1 Fix: Direct Production Progression - ONLY when active production exists */}
+        {currentProject && (
+          <div className="p-4 bg-black/80 border-t-2 border-amber-400/60 shrink-0 backdrop-blur-md">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-left">
               <div className="text-[11px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -1270,10 +1271,11 @@ export const BookingModal: React.FC = () => {
               )}
             </button>
           </div>
-          <div className="mt-2 text-[10px] text-gray-500 text-center sm:text-right">
-            Click to advance calendar + push production 1 week • Pre-production now 1 week (was 2)
+            <div className="mt-2 text-[10px] text-gray-500 text-center sm:text-right">
+              Click to advance calendar + push production 1 week • Pre-production now 1 week (was 2)
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {showReleaseCenter && currentProject && (
