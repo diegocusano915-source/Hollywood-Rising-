@@ -732,8 +732,28 @@ export class MarketEngineService {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         const parsed: EconomyMarketState = JSON.parse(stored);
-        if (parsed && parsed.stocks && parsed.cryptoCoins) {
-          this.state = parsed;
+        if (parsed && Array.isArray(parsed.stocks) && Array.isArray(parsed.cryptoCoins)) {
+          this.state = {
+            ...parsed,
+            stocks: parsed.stocks,
+            cryptoCoins: parsed.cryptoCoins,
+            ipos: Array.isArray(parsed.ipos) ? parsed.ipos : INITIAL_IPOS,
+            whales: Array.isArray(parsed.whales) ? parsed.whales : INITIAL_WHALES,
+            transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+            news: Array.isArray(parsed.news) ? parsed.news : [],
+            industryStrengths: parsed.industryStrengths || {
+              'Entertainment Conglomerate': 85,
+              'Streaming Giant': 88,
+              'Studio & Cable Media': 65,
+              'Film & TV Studio': 72,
+              'Entertainment & Gaming': 90,
+              'Independent Cinema': 92,
+              'Artificial Intelligence & Visual Tech': 98,
+              'Retail & Cinema Chains': 50,
+              'Gaming & ESports': 86,
+              'Energy & Infrastructure': 80,
+            },
+          };
           return this.state;
         }
       }
