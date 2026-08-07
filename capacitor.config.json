@@ -1,0 +1,6 @@
+{
+  "appId": "com.hollywoodrising.app",
+  "appName": "Hollywood Rising",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
