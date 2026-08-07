@@ -25,18 +25,18 @@ export interface SoundtrackTrackInfo {
 }
 
 export const HOLLYWOOD_SOUNDTRACK_PLAYLIST: SoundtrackTrackInfo[] = [
-  { id: 1, title: 'Sunset Boulevard Soul', genre: 'Soulful Neo-Soul', filename: 'track_1.wav', durationSeconds: 32 },
-  { id: 2, title: 'Bel-Air Chillhop', genre: 'Smooth Chillhop Lofi', filename: 'track_2.wav', durationSeconds: 32 },
-  { id: 3, title: 'Hollywood Golden Hour', genre: 'Warm Soulful Piano', filename: 'track_3.wav', durationSeconds: 32 },
-  { id: 4, title: 'Midnight Penthouse', genre: 'Ambient Jazz & Rhodes', filename: 'track_4.wav', durationSeconds: 32 },
-  { id: 5, title: 'Malibu Ocean Breeze', genre: 'Smooth California Soul', filename: 'track_5.wav', durationSeconds: 32 },
-  { id: 6, title: 'Chateau Marmont Noir', genre: 'Late-Night Velvet Soul', filename: 'track_6.wav', durationSeconds: 32 },
-  { id: 7, title: 'Oscar Prestige Gala', genre: 'Cinematic Orchestral Soul', filename: 'track_7.wav', durationSeconds: 32 },
-  { id: 8, title: 'Century City Horizon', genre: 'Mellow Lounge Ambient', filename: 'track_8.wav', durationSeconds: 32 },
-  { id: 9, title: 'Rodeo Drive Velvet', genre: 'Lush Acoustic Harmonies', filename: 'track_9.wav', durationSeconds: 32 },
-  { id: 10, title: 'Pacific Coast Twilight', genre: 'Chill Acoustic Vibe', filename: 'track_10.wav', durationSeconds: 32 },
-  { id: 11, title: 'Starlight Studio Vibes', genre: 'Hip-Hop Soul & Rhodes', filename: 'track_11.wav', durationSeconds: 32 },
-  { id: 12, title: 'The Star Journey', genre: 'Triumphant Emotional Anthem', filename: 'track_12.wav', durationSeconds: 32 },
+  { id: 1, title: 'Sunset Boulevard Soul', genre: 'Soulful Neo-Soul', filename: 'track_1.mp3', durationSeconds: 45 },
+  { id: 2, title: 'Bel-Air Chillhop', genre: 'Smooth Chillhop Lofi', filename: 'track_2.mp3', durationSeconds: 48 },
+  { id: 3, title: 'Hollywood Golden Hour', genre: 'Warm Soulful Piano', filename: 'track_3.mp3', durationSeconds: 45 },
+  { id: 4, title: 'Midnight Penthouse', genre: 'Ambient Jazz & Rhodes', filename: 'track_4.mp3', durationSeconds: 52 },
+  { id: 5, title: 'Malibu Ocean Breeze', genre: 'Smooth California Soul', filename: 'track_5.mp3', durationSeconds: 50 },
+  { id: 6, title: 'Chateau Marmont Noir', genre: 'Late-Night Velvet Soul', filename: 'track_6.mp3', durationSeconds: 48 },
+  { id: 7, title: 'Oscar Prestige Gala', genre: 'Cinematic Orchestral Soul', filename: 'track_7.mp3', durationSeconds: 55 },
+  { id: 8, title: 'Century City Horizon', genre: 'Mellow Lounge Ambient', filename: 'track_8.mp3', durationSeconds: 50 },
+  { id: 9, title: 'Rodeo Drive Velvet', genre: 'Lush Acoustic Harmonies', filename: 'track_9.mp3', durationSeconds: 52 },
+  { id: 10, title: 'Pacific Coast Twilight', genre: 'Chill Acoustic Vibe', filename: 'track_10.mp3', durationSeconds: 50 },
+  { id: 11, title: 'Starlight Studio Vibes', genre: 'Hip-Hop Soul & Rhodes', filename: 'track_11.mp3', durationSeconds: 55 },
+  { id: 12, title: 'The Star Journey', genre: 'Triumphant Emotional Anthem', filename: 'track_12.mp3', durationSeconds: 50 },
 ];
 
 class SoundService {
