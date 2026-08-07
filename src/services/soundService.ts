@@ -1,8 +1,10 @@
 /**
- * HOLLYWOOD RISING - Offline Soundtrack & Adaptive Music Engine
- * Includes 15 distinct procedural Hollywood soundtrack tracks that play continuously in an offline loop.
- * Features: Auto-track advance, cross-fading, volume control, track title metadata, and SFX suite.
- * Built-in User Gesture Unlocker for immediate mobile browser playback.
+ * HOLLYWOOD RISING - True Soulful Ambient & Cinematic Soundscape Engine (No Beats)
+ * Pure, lush, continuous atmospheric soundscapes featuring:
+ * - Continuous warm detuned string pads and resonant lowpass acoustic filtering
+ * - Gentle soulful piano melodies floating over deep orchestral drones
+ * - Seamless 15-track playlist with smooth continuous cross-fades and track auto-advance
+ * - 100% Offline Web Audio API synthesis (Zero external downloads, works offline on Android)
  */
 
 export type MusicTrackMode =
@@ -20,207 +22,148 @@ export type MusicTrackMode =
 export interface SoundtrackTrackInfo {
   id: number;
   title: string;
-  genre: string;
+  mood: string;
   durationSeconds: number;
-  chords: number[][];
-  tempoMs: number;
+  baseFrequencies: number[];
+  melodyNotes: number[];
+  filterCutoff: number;
 }
 
 export const HOLLYWOOD_SOUNDTRACK_PLAYLIST: SoundtrackTrackInfo[] = [
   {
     id: 1,
-    title: 'Hollywood Gold (Main Theme)',
-    genre: 'Cinematic Luxury Orchestral',
-    durationSeconds: 45,
-    chords: [
-      [277.18, 349.23, 415.3, 523.25], // DbMaj7
-      [311.13, 369.99, 466.16, 554.37], // Ebm7
-      [220.0, 277.18, 329.63, 415.3], // Fm7
-      [246.94, 311.13, 369.99, 466.16], // GbMaj7
-    ],
-    tempoMs: 2600,
+    title: 'Golden Hour Symphony',
+    mood: 'Soulful Warm Strings & Acoustic Golden Light',
+    durationSeconds: 48,
+    baseFrequencies: [138.59, 174.61, 207.65, 277.18, 349.23], // Db Major 9
+    melodyNotes: [415.30, 523.25, 622.25, 554.37, 415.30, 349.23, 523.25, 698.46],
+    filterCutoff: 450,
   },
   {
     id: 2,
-    title: 'Sunset Boulevard Neo-Soul',
-    genre: 'California Lounge',
-    durationSeconds: 48,
-    chords: [
-      [174.61, 220.0, 261.63, 329.63], // FMaj7
-      [220.0, 261.63, 329.63, 440.0], // Am7
-      [146.83, 174.61, 220.0, 293.66], // Dm7
-      [196.0, 246.94, 293.66, 392.0], // C7
-    ],
-    tempoMs: 2800,
+    title: 'Sunset Boulevard Velvet',
+    mood: 'Lush Smooth Ambient Rhodes & Evening Glow',
+    durationSeconds: 50,
+    baseFrequencies: [174.61, 220.00, 261.63, 329.63, 392.00], // F Major 9
+    melodyNotes: [329.63, 440.00, 523.25, 440.00, 392.00, 329.63, 261.63, 440.00],
+    filterCutoff: 520,
   },
   {
     id: 3,
-    title: 'Bel-Air Penthouse Jazz',
-    genre: 'Late-Night Rhodes & Vibraphone',
-    durationSeconds: 44,
-    chords: [
-      [207.65, 261.63, 311.13, 392.0], // AbMaj7
-      [261.63, 311.13, 392.0, 466.16], // Cm7
-      [233.08, 277.18, 349.23, 415.3], // Bbm7
-      [155.56, 196.0, 233.08, 293.66], // Eb7
-    ],
-    tempoMs: 2400,
+    title: 'Bel-Air Moonlight',
+    mood: 'Peaceful Ethereal Midnight Piano & Atmosphere',
+    durationSeconds: 46,
+    baseFrequencies: [103.83, 155.56, 207.65, 261.63, 311.13], // Ab Major 7
+    melodyNotes: [392.00, 466.16, 523.25, 622.25, 523.25, 392.00, 466.16, 311.13],
+    filterCutoff: 400,
   },
   {
     id: 4,
-    title: 'Oscar Red Carpet Gala',
-    genre: 'Triumphant Strings & Fanfare',
-    durationSeconds: 42,
-    chords: [
-      [293.66, 369.99, 440.0, 587.33], // D Major
-      [329.63, 392.0, 493.88, 659.25], // E minor
-      [246.94, 311.13, 369.99, 493.88], // B minor
-      [220.0, 277.18, 329.63, 440.0], // A Major
-    ],
-    tempoMs: 2000,
+    title: 'Oscar Prestige Gala',
+    mood: 'Emotional Cinematic Orchestral Strings',
+    durationSeconds: 52,
+    baseFrequencies: [146.83, 220.00, 293.66, 369.99, 440.00], // D Major 9
+    melodyNotes: [440.00, 554.37, 587.33, 739.99, 587.33, 440.00, 369.99, 554.37],
+    filterCutoff: 600,
   },
   {
     id: 5,
-    title: 'Century City Mogul Suite',
-    genre: 'High-Stakes Corporate Drama',
-    durationSeconds: 46,
-    chords: [
-      [220.0, 261.63, 329.63, 440.0], // Am
-      [174.61, 220.0, 261.63, 349.23], // F
-      [261.63, 329.63, 392.0, 523.25], // C
-      [196.0, 246.94, 293.66, 392.0], // G
-    ],
-    tempoMs: 2200,
+    title: 'Century City Horizon',
+    mood: 'Deep Soothing Ambient Pads & Calming Drone',
+    durationSeconds: 45,
+    baseFrequencies: [110.00, 164.81, 220.00, 261.63, 329.63], // A Minor 9
+    melodyNotes: [329.63, 392.00, 440.00, 523.25, 440.00, 392.00, 329.63, 261.63],
+    filterCutoff: 380,
   },
   {
     id: 6,
-    title: 'Paramount Soundstage 4',
-    genre: 'Cinematic Production Groove',
-    durationSeconds: 45,
-    chords: [
-      [164.81, 207.65, 246.94, 311.13], // EMaj7
-      [185.0, 220.0, 277.18, 329.63], // F#m7
-      [207.65, 246.94, 311.13, 369.99], // G#m7
-      [220.0, 277.18, 329.63, 415.3], // AMaj7
-    ],
-    tempoMs: 2500,
+    title: 'Chateau Marmont Serenade',
+    mood: 'Gentle Soulful Piano & Warm Acoustic Cello',
+    durationSeconds: 48,
+    baseFrequencies: [130.81, 196.00, 261.63, 311.13, 392.00], // C Minor 9
+    melodyNotes: [392.00, 466.16, 523.25, 587.33, 466.16, 392.00, 311.13, 466.16],
+    filterCutoff: 420,
   },
   {
     id: 7,
-    title: 'Cannes Croisette Waltz',
-    genre: 'European Art-House Prestige',
-    durationSeconds: 50,
-    chords: [
-      [196.0, 246.94, 293.66, 369.99], // GMaj7
-      [246.94, 293.66, 369.99, 440.0], // Bm7
-      [277.18, 329.63, 415.3, 493.88], // C#m7
-      [146.83, 185.0, 220.0, 261.63], // D7
-    ],
-    tempoMs: 2700,
+    title: 'Malibu Ocean Breeze',
+    mood: 'Calm Pacific Coast Wave Swells & Harmonic Resonance',
+    durationSeconds: 54,
+    baseFrequencies: [123.47, 185.00, 246.94, 311.13, 369.99], // B Major 9
+    melodyNotes: [369.99, 466.16, 493.88, 622.25, 493.88, 369.99, 311.13, 466.16],
+    filterCutoff: 480,
   },
   {
     id: 8,
-    title: 'Chinatown Film Noir',
-    genre: 'Smoky Detective Brass',
-    durationSeconds: 48,
-    chords: [
-      [146.83, 174.61, 220.0, 261.63], // Dm
-      [196.0, 233.08, 293.66, 349.23], // Gm
-      [220.0, 277.18, 329.63, 392.0], // A7
-      [233.08, 293.66, 349.23, 466.16], // Bb
-    ],
-    tempoMs: 2900,
+    title: 'Hollywood Hills Twilight',
+    mood: 'Warm Golden Hour Acoustic Reflection',
+    durationSeconds: 47,
+    baseFrequencies: [164.81, 246.94, 329.63, 392.00, 493.88], // E Minor 9
+    melodyNotes: [493.88, 587.33, 659.25, 783.99, 659.25, 493.88, 392.00, 587.33],
+    filterCutoff: 500,
   },
   {
     id: 9,
-    title: 'Box Office Blockbuster',
-    genre: 'Action Tentpole Drive',
-    durationSeconds: 40,
-    chords: [
-      [164.81, 196.0, 246.94, 329.63], // Em
-      [261.63, 329.63, 392.0, 523.25], // C
-      [196.0, 246.94, 293.66, 392.0], // G
-      [146.83, 185.0, 220.0, 293.66], // D
-    ],
-    tempoMs: 1900,
+    title: 'Starlight Sanctuary',
+    mood: 'Dreamy Cinematic Harp & Celestial Shimmer',
+    durationSeconds: 50,
+    baseFrequencies: [146.83, 196.00, 293.66, 349.23, 440.00], // G Major 9
+    melodyNotes: [440.00, 523.25, 587.33, 698.46, 587.33, 440.00, 349.23, 523.25],
+    filterCutoff: 550,
   },
   {
     id: 10,
-    title: 'Malibu Coast Highway',
-    genre: 'Chilled Pacific Sunset',
-    durationSeconds: 52,
-    chords: [
-      [246.94, 311.13, 369.99, 466.16], // BMaj7
-      [164.81, 207.65, 246.94, 311.13], // EMaj7
-      [207.65, 246.94, 311.13, 369.99], // G#m7
-      [185.0, 233.08, 277.18, 369.99], // F#
-    ],
-    tempoMs: 3000,
+    title: 'Velvet Dynasty',
+    mood: 'Lush Vintage Golden Era Hollywood Strings',
+    durationSeconds: 46,
+    baseFrequencies: [155.56, 233.08, 311.13, 392.00, 466.16], // Eb Major 9
+    melodyNotes: [466.16, 587.33, 622.25, 783.99, 622.25, 466.16, 392.00, 587.33],
+    filterCutoff: 460,
   },
   {
     id: 11,
-    title: 'Chateau Marmont Secrets',
-    genre: 'Dramatic Celebrity Intrigue',
-    durationSeconds: 45,
-    chords: [
-      [261.63, 311.13, 392.0, 493.88], // Cm
-      [207.65, 261.63, 311.13, 415.3], // Ab
-      [174.61, 207.65, 261.63, 349.23], // Fm
-      [196.0, 246.94, 293.66, 392.0], // G7
-    ],
-    tempoMs: 2400,
+    title: 'Cannes Croisette Sunset',
+    mood: 'Warm Mediterranean Film Festival Ambiance',
+    durationSeconds: 52,
+    baseFrequencies: [174.61, 261.63, 349.23, 415.30, 523.25], // F Minor 9
+    melodyNotes: [523.25, 622.25, 698.46, 830.61, 698.46, 523.25, 415.30, 622.25],
+    filterCutoff: 440,
   },
   {
     id: 12,
-    title: 'Broadway Callback Triumph',
-    genre: 'Showtime Fanfare',
-    durationSeconds: 42,
-    chords: [
-      [174.61, 220.0, 261.63, 349.23], // F
-      [233.08, 293.66, 349.23, 466.16], // Bb
-      [261.63, 329.63, 392.0, 523.25], // C
-      [146.83, 174.61, 220.0, 293.66], // Dm
-    ],
-    tempoMs: 2100,
+    title: 'Studio Lot Memories',
+    mood: 'Nostalgic Acoustic Piano & Slow Ambient Cello',
+    durationSeconds: 49,
+    baseFrequencies: [130.81, 196.00, 261.63, 329.63, 392.00], // C Major 9
+    melodyNotes: [392.00, 493.88, 523.25, 659.25, 523.25, 392.00, 329.63, 493.88],
+    filterCutoff: 470,
   },
   {
     id: 13,
-    title: 'Beverly Hills Red Velvet',
-    genre: 'Luxury Cocktail Lounge',
-    durationSeconds: 46,
-    chords: [
-      [155.56, 196.0, 233.08, 293.66], // EbMaj7
-      [196.0, 233.08, 293.66, 392.0], // Gm7
-      [174.61, 207.65, 261.63, 349.23], // Fm7
-      [233.08, 293.66, 349.23, 466.16], // Bb7
-    ],
-    tempoMs: 2600,
+    title: 'Walk of Fame Dream',
+    mood: 'Inspiring Ethereal Golden String Swells',
+    durationSeconds: 51,
+    baseFrequencies: [110.00, 146.83, 220.00, 293.66, 369.99], // D Major 7
+    melodyNotes: [369.99, 440.00, 554.37, 659.25, 554.37, 369.99, 293.66, 440.00],
+    filterCutoff: 530,
   },
   {
     id: 14,
-    title: 'Walk of Fame Induction',
-    genre: 'Golden Brass & Strings Anthem',
-    durationSeconds: 44,
-    chords: [
-      [261.63, 329.63, 392.0, 523.25], // C
-      [174.61, 220.0, 261.63, 349.23], // F
-      [196.0, 246.94, 293.66, 392.0], // G
-      [220.0, 261.63, 329.63, 440.0], // Am
-    ],
-    tempoMs: 2200,
+    title: 'Midnight Reflection',
+    mood: 'Deep Soulful Atmospheric Meditation',
+    durationSeconds: 46,
+    baseFrequencies: [116.54, 174.61, 233.08, 277.18, 349.23], // Bb Minor 9
+    melodyNotes: [349.23, 415.30, 466.16, 554.37, 466.16, 349.23, 277.18, 415.30],
+    filterCutoff: 390,
   },
   {
     id: 15,
-    title: 'Midnight Premiere Afterparty',
-    genre: 'Deep Neon Club Pulse',
-    durationSeconds: 48,
-    chords: [
-      [233.08, 277.18, 349.23, 466.16], // Bbm
-      [185.0, 233.08, 277.18, 369.99], // Gb
-      [277.18, 349.23, 415.3, 554.37], // Db
-      [207.65, 261.63, 311.13, 415.3], // Ab
-    ],
-    tempoMs: 2300,
+    title: 'The Star Journey',
+    mood: 'Epic Emotional Ambient Climax & Cinematic Radiance',
+    durationSeconds: 55,
+    baseFrequencies: [138.59, 207.65, 277.18, 349.23, 415.30], // Db Major 7
+    melodyNotes: [415.30, 523.25, 554.37, 698.46, 830.61, 698.46, 554.37, 523.25],
+    filterCutoff: 580,
   },
 ];
 
@@ -228,16 +171,18 @@ class SoundService {
   private ctx: AudioContext | null = null;
   private soundEnabled: boolean = true;
   private musicEnabled: boolean = true;
-  private musicVolume: number = 0.65;
+  private musicVolume: number = 0.7;
   private sfxVolume: number = 0.8;
 
-  // Active Music Engine
+  // Active Soundscape Nodes
   private currentTrackIndex: number = 0;
-  private musicInterval: number | null = null;
+  private activeDrones: { osc: OscillatorNode; gain: GainNode }[] = [];
+  private masterMusicGain: GainNode | null = null;
+  private ambientFilter: BiquadFilterNode | null = null;
+  private melodyInterval: number | null = null;
   private trackTimer: number | null = null;
-  private musicGainNode: GainNode | null = null;
   private isMusicPlaying: boolean = false;
-  private currentTrackMode: MusicTrackMode | null = null;
+  private onTrackChangeCallbacks: ((track: SoundtrackTrackInfo) => void)[] = [];
 
   public getContext(): AudioContext | null {
     if (!this.ctx) {
@@ -269,6 +214,10 @@ class SoundService {
     }
   }
 
+  public onTrackChange(cb: (track: SoundtrackTrackInfo) => void) {
+    this.onTrackChangeCallbacks.push(cb);
+  }
+
   public setSoundEnabled(enabled: boolean) {
     this.soundEnabled = enabled;
   }
@@ -284,9 +233,9 @@ class SoundService {
 
   public setMusicVolume(volPercent: number) {
     this.musicVolume = Math.max(0, Math.min(1, volPercent / 100));
-    if (this.musicGainNode && this.ctx) {
+    if (this.masterMusicGain && this.ctx) {
       try {
-        this.musicGainNode.gain.setValueAtTime(this.musicVolume * 0.4, this.ctx.currentTime);
+        this.masterMusicGain.gain.setValueAtTime(this.musicVolume * 0.35, this.ctx.currentTime);
       } catch {}
     }
   }
@@ -308,37 +257,18 @@ class SoundService {
   }
 
   // ==========================================
-  // CONTINUOUS 15-TRACK OFFLINE SOUNDTRACK ENGINE
+  // CONTINUOUS 15-TRACK SOULFUL AMBIENT ENGINE
   // ==========================================
 
   public playMusicTrack(mode?: MusicTrackMode) {
     if (!this.musicEnabled) return;
-    this.currentTrackMode = mode || 'career';
 
-    let trackIdx = 0;
-    switch (mode) {
-      case 'menu':
-        trackIdx = 0;
-        break;
-      case 'relationships':
-        trackIdx = 1;
-        break;
-      case 'empire':
-      case 'box_office':
-        trackIdx = 4;
-        break;
-      case 'awards':
-      case 'premiere':
-        trackIdx = 3;
-        break;
-      case 'production':
-        trackIdx = 5;
-        break;
-      case 'career':
-      default:
-        trackIdx = this.currentTrackIndex % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
-        break;
-    }
+    let trackIdx = this.currentTrackIndex;
+    if (mode === 'menu') trackIdx = 0;
+    else if (mode === 'relationships') trackIdx = 1;
+    else if (mode === 'empire' || mode === 'box_office') trackIdx = 4;
+    else if (mode === 'awards' || mode === 'premiere') trackIdx = 3;
+    else if (mode === 'production') trackIdx = 5;
 
     this.playTrackAtIndex(trackIdx);
   }
@@ -346,86 +276,151 @@ class SoundService {
   public startContinuousSoundtrack() {
     if (!this.musicEnabled) return;
     if (this.isMusicPlaying) return;
-
     this.playTrackAtIndex(this.currentTrackIndex);
   }
 
   public playNextTrack() {
-    this.currentTrackIndex = (this.currentTrackIndex + 1) % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
-    this.playTrackAtIndex(this.currentTrackIndex);
+    const nextIdx = (this.currentTrackIndex + 1) % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
+    this.playTrackAtIndex(nextIdx);
+  }
+
+  public playPrevTrack() {
+    const prevIdx = (this.currentTrackIndex - 1 + HOLLYWOOD_SOUNDTRACK_PLAYLIST.length) % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
+    this.playTrackAtIndex(prevIdx);
   }
 
   public playTrackAtIndex(index: number) {
-    this.stopMusic();
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    this.stopActiveDrones();
     this.currentTrackIndex = index % HOLLYWOOD_SOUNDTRACK_PLAYLIST.length;
     this.isMusicPlaying = true;
 
     const track = HOLLYWOOD_SOUNDTRACK_PLAYLIST[this.currentTrackIndex];
-    const ctx = this.getContext();
-    if (!ctx) return;
+
+    // Notify listeners of track title change
+    this.onTrackChangeCallbacks.forEach((cb) => {
+      try { cb(track); } catch {}
+    });
 
     try {
-      this.musicGainNode = ctx.createGain();
-      this.musicGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
-      this.musicGainNode.gain.exponentialRampToValueAtTime(
-        Math.max(0.001, this.musicVolume * 0.4),
-        ctx.currentTime + 1.2
-      );
-      this.musicGainNode.connect(ctx.destination);
+      const now = ctx.currentTime;
 
-      let step = 0;
-      const playChordStep = () => {
-        if (!this.isMusicPlaying || !this.ctx || !this.musicGainNode) return;
+      // Master gain node with smooth slow attack
+      if (!this.masterMusicGain) {
+        this.masterMusicGain = ctx.createGain();
+        this.masterMusicGain.connect(ctx.destination);
+      }
+      this.masterMusicGain.gain.setValueAtTime(0.001, now);
+      this.masterMusicGain.gain.linearRampToValueAtTime(
+        Math.max(0.001, this.musicVolume * 0.35),
+        now + 3.0 // 3-second gentle swelling attack
+      );
+
+      // Lowpass resonant filter for velvety warmth
+      this.ambientFilter = ctx.createBiquadFilter();
+      this.ambientFilter.type = 'lowpass';
+      this.ambientFilter.frequency.setValueAtTime(track.filterCutoff, now);
+      this.ambientFilter.Q.setValueAtTime(1.8, now);
+      this.ambientFilter.connect(this.masterMusicGain);
+
+      // Create warm, detuned multi-layer string drone bed (Continuous, NO BEATS)
+      this.activeDrones = [];
+      track.baseFrequencies.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        // Alternating warm waveforms for rich orchestral warmth
+        osc.type = i === 0 ? 'sine' : i % 2 === 0 ? 'triangle' : 'sawtooth';
+        // Subtle micro-detuning for chorus depth
+        const detuneCents = (i % 2 === 0 ? 1 : -1) * (i * 3 + 2);
+        osc.frequency.setValueAtTime(freq, now);
+        osc.detune.setValueAtTime(detuneCents, now);
+
+        const droneVol = i === 0 ? 0.28 : 0.12 / Math.sqrt(i + 1);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(droneVol, now + 4.0);
+
+        osc.connect(gain);
+        gain.connect(this.ambientFilter!);
+
+        osc.start(now);
+        this.activeDrones.push({ osc, gain });
+      });
+
+      // Soulful acoustic piano/harp melody drops (Gentle, spaced, floating)
+      let melodyStep = 0;
+      const playMelodyNote = () => {
+        if (!this.isMusicPlaying || !this.ctx || !this.ambientFilter) return;
 
         try {
-          const now = this.ctx.currentTime;
-          const currentChord = track.chords[step % track.chords.length];
+          const tNow = this.ctx.currentTime;
+          const noteFreq = track.melodyNotes[melodyStep % track.melodyNotes.length];
 
-          currentChord.forEach((freq, idx) => {
-            const osc = this.ctx!.createOscillator();
-            const gain = this.ctx!.createGain();
+          const mOsc = this.ctx.createOscillator();
+          const mGain = this.ctx.createGain();
 
-            // Rich warm synth tone
-            osc.type = idx === 0 ? 'sine' : idx === 1 ? 'triangle' : 'sine';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+          mOsc.type = 'triangle'; // Pure soulful acoustic bell/rhodes tone
+          mOsc.frequency.setValueAtTime(noteFreq, tNow);
 
-            gain.gain.setValueAtTime(0.001, now + idx * 0.06);
-            gain.gain.exponentialRampToValueAtTime(0.18, now + idx * 0.06 + 0.25);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + (track.tempoMs / 1000) * 0.95);
+          // Soft bell-like envelope with long gentle decay
+          mGain.gain.setValueAtTime(0.001, tNow);
+          mGain.gain.linearRampToValueAtTime(0.18, tNow + 0.15);
+          mGain.gain.exponentialRampToValueAtTime(0.0001, tNow + 3.8);
 
-            osc.connect(gain);
-            gain.connect(this.musicGainNode!);
+          mOsc.connect(mGain);
+          mGain.connect(this.ambientFilter);
 
-            osc.start(now + idx * 0.06);
-            osc.stop(now + (track.tempoMs / 1000));
-          });
+          mOsc.start(tNow);
+          mOsc.stop(tNow + 4.0);
 
-          step++;
+          melodyStep++;
         } catch {}
       };
 
-      playChordStep();
-      this.musicInterval = window.setInterval(playChordStep, track.tempoMs);
+      // Play soulful notes every 3.5 to 5.5 seconds organically
+      playMelodyNote();
+      this.melodyInterval = window.setInterval(playMelodyNote, 4200);
 
+      // Auto-advance to next track when duration concludes
       this.trackTimer = window.setTimeout(() => {
         this.playNextTrack();
       }, track.durationSeconds * 1000);
+
     } catch {}
   }
 
-  public stopMusic() {
-    this.isMusicPlaying = false;
-    if (this.musicInterval) {
-      clearInterval(this.musicInterval);
-      this.musicInterval = null;
+  private stopActiveDrones() {
+    if (this.melodyInterval) {
+      clearInterval(this.melodyInterval);
+      this.melodyInterval = null;
     }
     if (this.trackTimer) {
       clearTimeout(this.trackTimer);
       this.trackTimer = null;
     }
-    if (this.musicGainNode && this.ctx) {
+
+    if (this.ctx && this.activeDrones.length > 0) {
+      const now = this.ctx.currentTime;
+      this.activeDrones.forEach(({ osc, gain }) => {
+        try {
+          gain.gain.linearRampToValueAtTime(0.0001, now + 1.5);
+          setTimeout(() => {
+            try { osc.stop(); osc.disconnect(); } catch {}
+          }, 1600);
+        } catch {}
+      });
+      this.activeDrones = [];
+    }
+  }
+
+  public stopMusic() {
+    this.isMusicPlaying = false;
+    this.stopActiveDrones();
+    if (this.masterMusicGain && this.ctx) {
       try {
-        this.musicGainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.4);
+        this.masterMusicGain.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 1.0);
       } catch {}
     }
   }
