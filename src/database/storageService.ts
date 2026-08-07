@@ -115,50 +115,97 @@ const CALLBOARD_POSTERS = [
 export function getActorTier(fameXp: number): 'Beginner' | 'Rising Actor' | 'Established Star' | 'A-List' {
   if (fameXp >= 800) return 'A-List';
   if (fameXp >= 300) return 'Established Star';
-  if (fameXp >= 100) return 'Rising Actor';
+  if (fameXp >= 60) return 'Rising Actor';
   return 'Beginner';
 }
 
-export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex: number = 0): CallboardProject {
+export function calculatePlayerStarRating(player: Player): number {
+  const acting = player.talents?.acting || 0;
+  const drama = player.talents?.drama || 0;
+  const comedy = player.talents?.comedy || 0;
+  const fame = Math.min(40, (player.fameXp || 0) / 15);
+  const unionBonus = player.isUnionMember ? 15 : 0;
+  const leadBonus = Math.min(20, (player.leadRolesCount || 0) * 4);
+  const avgTalent = (acting * 0.4 + drama * 0.3 + comedy * 0.3);
+  
+  return Math.min(100, Math.max(5, Math.round(avgTalent * 0.4 + fame + unionBonus + leadBonus)));
+}
+
+export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex: number = 0, franchiseInfo?: { parentTitle: string; part: number; isTv?: boolean; season?: number }): CallboardProject {
   const tier = getActorTier(playerFameXp);
   const posterUrl = CALLBOARD_POSTERS[Math.floor(Math.random() * CALLBOARD_POSTERS.length)];
   const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
-  const title = MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)];
+  const baseTitle = franchiseInfo?.parentTitle || MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)];
   const director = DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)];
   const producer = PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)];
 
-  let salary = 5000;
-  let budget = 10000000;
-  let studio = 'A24';
-  let category: ProjectCategory = 'Feature Film';
-  let description = 'Principal dramatic role offering pivotal narrative depth.';
-  let roleType: RoleType = Math.random() > 0.5 ? 'Lead' : 'Principal';
+  let title = baseTitle;
+  let isFranchise = false;
+  let franchisePart = 1;
+  let isTvSeries = franchiseInfo?.isTv || false;
+  let tvSeason = franchiseInfo?.season || 1;
+
+  if (franchiseInfo) {
+    if (franchiseInfo.isTv) {
+      isTvSeries = true;
+      tvSeason = franchiseInfo.season || 2;
+      title = `${baseTitle}: Season ${tvSeason}`;
+    } else {
+      isFranchise = true;
+      franchisePart = franchiseInfo.part || 2;
+      const subtitle = franchisePart === 2 ? 'The Sequel' : franchisePart === 3 ? 'Trilogy Finale' : franchisePart === 4 ? 'Resurgence' : 'The Final Chapter';
+      title = `${baseTitle} (Part ${franchisePart}: ${subtitle})`;
+    }
+  }
+
+  let salary = 2500;
+  let budget = 1200000;
+  let studio = 'Sundance Workshop';
+  let category: ProjectCategory = isTvSeries ? 'TV Series' : 'Independent Film';
+  let description = 'Indie dramatic feature seeking a committed principal actor.';
+  let roleType: RoleType = 'Principal';
 
   if (tier === 'Beginner') {
-    salary = Math.floor(3000 + Math.random() * 5000);
-    budget = Math.floor(2000000 + Math.random() * 6000000);
+    // Realistic Beginner Pay: $1,200 - $3,500
+    salary = Math.floor(1200 + Math.random() * 2300);
+    budget = Math.floor(600000 + Math.random() * 1800000);
     studio = ['A24', 'Blumhouse', 'Sundance Workshop', 'Indie Syndicate', 'Neon'][Math.floor(Math.random() * 5)];
-    category = Math.random() > 0.4 ? 'Independent Film' : 'Feature Film';
-    description = `Promising ${category.toLowerCase()} seeking a co-lead principal actor to anchor pivotal dramatic arcs.`;
+    category = Math.random() > 0.4 ? 'Independent Film' : 'Short Film';
+    description = `Low-budget ${category.toLowerCase()} casting a principal actor for raw, naturalistic dialogue.`;
+    roleType = 'Principal';
   } else if (tier === 'Rising Actor') {
+    // Rising Pay: $15,000 - $45,000
     salary = Math.floor(15000 + Math.random() * 30000);
-    budget = Math.floor(15000000 + Math.random() * 30000000);
+    budget = Math.floor(12000000 + Math.random() * 25000000);
     studio = ['Lionsgate', 'Focus Features', 'Hulu Originals', 'Sony Pictures', 'Netflix'][Math.floor(Math.random() * 5)];
-    category = Math.random() > 0.5 ? 'Feature Film' : 'TV Series';
-    description = `High-profile studio ${category.toLowerCase()} casting a co-lead principal character with intense screen presence.`;
+    category = isTvSeries ? 'TV Series' : 'Feature Film';
+    description = `Studio mid-budget ${category.toLowerCase()} casting a co-lead principal actor with strong charisma.`;
+    roleType = Math.random() > 0.4 ? 'Lead' : 'Principal';
   } else if (tier === 'Established Star') {
-    salary = Math.floor(60000 + Math.random() * 140000);
-    budget = Math.floor(50000000 + Math.random() * 90000000);
+    // Established Pay: $60,000 - $180,000
+    salary = Math.floor(60000 + Math.random() * 120000);
+    budget = Math.floor(45000000 + Math.random() * 65000000);
     studio = ['Warner Bros.', 'Universal Pictures', 'Paramount Pictures', 'HBO Max'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
-    description = `Major theatrical release seeking a marquee principal/lead actor to star opposite A-list talent.`;
-  } else { // A-List
-    salary = Math.floor(300000 + Math.random() * 1200000);
-    budget = Math.floor(150000000 + Math.random() * 200000000);
+    description = `Major theatrical production seeking a recognized lead actor for global release.`;
+    roleType = 'Lead';
+  } else {
+    // A-List Franchise Blockbuster: $400,000 - $1,500,000
+    salary = Math.floor(400000 + Math.random() * 1100000);
+    budget = Math.floor(120000000 + Math.random() * 150000000);
     studio = ['Marvel Studios', 'Universal Blockbusters', 'Paramount Tentpoles', 'Searchlight Pictures'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
-    description = `Global tentpole blockbuster franchise offering prime awards exposure and worldwide box office backend.`;
+    description = `Tier-1 global theatrical tentpole with worldwide marketing campaign and box office backend.`;
     roleType = 'Lead';
+  }
+
+  // Multiplier for Franchise sequels
+  if (franchisePart > 1) {
+    salary = Math.floor(salary * (1 + (franchisePart - 1) * 0.35));
+    budget = Math.floor(budget * (1 + (franchisePart - 1) * 0.4));
+  }
+  if (isTvSeries && tvSeason > 1) {
+    salary = Math.floor(salary * (1 + Math.min(10, tvSeason - 1) * 0.2));
   }
 
   return {
@@ -177,10 +224,18 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     roleType,
     salary,
     description,
-    decisionTimeWeeks: Math.floor(2 + Math.random() * 4),
+    decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
     requiredFameXp: tier === 'A-List' ? 500 : tier === 'Established Star' ? 200 : tier === 'Rising Actor' ? 50 : 0,
     requiredActing: Math.max(10, Math.floor(playerFameXp / 5)),
     coStars: ['Timothée Chalamet', 'Zendaya', 'Florence Pugh'].slice(0, 2),
+    isFranchise,
+    franchisePart,
+    maxFranchisePart: 5,
+    isTvSeries,
+    tvSeason,
+    maxTvSeason: 15,
+    isSequel: franchisePart > 1 || tvSeason > 1,
+    parentMovieTitle: baseTitle,
     proposedContract: {
       salary,
       backendPercent: roleType === 'Lead' ? 3.0 : 1.5,
@@ -198,9 +253,18 @@ export function generateSingleSupportingRole(playerFameXp: number = 0, seedIndex
   const studio = STUDIOS[Math.floor(Math.random() * STUDIOS.length)];
   const roleType: RoleType = Math.random() > 0.5 ? 'Support' : 'Recurring';
 
-  const salaryMultiplier = tier === 'A-List' ? 10 : tier === 'Established Star' ? 5 : tier === 'Rising Actor' ? 2.5 : 1;
-  const salary = Math.floor((2500 + Math.random() * 3500) * salaryMultiplier);
-  const budget = Math.floor((5000000 + Math.random() * 10000000) * salaryMultiplier);
+  let salary = 800;
+  let budget = 400000;
+  if (tier === 'Beginner') {
+    salary = Math.floor(750 + Math.random() * 1200);
+    budget = Math.floor(250000 + Math.random() * 800000);
+  } else if (tier === 'Rising Actor') {
+    salary = Math.floor(4500 + Math.random() * 12000);
+    budget = Math.floor(5000000 + Math.random() * 15000000);
+  } else {
+    salary = Math.floor(25000 + Math.random() * 50000);
+    budget = Math.floor(30000000 + Math.random() * 60000000);
+  }
 
   return {
     id: `proj_s_${Date.now()}_${seedIndex}_${Math.random().toString(36).substr(2, 4)}`,
@@ -217,58 +281,41 @@ export function generateSingleSupportingRole(playerFameXp: number = 0, seedIndex
     estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
     roleType,
     salary,
-    description: `Supporting role delivering crucial key scene performances and ensemble dialogue.`,
-    decisionTimeWeeks: Math.floor(2 + Math.random() * 4),
-    requiredFameXp: 0,
-    requiredActing: 10,
-    coStars: ['Adam Driver', 'Margot Robbie'].slice(0, 1),
-    proposedContract: {
-      salary,
-      backendPercent: 0.5,
-      profitSharePercent: 1.0,
-      boxOfficeBonus: salary,
-    },
+    description: `Supporting role delivering key dramatic scenes and ensemble dialogue.`,
+    decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
+    requiredFameXp: tier === 'A-List' ? 250 : tier === 'Established Star' ? 100 : 0,
+    requiredActing: 0,
   };
 }
 
 export function generateSingleMinorRole(playerFameXp: number = 0, seedIndex: number = 0): CallboardProject {
-  const tier = getActorTier(playerFameXp);
   const posterUrl = CALLBOARD_POSTERS[Math.floor(Math.random() * CALLBOARD_POSTERS.length)];
   const genre = GENRES[Math.floor(Math.random() * GENRES.length)];
-  const studio = STUDIOS[Math.floor(Math.random() * STUDIOS.length)];
-  const categories: ProjectCategory[] = ['Streaming Original', 'TV Series', 'Voice Acting', 'Motion Capture'];
-  const category = categories[Math.floor(Math.random() * categories.length)];
-  const roleType: RoleType = category === 'Voice Acting' ? 'Recurring' : category === 'Motion Capture' ? 'Support' : 'Guest Star';
-
-  const salaryMultiplier = tier === 'A-List' ? 8 : tier === 'Established Star' ? 4 : tier === 'Rising Actor' ? 2 : 1;
-  const salary = Math.floor((1200 + Math.random() * 2000) * salaryMultiplier);
-  const budget = Math.floor((3000000 + Math.random() * 8000000) * salaryMultiplier);
+  const title = `${MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)]}`;
+  const studio = ['Indie Lab', 'Film School Showcase', 'Commercial Agency', 'Web Series Lab'][Math.floor(Math.random() * 4)];
+  const roleType: RoleType = Math.random() > 0.5 ? 'Cameo' : 'Background';
+  const salary = Math.floor(300 + Math.random() * 500);
+  const budget = Math.floor(50000 + Math.random() * 200000);
 
   return {
     id: `proj_m_${Date.now()}_${seedIndex}_${Math.random().toString(36).substr(2, 4)}`,
     posterUrl,
-    title: `${MOVIE_TITLES[Math.floor(Math.random() * MOVIE_TITLES.length)]}`,
+    title,
     genre,
-    category,
-    productionCompany: `${studio} Digital`,
+    category: 'Commercial / Web',
+    productionCompany: `${studio}`,
     studio,
-    director: DIRECTORS[Math.floor(Math.random() * DIRECTORS.length)],
-    producer: PRODUCERS[Math.floor(Math.random() * PRODUCERS.length)],
+    director: 'Independent Filmmaker',
+    producer: 'Line Producer',
     budget,
-    filmingWeeks: Math.floor(1 + Math.random() * 2),
-    estimatedReleaseWindow: `Q${Math.floor(1 + Math.random() * 4)} 2027`,
+    filmingWeeks: 1,
+    estimatedReleaseWindow: 'Next Month',
     roleType,
     salary,
-    description: `Specialized ${category.toLowerCase()} role calling for dynamic performance in concise shooting schedule.`,
-    decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
+    description: 'Minor commercial or background day-player role. Ideal for beginners building early experience.',
+    decisionTimeWeeks: 1,
     requiredFameXp: 0,
-    requiredActing: 5,
-    proposedContract: {
-      salary,
-      backendPercent: 0,
-      profitSharePercent: 0.5,
-      boxOfficeBonus: Math.floor(salary * 0.5),
-    },
+    requiredActing: 0,
   };
 }
 

@@ -198,6 +198,12 @@ export interface CallboardProject {
   coStars?: string[];
   isSequel?: boolean;
   parentMovieTitle?: string;
+  isFranchise?: boolean;
+  franchisePart?: number;
+  maxFranchisePart?: number;
+  isTvSeries?: boolean;
+  tvSeason?: number;
+  maxTvSeason?: number;
   proposedContract?: ProposedContract;
 }
 
@@ -337,6 +343,10 @@ export interface ReleasedMovie {
   marketingCampaign?: string;
   isSequel?: boolean;
   parentMovieTitle?: string;
+  isFranchise?: boolean;
+  franchisePart?: number;
+  isTvSeries?: boolean;
+  tvSeason?: number;
   coStarNames?: string[];
   criticScore?: number;
   audienceScore?: number;

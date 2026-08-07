@@ -1332,23 +1332,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (book.roleType === 'Lead') p.leadRolesCount += 1;
           else if (book.roleType === 'Principal') p.principalRolesCount += 1;
 
-          const baseBudget = book.budget || 35000000;
-          const actingTalent = p.talents?.acting || 50;
-          const dramaTalent = p.talents?.drama || 50;
-          const fameBonus = (p.fameXp || 0) * 3500;
-          const finalHype = hype + 30;
+          const baseBudget = book.budget || 1500000;
+          const actingTalent = p.talents?.acting || 10;
+          const dramaTalent = p.talents?.drama || 10;
+          const fameBonus = (p.fameXp || 0) * 1200;
 
-          const openingGross = Math.floor(
-            (baseBudget * 0.22) + (finalHype * 380000) + fameBonus + Math.floor(Math.random() * 8000000)
-          );
-          const domesticGross = Math.floor(openingGross * (2.4 + Math.random() * 0.6));
-          const worldwideGross = Math.floor(domesticGross * (1.8 + Math.random() * 1.0));
+          // Star Rating % (0% to 100%) based on real player stats & guild status
+          const starRatingPct = Math.min(100, Math.max(10, Math.round(
+            (actingTalent * 0.35) + (dramaTalent * 0.30) + ((p.fameXp || 0) / 10) + (p.isUnionMember ? 15 : 0) + (p.leadRolesCount * 4)
+          )));
 
-          const audienceRating = Math.min(100, Math.max(45, Math.floor(68 + (actingTalent * 0.25) + Math.random() * 12)));
-          const criticRating = Math.min(100, Math.max(40, Math.floor(62 + (dramaTalent * 0.25) + Math.random() * 18)));
+          // Realistic scaling: low rating (<50%) -> low multiplier, high rating (70%+) -> high multiplier
+          const performanceMultiplier = starRatingPct >= 70
+            ? (1.2 + (starRatingPct - 70) * 0.04)
+            : (0.35 + (starRatingPct / 100) * 0.65);
+
+          const openingGross = Math.max(120000, Math.floor(
+            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + fameBonus
+          ));
+          const domesticGross = Math.floor(openingGross * (2.1 + Math.random() * 0.6));
+          const worldwideGross = Math.floor(domesticGross * (1.7 + Math.random() * 0.9));
+
+          const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
+          const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
 
           const releaseFame = book.roleType === 'Lead' ? 350 : book.roleType === 'Principal' ? 250 : 150;
           fameGainedThisWeek += releaseFame;
+
+          const currentPart = book.franchisePart || 1;
+          const currentSeason = book.tvSeason || 1;
+          const isTv = book.isTvSeries || book.category === 'TV Series';
 
           const newReleasedMovie: ReleasedMovie = {
             id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1373,11 +1386,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             budget: book.budget || baseBudget,
             releaseWeek: newWeek,
             releaseYear: newYear,
+            isFranchise: book.isFranchise || currentPart > 1,
+            franchisePart: currentPart,
+            isTvSeries: isTv,
+            tvSeason: currentSeason,
+            isSequel: currentPart > 1 || currentSeason > 1,
+            parentMovieTitle: book.parentMovieTitle || book.movieTitle,
           };
 
           newReleasedMovies.unshift(newReleasedMovie);
 
-          careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office!`);
+          careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office! (Star Rating: ${starRatingPct}%)`);
           careerTraining.push(`🌟 +${releaseFame} Fame XP - Theatrical Release of '${book.movieTitle}'`);
 
           newTimelineEvents.push({
@@ -1386,7 +1405,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             week: newWeek,
             category: 'RELEASE',
             title: `Theatrical Debut: ${book.movieTitle}`,
-            description: `"${book.movieTitle}" completed production and debuted in theaters worldwide with an opening gross of $${(openingGross / 1000000).toFixed(1)}M. Contract salary: $${book.salary.toLocaleString()}.`,
+            description: `"${book.movieTitle}" completed production and debuted in theaters with an opening gross of $${(openingGross / 1000000).toFixed(1)}M. Star Rating: ${starRatingPct}%. Contract salary: $${book.salary.toLocaleString()}.`,
           });
 
           newInboxMessages.unshift({
@@ -1395,8 +1414,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             sender: `${book.studio || 'Studio'} Distribution`,
             senderRole: 'VP Theatrical Distribution',
             senderAvatar: book.posterUrl,
-            subject: `THEATRICAL DEBUT: "${book.movieTitle}" Opens at $${(openingGross / 1000000).toFixed(1)}M Box Office!`,
-            body: `THEATRICAL DEBUT REPORT\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\nDirector: ${book.director || 'Director'}\n\nBOX OFFICE OPENING RESULTS:\n• Opening Weekend Gross: $${openingGross.toLocaleString()}\n• Domestic Projection: $${domesticGross.toLocaleString()}\n• Worldwide Projection: $${worldwideGross.toLocaleString()}\n• Rotten Tomatoes Audience: ${audienceRating}%\n• Rotten Tomatoes Critics: ${criticRating}%\n\nYour salary of $${book.salary.toLocaleString()} has been fully paid. Residuals and royalties will accrue weekly in your IMDb Releases tab!`,
+            subject: `THEATRICAL DEBUT: "${book.movieTitle}" Opens at $${(openingGross / 1000000).toFixed(1)}M!`,
+            body: `THEATRICAL DEBUT REPORT\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\nDirector: ${book.director || 'Director'}\n\nBOX OFFICE OPENING RESULTS:\n• Star Track Record: ${starRatingPct}%\n• Opening Weekend Gross: $${openingGross.toLocaleString()}\n• Domestic Projection: $${domesticGross.toLocaleString()}\n• Worldwide Projection: $${worldwideGross.toLocaleString()}\n• Rotten Tomatoes Audience: ${audienceRating}%\n• Rotten Tomatoes Critics: ${criticRating}%\n\nYour salary of $${book.salary.toLocaleString()} has been fully paid. Residuals will accrue weekly in your IMDb Releases tab!`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -1406,6 +1425,87 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             HollywoodInsiderService.onMovieReleased(newReleasedMovie, p, true);
           } catch (e) {
             console.error('Error triggering Hollywood Insider release article:', e);
+          }
+
+          // FRANCHISE SEQUELS (Parts 1 to 5) & TV SERIES RENEWALS (Seasons 1 to 15)
+          const isHit = audienceRating >= 60 && worldwideGross > baseBudget * 1.8;
+          if (isHit) {
+            if (isTv && currentSeason < 15) {
+              const nextSeason = currentSeason + 1;
+              const renewedSeasonProject: BookedProject = {
+                id: `tv_season_${nextSeason}_${Date.now()}`,
+                projectId: `proj_tv_${nextSeason}_${Date.now()}`,
+                movieTitle: `${book.parentMovieTitle || book.movieTitle}: Season ${nextSeason}`,
+                posterUrl: book.posterUrl,
+                roleType: book.roleType,
+                category: 'TV Series',
+                salary: Math.floor(book.salary * 1.35),
+                totalFilmingWeeks: Math.floor(book.totalFilmingWeeks * 1.1),
+                weeksRemaining: Math.floor(book.totalFilmingWeeks * 1.1),
+                isFilmingComplete: false,
+                studio: book.studio,
+                director: book.director,
+                status: 'Pending Negotiation',
+                isTvSeries: true,
+                tvSeason: nextSeason,
+                parentMovieTitle: book.parentMovieTitle || book.movieTitle,
+                backendPercent: (book.backendPercent || 2.0) + 1.0,
+                profitSharePercent: (book.profitSharePercent || 3.0) + 1.5,
+              };
+              updatedBookedProjects.push(renewedSeasonProject);
+              newInboxMessages.unshift({
+                id: `msg_renew_${nextSeason}_${Date.now()}`,
+                category: 'CAREER',
+                sender: `${book.studio || 'Network'} Television`,
+                senderRole: 'President of Scripted Programming',
+                senderAvatar: book.posterUrl,
+                subject: `SERIES RENEWED! "${book.movieTitle}" Greenlit for Season ${nextSeason}!`,
+                body: `CONGRATULATIONS!\n\nDue to stellar viewership and high audience ratings (${audienceRating}%), the network has officially renewed "${book.parentMovieTitle || book.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${renewedSeasonProject.salary.toLocaleString()} (+35% pay raise)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
+                date: dateInfo.fullDateText,
+                read: false,
+              });
+            } else if (!isTv && currentPart < 5 && (book.roleType === 'Lead' || book.roleType === 'Principal')) {
+              const nextPart = currentPart + 1;
+              const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
+              const nextFranchiseTitle = `${book.parentMovieTitle || book.movieTitle} (Part ${nextPart}: ${subtitle})`;
+              const nextBudget = Math.floor(baseBudget * 1.4);
+              const nextSalary = Math.floor(book.salary * 1.5);
+
+              const sequelProject: BookedProject = {
+                id: `franchise_part_${nextPart}_${Date.now()}`,
+                projectId: `proj_franchise_${nextPart}_${Date.now()}`,
+                movieTitle: nextFranchiseTitle,
+                posterUrl: book.posterUrl,
+                roleType: 'Lead',
+                category: 'Feature Film',
+                salary: nextSalary,
+                budget: nextBudget,
+                totalFilmingWeeks: Math.floor(book.totalFilmingWeeks * 1.15),
+                weeksRemaining: Math.floor(book.totalFilmingWeeks * 1.15),
+                isFilmingComplete: false,
+                studio: book.studio,
+                director: book.director,
+                status: 'Pending Negotiation',
+                isFranchise: true,
+                franchisePart: nextPart,
+                parentMovieTitle: book.parentMovieTitle || book.movieTitle,
+                backendPercent: (book.backendPercent || 2.5) + 1.5,
+                profitSharePercent: (book.profitSharePercent || 3.5) + 2.0,
+                boxOfficeBonus: Math.floor(nextSalary * 2.5),
+              };
+              updatedBookedProjects.push(sequelProject);
+              newInboxMessages.unshift({
+                id: `msg_franchise_greenlight_${nextPart}_${Date.now()}`,
+                category: 'CAREER',
+                sender: `${book.studio || 'Studio'} Theatrical`,
+                senderRole: 'Head of Franchise Development',
+                senderAvatar: book.posterUrl,
+                subject: `FRANCHISE SEQUEL GREENLIT: "${nextFranchiseTitle}"!`,
+                body: `BREAKING STUDIO GREENLIGHT!\n\nFollowing the profitable theatrical run of "${book.movieTitle}" ($${(worldwideGross / 1000000).toFixed(1)}M worldwide gross), ${book.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${nextSalary.toLocaleString()} (+50% raise)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
+                date: dateInfo.fullDateText,
+                read: false,
+              });
+            }
           }
 
           // Movie is completed & released — do not push back into updatedBookedProjects
