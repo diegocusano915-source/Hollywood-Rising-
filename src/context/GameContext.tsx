@@ -379,10 +379,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // Update sound settings & adaptive music track switching
+  // Update sound & music settings
   useEffect(() => {
-    soundService.setSoundEnabled(saveData.settings.soundEnabled);
-  }, [saveData.settings.soundEnabled]);
+    soundService.setSoundEnabled(saveData.settings.soundEnabled !== false);
+    soundService.setMusicEnabled(saveData.settings.musicEnabled !== false);
+  }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled]);
 
   useEffect(() => {
     if (currentScreen === 'game_home') {

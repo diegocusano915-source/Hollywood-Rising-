@@ -2,6 +2,7 @@
  * HOLLYWOOD RISING - Offline Soundtrack & Adaptive Music Engine
  * Includes 15 distinct procedural Hollywood soundtrack tracks that play continuously in an offline loop.
  * Features: Auto-track advance, cross-fading, volume control, track title metadata, and SFX suite.
+ * Built-in User Gesture Unlocker for immediate mobile browser playback.
  */
 
 export type MusicTrackMode =
@@ -227,7 +228,7 @@ class SoundService {
   private ctx: AudioContext | null = null;
   private soundEnabled: boolean = true;
   private musicEnabled: boolean = true;
-  private musicVolume: number = 0.5;
+  private musicVolume: number = 0.65;
   private sfxVolume: number = 0.8;
 
   // Active Music Engine
@@ -236,21 +237,36 @@ class SoundService {
   private trackTimer: number | null = null;
   private musicGainNode: GainNode | null = null;
   private isMusicPlaying: boolean = false;
+  private currentTrackMode: MusicTrackMode | null = null;
 
-  private getContext(): AudioContext | null {
-    if (!this.soundEnabled && !this.musicEnabled) return null;
+  public getContext(): AudioContext | null {
     if (!this.ctx) {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextClass) {
-        this.ctx = new AudioContextClass();
-      }
+      try {
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass();
+        }
+      } catch {}
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
     return this.ctx;
+  }
+
+  public unlockAudioContext() {
+    const ctx = this.getContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        if (this.musicEnabled && !this.isMusicPlaying) {
+          this.startContinuousSoundtrack();
+        }
+      }).catch(() => {});
+    } else if (this.musicEnabled && !this.isMusicPlaying) {
+      this.startContinuousSoundtrack();
+    }
   }
 
   public setSoundEnabled(enabled: boolean) {
@@ -270,7 +286,7 @@ class SoundService {
     this.musicVolume = Math.max(0, Math.min(1, volPercent / 100));
     if (this.musicGainNode && this.ctx) {
       try {
-        this.musicGainNode.gain.setValueAtTime(this.musicVolume * 0.15, this.ctx.currentTime);
+        this.musicGainNode.gain.setValueAtTime(this.musicVolume * 0.4, this.ctx.currentTime);
       } catch {}
     }
   }
@@ -283,6 +299,10 @@ class SoundService {
     return this.soundEnabled;
   }
 
+  public isMusicOn(): boolean {
+    return this.musicEnabled;
+  }
+
   public getCurrentTrack(): SoundtrackTrackInfo {
     return HOLLYWOOD_SOUNDTRACK_PLAYLIST[this.currentTrackIndex];
   }
@@ -293,6 +313,7 @@ class SoundService {
 
   public playMusicTrack(mode?: MusicTrackMode) {
     if (!this.musicEnabled) return;
+    this.currentTrackMode = mode || 'career';
 
     let trackIdx = 0;
     switch (mode) {
@@ -347,8 +368,8 @@ class SoundService {
       this.musicGainNode = ctx.createGain();
       this.musicGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
       this.musicGainNode.gain.exponentialRampToValueAtTime(
-        Math.max(0.001, this.musicVolume * 0.14),
-        ctx.currentTime + 1.5
+        Math.max(0.001, this.musicVolume * 0.4),
+        ctx.currentTime + 1.2
       );
       this.musicGainNode.connect(ctx.destination);
 
@@ -364,17 +385,18 @@ class SoundService {
             const osc = this.ctx!.createOscillator();
             const gain = this.ctx!.createGain();
 
+            // Rich warm synth tone
             osc.type = idx === 0 ? 'sine' : idx === 1 ? 'triangle' : 'sine';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            osc.frequency.setValueAtTime(freq, now + idx * 0.06);
 
-            gain.gain.setValueAtTime(0.001, now + idx * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.035, now + idx * 0.08 + 0.3);
+            gain.gain.setValueAtTime(0.001, now + idx * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.18, now + idx * 0.06 + 0.25);
             gain.gain.exponentialRampToValueAtTime(0.0001, now + (track.tempoMs / 1000) * 0.95);
 
             osc.connect(gain);
             gain.connect(this.musicGainNode!);
 
-            osc.start(now + idx * 0.08);
+            osc.start(now + idx * 0.06);
             osc.stop(now + (track.tempoMs / 1000));
           });
 
@@ -403,7 +425,7 @@ class SoundService {
     }
     if (this.musicGainNode && this.ctx) {
       try {
-        this.musicGainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.5);
+        this.musicGainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.4);
       } catch {}
     }
   }
@@ -424,7 +446,7 @@ class SoundService {
       osc.frequency.setValueAtTime(580, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(320, ctx.currentTime + 0.05);
 
-      gain.gain.setValueAtTime(0.12 * this.sfxVolume, ctx.currentTime);
+      gain.gain.setValueAtTime(0.18 * this.sfxVolume, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
 
       osc.connect(gain);
@@ -447,7 +469,7 @@ class SoundService {
       osc.frequency.setValueAtTime(800, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(950, ctx.currentTime + 0.03);
 
-      gain.gain.setValueAtTime(0.03 * this.sfxVolume, ctx.currentTime);
+      gain.gain.setValueAtTime(0.05 * this.sfxVolume, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
 
       osc.connect(gain);
@@ -475,7 +497,7 @@ class SoundService {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, now + idx * 0.05);
 
-        gain.gain.setValueAtTime(0.1 * this.sfxVolume, now + idx * 0.05);
+        gain.gain.setValueAtTime(0.18 * this.sfxVolume, now + idx * 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
 
         osc.connect(gain);
@@ -501,7 +523,7 @@ class SoundService {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + i * 0.08);
 
-        gain.gain.setValueAtTime(0.18 * this.sfxVolume, now + i * 0.08);
+        gain.gain.setValueAtTime(0.24 * this.sfxVolume, now + i * 0.08);
         gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
 
         osc.connect(gain);
@@ -527,7 +549,7 @@ class SoundService {
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(freq, now);
 
-        gain.gain.setValueAtTime(0.12 * this.sfxVolume, now);
+        gain.gain.setValueAtTime(0.16 * this.sfxVolume, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
 
         osc.connect(gain);
@@ -560,7 +582,7 @@ class SoundService {
       filter.frequency.setValueAtTime(1200, now);
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.15 * this.sfxVolume, now);
+      gain.gain.setValueAtTime(0.2 * this.sfxVolume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
       noise.connect(filter);
@@ -597,8 +619,8 @@ class SoundService {
       filter.Q.setValueAtTime(1.5, now);
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.18 * this.sfxVolume, now);
-      gain.gain.linearRampToValueAtTime(0.25 * this.sfxVolume, now + 0.5);
+      gain.gain.setValueAtTime(0.22 * this.sfxVolume, now);
+      gain.gain.linearRampToValueAtTime(0.3 * this.sfxVolume, now + 0.5);
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       noise.connect(filter);
@@ -626,7 +648,7 @@ class SoundService {
       osc.frequency.setValueAtTime(400, now);
       osc.frequency.exponentialRampToValueAtTime(200, now + 0.12);
 
-      gain.gain.setValueAtTime(0.1 * this.sfxVolume, now);
+      gain.gain.setValueAtTime(0.15 * this.sfxVolume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
       osc.connect(gain);
@@ -648,3 +670,13 @@ class SoundService {
 }
 
 export const soundService = new SoundService();
+
+// Global gesture unlocker for modern mobile browsers & WebViews
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    soundService.unlockAudioContext();
+  };
+  window.addEventListener('pointerdown', unlock, { passive: true });
+  window.addEventListener('touchstart', unlock, { passive: true });
+  window.addEventListener('click', unlock, { passive: true });
+}
