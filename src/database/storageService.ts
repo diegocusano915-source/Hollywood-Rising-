@@ -514,6 +514,7 @@ export class StorageService {
       version: '1.4.0',
       lastSavedAt: new Date().toISOString(),
       slotNumber: slot,
+      hasCreatedCharacter: Boolean(newPlayer.firstName && newPlayer.firstName.trim().length > 0 && newPlayer.firstName !== 'Jordan'),
       player: newPlayer,
       callboard: generateCallboardProjects(5),
       auditions: [],

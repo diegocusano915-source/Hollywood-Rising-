@@ -644,6 +644,7 @@ export interface SaveData {
   version: string;
   lastSavedAt: string;
   slotNumber: number;
+  hasCreatedCharacter?: boolean;
   player: Player;
   callboard: CallboardProject[];
   auditions: AuditionApplication[];
