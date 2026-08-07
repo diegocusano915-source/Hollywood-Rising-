@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hollywood Rising</string>
+    <string name="title_activity_main">Hollywood Rising</string>
+    <string name="package_name">com.hollywoodrising.app</string>
+    <string name="custom_url_scheme">com.hollywoodrising.app</string>
+</resources>
