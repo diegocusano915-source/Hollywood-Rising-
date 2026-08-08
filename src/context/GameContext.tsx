@@ -1105,26 +1105,69 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const directorName = aud.director || 'Denis Villeneuve';
 
         if (isAccepted) {
+          // 39 DIFFERENT ACCEPTANCE REASONS - not repetitive
+          const acceptancePool = [
+            `• Outstanding acting performance during audition screen tests (Acting score: ${p.talents.acting}/100)`,
+            `• Strong agency endorsement from ${p.representation?.agent?.agencyName || p.representation?.agent?.name || 'Agent'}`,
+            `• Verified SAG-AFTRA union member in good standing`,
+            `• Proven lead performance track record (${p.leadRolesCount} lead film(s) completed)`,
+            `• High public popularity and fan engagement (${p.fameXp} Fame XP)`,
+            `• Director ${directorName} specifically selected your tape for the character profile`,
+            `• Excellent cast chemistry demonstrated during table reads`,
+            `• Exceptional emotional range displayed in the dramatic monologue`,
+            `• Natural charisma and screen presence captivated the casting panel`,
+            `• Precise comedic timing that elevated the entire scene`,
+            `• Authentic accent work that brought the character to life`,
+            `• Powerful physical transformation that embodied the role completely`,
+            `• Improvisational brilliance that added unexpected depth`,
+            `• Previous collaboration with Director ${directorName} proved invaluable`,
+            `• Method approach that deeply resonated with the script's themes`,
+            `• Versatility shown across multiple genres in your portfolio`,
+            `• Strong social media following that guarantees audience draw (${p.fans.toLocaleString()} fans)`,
+            `• Critical acclaim from your last feature (Critic score: ${p.talents.drama}/100)`,
+            `• Action sequence mastery that secured the stunt-heavy role`,
+            `• Voice modulation and diction that perfectly suited the character`,
+            `• Collaborative spirit that impressed the entire production team`,
+            `• Professionalism and punctuality noted during callback sessions`,
+            `• Unique interpretation that offered a fresh take on the character`,
+            `• Chemistry with co-star ${aud.studio} ensemble was undeniable`,
+            `• Box office track record that de-risked the studio's investment`,
+            `• Award buzz from previous festival circuit performances`,
+            `• Dedicated preparation - 6 weeks of dialect coaching paid off`,
+            `• Risk-taking performance that dared to be vulnerable`,
+            `• Technical precision in hitting marks while staying emotionally present`,
+            `• Generational talent that reminded the panel of classic Hollywood`,
+            `• Cultural authenticity that honored the character's background`,
+            `• Dynamic range from subtle intimacy to explosive intensity`,
+            `• Leadership on set that elevated the entire cast's performance`,
+            `• Innovative character choices that surprised even the writer`,
+            `• Consistent excellence across all three audition rounds`,
+            `• Raw vulnerability that made the casting director tear up`,
+            `• Magnetic energy that filled the audition room instantly`,
+            `• Storytelling instinct that connected deeply with the narrative`,
+            `• Fearless commitment to the character's most challenging scenes`,
+          ];
           const selectionReasons: string[] = [];
-          if (p.talents.acting >= 50) {
-            selectionReasons.push(`• Outstanding acting performance during audition screen tests (Acting score: ${p.talents.acting}/100)`);
+          // Pick 2-3 unique reasons from pool based on player stats
+          const poolForPlayer = [...acceptancePool];
+          // Prioritize stat-based reasons first
+          if (p.talents.acting >= 50) selectionReasons.push(poolForPlayer[0]);
+          if (p.representation?.agent?.signed) selectionReasons.push(poolForPlayer[1]);
+          if (p.isUnionMember) selectionReasons.push(poolForPlayer[2]);
+          if (p.leadRolesCount > 0) selectionReasons.push(poolForPlayer[3]);
+          if (p.fameXp >= 100) selectionReasons.push(poolForPlayer[4]);
+          // Fill up to 3 unique reasons from remaining pool
+          while (selectionReasons.length < 3) {
+            const idx = Math.floor(Math.random() * poolForPlayer.length);
+            const reason = poolForPlayer[idx];
+            if (!selectionReasons.includes(reason)) {
+              selectionReasons.push(reason);
+            }
+            poolForPlayer.splice(idx, 1);
+            if (poolForPlayer.length === 0) break;
           }
-          if (p.representation?.agent?.signed) {
-            selectionReasons.push(`• Strong agency endorsement and negotiation leverage from ${p.representation.agent.agencyName || p.representation.agent.name || 'Agent'}`);
-          }
-          if (p.isUnionMember) {
-            selectionReasons.push(`• Verified SAG-AFTRA union member in good standing`);
-          }
-          if (p.leadRolesCount > 0) {
-            selectionReasons.push(`• Proven lead performance track record (${p.leadRolesCount} lead film(s) completed)`);
-          }
-          if (p.fameXp >= 100) {
-            selectionReasons.push(`• High public popularity and fan engagement (${p.fameXp} Fame XP)`);
-          }
-          if (selectionReasons.length === 0) {
-            selectionReasons.push(`• Director ${directorName} specifically selected your audition tape for the character profile`);
-            selectionReasons.push(`• Excellent cast chemistry demonstrated during table reads`);
-          }
+          // Ensure 2-3 reasons, trim to 3 max for readability
+          if (selectionReasons.length > 3) selectionReasons.splice(3);
 
           const acceptedBody = `OFFICIAL CASTING ACCEPTANCE NOTICE\n\nMovie: ${aud.movieTitle}\nRole: ${aud.roleType}\nStudio: ${studioName}\nDirector: ${directorName}\nSalary: $${aud.salary.toLocaleString()}\nFilming Date: Starts Next Week (Duration: ${aud.filmingWeeks} weeks)\n\nSELECTION REASONS:\n${selectionReasons.join('\n')}\n\nCongratulations! Production starts next week. View your Booking tab to prepare for filming.`;
 
@@ -1165,47 +1208,100 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: `Cast as ${aud.roleType} in "${aud.movieTitle}" under ${studioName}. Contract value: $${aud.salary.toLocaleString()}.`,
           });
         } else {
-          const rejectionFeedback: string[] = [];
-          const playerGuidance: string[] = [];
-
-          if (p.talents.acting < 50) {
-            rejectionFeedback.push(`• Another actor demonstrated higher technical acting precision and emotional depth.`);
-            playerGuidance.push(`• Improve Acting: Enroll in Acting Conservatory courses to raise your Acting score.`);
-          }
-          if (p.fameXp < 150 && aud.roleType === 'Lead') {
-            rejectionFeedback.push(`• Studio executives required a performer with higher Fame visibility (${p.fameXp} Fame XP) for foreign pre-sales.`);
-            playerGuidance.push(`• Increase Fame: Focus on social media, public appearances, and media interviews.`);
-          }
-          if (!p.isUnionMember && aud.roleType === 'Lead') {
-            rejectionFeedback.push(`• The production prioritized SAG-AFTRA union members for principal lead contracts.`);
-            playerGuidance.push(`• Strengthen Reputation: Complete more principal roles to qualify for SAG-AFTRA membership.`);
-          }
-          if (p.moviesCompleted < 2) {
-            rejectionFeedback.push(`• The director preferred a candidate with more completed feature film experience.`);
-            playerGuidance.push(`• Complete More Movies: Build your portfolio with Callboard indie and supporting roles.`);
-          }
-
-          const fallbackReasons = [
+          // 39 DIFFERENT REJECTION REASONS - not repetitive
+          const rejectionPool = [
+            `• Another actor demonstrated higher technical acting precision and emotional depth.`,
+            `• Studio executives required higher Fame visibility (${p.fameXp} Fame XP) for foreign pre-sales.`,
+            `• The production prioritized SAG-AFTRA union members for principal lead contracts.`,
+            `• The director preferred a candidate with more completed feature film experience.`,
             `• Another candidate showed stronger chemistry with the lead ensemble during screen tests.`,
             `• Casting directors adjusted the character profile to fit an older performer.`,
             `• Production underwent script revisions altering the age bracket for this character.`,
             `• Competition was exceptionally fierce with over 200 talent submissions.`,
             `• Another actor previously worked with Director ${directorName} on an acclaimed project.`,
+            `• Vocal projection did not carry the required authority for the role's key monologue.`,
+            `• Physicality and movement work felt less grounded than the selected actor's.`,
+            `• Emotional recall in the climactic scene lacked the necessary vulnerability.`,
+            `• The studio's international distribution partner requested a more recognizable international profile.`,
+            `• Your interpretation, while strong, diverged from the director's core vision for the character.`,
+            `• Another performer had an existing chemistry with the already-cast lead.`,
+            `• The role required fluency in a dialect that the selected actor possessed natively.`,
+            `• Age range was narrowed by two years during final casting calibration.`,
+            `• Height and on-camera pairing with the co-lead favored a different physicality.`,
+            `• The producers opted for an actor with a larger social media footprint for marketing.`,
+            `• Your recent project created a scheduling conflict with the film's revised shoot dates.`,
+            `• The selected actor's previous box office draw de-risked the financing.`,
+            `• The casting panel felt another actor's comedic timing was more precise for the material.`,
+            `• The director sought a more understated, internalized approach to the role.`,
+            `• Another candidate's chemistry read with the female lead was described as electric.`,
+            `• The studio's sensitivity reader flagged a different lived experience as a better fit.`,
+            `• Your audition, while compelling, was felt to be slightly too theatrical for the naturalistic tone.`,
+            `• The role's stunt requirements favored an actor with a martial arts background.`,
+            `• The writers' room re-centered the character's arc around a different age and background.`,
+            `• The selected actor's agent leveraged a package deal that included a sought-after director.`,
+            `• The panel noted another actor's eye-line and camera awareness was more precise.`,
+            `• The film's financiers requested an actor with pre-existing brand endorsement ties.`,
+            `• Your strong performance was ultimately deemed too similar to your last released role.`,
+            `• The director wanted a performer who could play the character's 10-year age span more convincingly.`,
+            `• Another actor's improvisation in the final round added a memorable moment that secured the role.`,
+            `• The studio's test screening of your chemistry read scored lower than the selected actor's.`,
+            `• The role's musical performance element favored a trained vocalist.`,
+            `• The selected actor's previous collaboration with the cinematographer created instant visual rapport.`,
+            `• Your availability for the extensive rehearsal period was more limited than the chosen actor's.`,
+            `• The casting associate noted the selected actor's subtle micro-expressions were more cinematic.`,
           ];
-
-          if (rejectionFeedback.length === 0) {
-            const r1 = fallbackReasons[Math.floor(Math.random() * fallbackReasons.length)];
-            let r2 = fallbackReasons[Math.floor(Math.random() * fallbackReasons.length)];
-            while (r2 === r1) {
-              r2 = fallbackReasons[Math.floor(Math.random() * fallbackReasons.length)];
+          const guidancePool = [
+            `• Improve Acting: Enroll in Acting Conservatory courses to raise your Acting score.`,
+            `• Increase Fame: Focus on social media, public appearances, and media interviews.`,
+            `• Strengthen Reputation: Complete more principal roles to qualify for SAG-AFTRA membership.`,
+            `• Complete More Movies: Build your portfolio with Callboard indie and supporting roles.`,
+            `• Build Your Portfolio: Continue applying to roles that match your current talent level.`,
+            `• Improve Acting: Take specialized voice, comedy, or drama classes to stand out.`,
+            `• Expand Range: Audition for diverse genres to showcase versatility.`,
+            `• Network Actively: Attend industry mixers and secure a strong agent.`,
+            `• Refine Craft: Hire a dialect coach for accent-heavy roles.`,
+            `• Physical Training: Take action and stunt workshops for physically demanding parts.`,
+            `• Study Film: Analyze award-winning performances in similar roles.`,
+            `• Seek Feedback: Request detailed notes from casting directors after rejections.`,
+            `• Build Credits: Start with commercial and web series to gain on-set experience.`,
+            `• Develop Persona: Cultivate a distinct public image that casting remembers.`,
+            `• Master Audition Technique: Practice cold reads and self-tape quality.`,
+          ];
+          const rejectionFeedback: string[] = [];
+          const playerGuidance: string[] = [];
+          // Pick 2-3 unique rejection reasons from pool
+          const tempPool = [...rejectionPool];
+          // Prioritize stat-based first
+          if (p.talents.acting < 50) {
+            rejectionFeedback.push(tempPool[0]);
+            playerGuidance.push(guidancePool[0]);
+          }
+          if (p.fameXp < 150 && aud.roleType === 'Lead') {
+            rejectionFeedback.push(tempPool[1]);
+            playerGuidance.push(guidancePool[1]);
+          }
+          if (!p.isUnionMember && aud.roleType === 'Lead') {
+            rejectionFeedback.push(tempPool[2]);
+            playerGuidance.push(guidancePool[2]);
+          }
+          if (p.moviesCompleted < 2) {
+            rejectionFeedback.push(tempPool[3]);
+            playerGuidance.push(guidancePool[3]);
+          }
+          while (rejectionFeedback.length < 2) {
+            const idx = Math.floor(Math.random() * tempPool.length);
+            const reason = tempPool[idx];
+            if (!rejectionFeedback.includes(reason)) {
+              rejectionFeedback.push(reason);
             }
-            rejectionFeedback.push(r1, r2);
           }
-
-          if (playerGuidance.length === 0) {
-            playerGuidance.push(`• Build Your Portfolio: Continue applying to roles that match your current talent level.`);
-            playerGuidance.push(`• Improve Acting: Take specialized voice, comedy, or drama classes to stand out.`);
+          if (rejectionFeedback.length > 3) rejectionFeedback.splice(3);
+          while (playerGuidance.length < 2) {
+            const idx = Math.floor(Math.random() * guidancePool.length);
+            const g = guidancePool[idx];
+            if (!playerGuidance.includes(g)) playerGuidance.push(g);
           }
+          if (playerGuidance.length > 3) playerGuidance.splice(3);
 
           const rejectedBody = `CASTING DIRECTOR FEEDBACK\n\nMovie: ${aud.movieTitle}\nRole: ${aud.roleType}\nStudio: ${studioName}\n\nDECISION: REJECTED\n\nCasting Director Feedback:\n${rejectionFeedback.join('\n')}\n\nPLAYER GUIDANCE:\n${playerGuidance.join('\n')}\n\nThank you for auditioning. Keep honing your craft!`;
 
@@ -1740,8 +1836,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     let updatedCallboard = [...remainingCallboard];
-    if (updatedCallboard.length < 5) {
-      const freshBatch = generateCallboardProjects(7, p.fameXp);
+    if (updatedCallboard.length < 10) {
+      const targetCount = 10 + Math.floor(Math.random() * 16); // 10-25 endless pool, no fake simulation
+      const freshBatch = generateCallboardProjects(targetCount, p.fameXp);
       updatedCallboard = [...updatedCallboard, ...freshBatch];
     }
 

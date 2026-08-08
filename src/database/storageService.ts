@@ -320,11 +320,11 @@ export function generateSingleMinorRole(playerFameXp: number = 0, seedIndex: num
 }
 
 /**
- * MANDATORY FAILSAFE VALIDATION
+ * MANDATORY FAILSAFE VALIDATION - UPDATED 10-25 ENDLESS POOL, NO FAKE
  * Guarantees every weekly Callboard refresh ALWAYS contains:
- * - Minimum 2 Principal Roles (Lead or Principal)
- * - Minimum 2 Supporting Roles (Support or Recurring)
- * - Minimum 1 Minor / Cameo Role (Guest Star, Cameo, Background, Voice, MoCap)
+ * - 10 to 25 total movies/series (endless pool)
+ * - Minimum 3-5 Principal Roles (Lead or Principal) - above 10 total
+ * - No fake simulation - all real generated projects
  */
 export function validateAndEnforceCallboardRoster(
   currentProjects: CallboardProject[],
@@ -337,8 +337,9 @@ export function validateAndEnforceCallboardRoster(
   let supportCount = roster.filter(p => p.roleType === 'Support' || p.roleType === 'Recurring').length;
   let minorCount = roster.filter(p => p.roleType === 'Cameo' || p.roleType === 'Guest Star' || p.roleType === 'Background').length;
 
-  // FAILSAFE 1: Enforce Minimum 2 Principal Roles
-  while (principalCount < 2) {
+  // FAILSAFE 1: Enforce Minimum 3-5 Principal Roles (random 3-5)
+  const targetPrincipal = 3 + Math.floor(Math.random() * 3); // 3-5
+  while (principalCount < targetPrincipal) {
     const newPrincipal = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
     roster.unshift(newPrincipal);
     principalCount++;
@@ -358,10 +359,32 @@ export function validateAndEnforceCallboardRoster(
     minorCount++;
   }
 
+  // ENSURE 10-25 total - endless pool, no fake simulation
+  const targetTotal = 10 + Math.floor(Math.random() * 16); // 10-25
+  while (roster.length < 10) {
+    const r = Math.random();
+    if (r < 0.5) {
+      roster.push(generateSinglePrincipalRole(playerFameXp, roster.length + 1));
+    } else if (r < 0.8) {
+      roster.push(generateSingleSupportingRole(playerFameXp, roster.length + 1));
+    } else {
+      roster.push(generateSingleMinorRole(playerFameXp, roster.length + 1));
+    }
+  }
+  // Trim if over 25 (keep endless but cap at 25)
+  if (roster.length > 25) {
+    roster = roster.slice(0, 25);
+  }
+  // Shuffle for variety
+  for (let i = roster.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [roster[i], roster[j]] = [roster[j], roster[i]];
+  }
+
   return roster;
 }
 
-export function generateCallboardProjects(count: number = 7, playerFameXp: number = 0): CallboardProject[] {
+export function generateCallboardProjects(count: number = 10 + Math.floor(Math.random() * 16), playerFameXp: number = 0): CallboardProject[] { // 10-25 endless pool
   const projects: CallboardProject[] = [];
 
   // Always seed initial batch with guaranteed mix
@@ -563,7 +586,7 @@ export class StorageService {
       slotNumber: slot,
       hasCreatedCharacter: Boolean(newPlayer.firstName && newPlayer.firstName.trim().length > 0 && newPlayer.firstName !== 'Jordan'),
       player: newPlayer,
-      callboard: generateCallboardProjects(5),
+      callboard: generateCallboardProjects(10 + Math.floor(Math.random() * 16)), // 10-25 initial
       auditions: [],
       bookedProjects: [],
       releasedMovies: [],
