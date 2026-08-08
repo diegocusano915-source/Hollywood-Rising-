@@ -26,16 +26,17 @@ export const FanClubView: React.FC<FanClubViewProps> = ({
   const [clubNameInput, setClubNameInput] = useState('');
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementContent, setAnnouncementContent] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   // Establish Official Fan Club
   const handleEstablishClub = () => {
     if (!clubNameInput.trim()) {
-      alert('Please enter a name for your official fan club.');
+      setFeedback('Please enter a name for your official fan club.'); setTimeout(() => setFeedback(null), 3000);
       return;
     }
     const cost = 5000;
     if (player.money < cost) {
-      alert(`Insufficient funds! Establishing fan club requires $${cost.toLocaleString()}.`);
+      setFeedback(`Insufficient funds! Establishing fan club requires $${cost.toLocaleString()}.`); setTimeout(() => setFeedback(null), 3000);
       return;
     }
 
@@ -68,14 +69,14 @@ export const FanClubView: React.FC<FanClubViewProps> = ({
     };
 
     RepresentationService.saveState(state);
-    alert(`❤️ Official Fan Club "${clubNameInput.trim()}" established!`);
+    setFeedback(`❤️ Official Fan Club "${clubNameInput.trim()}" established!`); setTimeout(() => setFeedback(null), 3000);
     onRefresh();
   };
 
   // Host Fan Event
   const handleHostEvent = (eventName: string, cost: number, fansGained: number) => {
     if (player.money < cost) {
-      alert(`Insufficient funds! Hosting ${eventName} requires $${cost.toLocaleString()}.`);
+      setFeedback(`Insufficient funds! Hosting ${eventName} requires $${cost.toLocaleString()}.`); setTimeout(() => setFeedback(null), 3000);
       return;
     }
 
@@ -88,14 +89,14 @@ export const FanClubView: React.FC<FanClubViewProps> = ({
     state.reputation.publicReputation = Math.min(100, state.reputation.publicReputation + 5);
 
     RepresentationService.saveState(state);
-    alert(`🎉 Hosted ${eventName}! Gained +${fansGained} Fans and boosted Public Reputation.`);
+    setFeedback(`🎉 Hosted ${eventName}! Gained +${fansGained} Fans and boosted Public Reputation.`); setTimeout(() => setFeedback(null), 3000);
     onRefresh();
   };
 
   // Post Announcement
   const handlePostAnnouncement = () => {
     if (!announcementTitle.trim() || !announcementContent.trim()) {
-      alert('Please enter title and content.');
+      setFeedback('Please enter title and content.'); setTimeout(() => setFeedback(null), 3000);
       return;
     }
 
@@ -110,12 +111,19 @@ export const FanClubView: React.FC<FanClubViewProps> = ({
     RepresentationService.saveState(state);
     setAnnouncementTitle('');
     setAnnouncementContent('');
-    alert('📢 Announcement posted to official fan club dashboard!');
+    setFeedback('📢 Announcement posted to official fan club dashboard!'); setTimeout(() => setFeedback(null), 3000);
     onRefresh();
   };
 
   return (
     <div className="space-y-6 text-white select-none pb-12">
+      {/* Feedback Toast */}
+      {feedback && (
+        <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-xs font-black text-center shadow">
+          {feedback}
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex items-center justify-between bg-black/60 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
         <button

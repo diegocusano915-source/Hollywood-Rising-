@@ -296,12 +296,6 @@ export const WorldScreen: React.FC = () => {
             <span>${player.money.toLocaleString()}</span>
           </div>
 
-          {/* Diamonds Badge */}
-          <div className="px-2.5 py-1.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-black text-xs flex items-center gap-1 shadow-md">
-            <span>💎</span>
-            <span>{(player as any).diamonds || 150}</span>
-          </div>
-
           {/* Notification Button */}
           <button
             onClick={() => setShowNotificationsModal(true)}

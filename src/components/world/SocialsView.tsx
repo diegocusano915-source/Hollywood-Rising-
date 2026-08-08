@@ -210,8 +210,8 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
     updateSocialsState((prev) => ({
       ...prev,
       createdPlatforms: { ...prev.createdPlatforms, [platform]: true },
-      followers: { ...prev.followers, [platform]: prev.followers[platform] || Math.floor(Math.random() * 50) + 10 },
-    }));
+      followers: { ...prev.followers, [platform]: 0 },
+    })); // FIXED: No fake followers - starts at 0 as requested
     setFeedback(`Account created on ${platform}! Started building your organic fanbase.`);
     setTimeout(() => setFeedback(null), 3000);
   };

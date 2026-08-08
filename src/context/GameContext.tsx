@@ -1574,6 +1574,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Error processing Hollywood Insider weekly news tick:', e);
     }
+
+    // 7b. Awards Ceremony - REBUILT: Triggers on last week (52) and weeks 1-4, hard to win for new players (high thresholds)
+    let awardsTrophies: any[] = [];
+    let awardsRecords: any[] = [];
+    let awardsInbox: any[] = [];
+    try {
+      const awardsResult = AwardsService.processEndWeekCeremony(newWeek, newYear, p, newReleasedMovies, saveData.trophies || [], saveData.awardHistory || []);
+      if (awardsResult.newTrophies.length > 0 || awardsResult.newRecords.length > 0) {
+        awardsTrophies = awardsResult.newTrophies;
+        awardsRecords = awardsResult.newRecords;
+        awardsInbox = awardsResult.newInboxMessages;
+        // Apply fame and awards to player
+        p.fameXp = awardsResult.updatedPlayer.fameXp;
+        p.awardsWon = awardsResult.updatedPlayer.awardsWon;
+        fameGainedThisWeek += awardsResult.fameGained;
+        // Queue inbox and world logs
+        awardsInbox.forEach(msg => newInboxMessages.unshift(msg));
+        awardsRecords.forEach(rec => {
+          worldAwards.push(`🏆 ${rec.eventName}: ${rec.isPlayerWinner ? 'WON' : 'Nominated'} for "${rec.movieTitle}"`);
+          if (rec.isPlayerWinner) {
+            worldAwards.push(`Award Winner: ${rec.winnerName} for ${rec.movieTitle}`);
+          }
+        });
+        if (awardsResult.ceremonyEvent) {
+          nextAwardShows.push(`${awardsResult.ceremonyEvent.eventName} Ceremony - Week ${newWeek}`);
+        }
+      }
+      // Also push next award shows coming up
+      const upcomingCeremonies = [52, 1, 2, 3, 4].filter(w => w > newWeek && w <= newWeek + 2);
+      if (upcomingCeremonies.length > 0) {
+        nextAwardShows.push(`Next ceremonies: Weeks ${upcomingCeremonies.join(', ')}`);
+      }
+    } catch (e) {
+      console.error('Error processing awards ceremony:', e);
+    }
     const updatedReleasedMovies = newReleasedMovies.map((movie) => {
       // Find matching item in Box Office simulation chart or active releases
       const chartItem = boState.items.find(

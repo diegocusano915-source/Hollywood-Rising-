@@ -961,24 +961,31 @@ export class SocialsService {
     const playerPostedActive = spentPostsThisWeek > 0;
 
     let organicGrowth = 0;
-    if (playerPostedActive || writerPostCount > 0 || hasActiveMovieInTheaters || hasRecentMovieRelease) {
+    // FIXED: No fake simulation - only real posting/writer activity gives followers, different per platform, max 500B, all start at 0
+    if (playerPostedActive || writerPostCount > 0) {
       const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
-      const movieBonus = hasActiveMovieInTheaters ? 250 : (hasRecentMovieRelease ? 80 : 0);
-      const activityMultiplier = playerPostedActive ? 1.5 : (writerPostCount > 0 ? 1.2 : 0.8);
+      const activityMultiplier = playerPostedActive ? 1.5 : 1.2;
 
-      organicGrowth = Math.floor((fameFactor + movieBonus) * activityMultiplier * (0.6 + Math.random() * 0.4));
+      organicGrowth = Math.floor(fameFactor * activityMultiplier * (0.6 + Math.random() * 0.4));
       if (organicGrowth > 0) {
         fanGrowth += organicGrowth;
 
-        // Distribute organic growth ONLY across active created platforms where player or writer posted
+        // Distribute with DIFFERENT followers per platform (not equal) - organic, max 500B cap
         const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter(
           (p) => state.createdPlatforms[p]
         );
 
         if (activePlatforms.length > 0) {
-          const perPlatform = Math.floor(organicGrowth / activePlatforms.length);
+          const platformWeights: Record<string, number> = { Twitter: 0.35, Instagram: 0.40, YouTube: 0.15, Facebook: 0.05, Reddit: 0.03, Telegram: 0.02 };
+          const totalWeight = activePlatforms.reduce((sum, plat) => sum + (platformWeights[plat] || 0.1), 0);
           activePlatforms.forEach((plat) => {
-            state.followers[plat] = (state.followers[plat] || 0) + perPlatform;
+            const weight = (platformWeights[plat] || 0.1) / totalWeight;
+            const platformGrowth = Math.floor(organicGrowth * weight * (0.8 + Math.random() * 0.4));
+            const capped = Math.min(500000000000, (state.followers[plat] || 0) + platformGrowth);
+            const actualGain = capped - (state.followers[plat] || 0);
+            state.followers[plat] = capped;
+            // Cap total at 500B per platform
+            if ((state.followers[plat] || 0) > 500000000000) state.followers[plat] = 500000000000;
           });
         }
         socialPosts.push(`📈 Gained +${organicGrowth.toLocaleString()} organic followers from active Hollywood visibility.`);

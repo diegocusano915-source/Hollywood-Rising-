@@ -1,6 +1,6 @@
 /**
- * HOLLYWOOD RISING - Save Slot & Data Manager
- * 5 Save Slots, Manual Save, Backup & Restore, Rename, Delete, Save Preview, Import & Export.
+ * HOLLYWOOD RISING - Offline Save Slot Manager
+ * 3 Offline Slots, Manual Save, Backup & Restore, Rename, Delete - No Cloud/JSON
  */
 
 import React, { useState, useEffect } from 'react';
@@ -13,8 +13,6 @@ import {
   X,
   Database,
   Save,
-  Download,
-  Upload,
   RefreshCw,
   Trash2,
   Edit3,
@@ -39,14 +37,12 @@ export const SaveManagerModal: React.FC = () => {
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [renameTitle, setRenameTitle] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-
-  // Import state
-  const [importText, setImportText] = useState('');
-  const [showImportBox, setShowImportBox] = useState(false);
-  const [selectedImportSlot, setSelectedImportSlot] = useState<number>(settings.activeSlot || 1);
+  const [confirmState, setConfirmState] = useState<{ type: 'delete' | 'restore' | null; slot: number | null }>({ type: null, slot: null });
 
   const refreshSummaries = () => {
-    setSummaries(StorageService.getSaveSlotSummaries());
+    const all = StorageService.getSaveSlotSummaries();
+    // Only show first 3 slots offline
+    setSummaries(all.filter(s => s.slotNumber <= 3));
   };
 
   useEffect(() => {
@@ -55,7 +51,7 @@ export const SaveManagerModal: React.FC = () => {
 
   const handleManualSaveToSlot = (slotNum: number) => {
     StorageService.saveGameData(saveData, slotNum);
-    setFeedback({ type: 'success', msg: `Game saved successfully to Save Slot ${slotNum}!` });
+    setFeedback({ type: 'success', msg: `Game saved successfully to Slot ${slotNum}!` });
     refreshSummaries();
     setTimeout(() => setFeedback(null), 3500);
   };
@@ -68,19 +64,24 @@ export const SaveManagerModal: React.FC = () => {
   };
 
   const handleRestoreBackup = (slotNum: number) => {
-    if (confirm(`Are you sure you want to restore Slot ${slotNum} from its previous backup? Current unsaved data in Slot ${slotNum} will be overwritten.`)) {
-      const restored = StorageService.restoreBackupSave(slotNum);
-      if (restored) {
-        setFeedback({ type: 'success', msg: `Slot ${slotNum} restored from backup!` });
-        refreshSummaries();
-        if (settings.activeSlot === slotNum) {
-          switchSaveSlot(slotNum);
-        }
-      } else {
-        setFeedback({ type: 'error', msg: `No backup found for Slot ${slotNum}.` });
+    setConfirmState({ type: 'restore', slot: slotNum });
+  };
+
+  const confirmRestore = () => {
+    const slotNum = confirmState.slot;
+    if (!slotNum) return;
+    const restored = StorageService.restoreBackupSave(slotNum);
+    if (restored) {
+      setFeedback({ type: 'success', msg: `Slot ${slotNum} restored from backup!` });
+      refreshSummaries();
+      if (settings.activeSlot === slotNum) {
+        switchSaveSlot(slotNum);
       }
-      setTimeout(() => setFeedback(null), 3500);
+    } else {
+      setFeedback({ type: 'error', msg: `No backup found for Slot ${slotNum}.` });
     }
+    setConfirmState({ type: null, slot: null });
+    setTimeout(() => setFeedback(null), 3500);
   };
 
   const handleStartRename = (summary: SaveSlotSummary) => {
@@ -97,73 +98,20 @@ export const SaveManagerModal: React.FC = () => {
   };
 
   const handleDeleteSlot = (slotNum: number) => {
-    if (confirm(`CRITICAL WARNING: Are you sure you want to permanently delete Save Slot ${slotNum}? This action CANNOT be undone.`)) {
-      StorageService.deleteSaveData(slotNum);
-      setFeedback({ type: 'error', msg: `Save Slot ${slotNum} deleted.` });
-      refreshSummaries();
-      if (settings.activeSlot === slotNum) {
-        resetGame();
-      }
-      setTimeout(() => setFeedback(null), 3500);
-    }
+    setConfirmState({ type: 'delete', slot: slotNum });
   };
 
-  const handleExportJson = (slotNum: number) => {
-    const json = StorageService.exportSaveToJson(slotNum);
-    if (!json) {
-      setFeedback({ type: 'error', msg: `Slot ${slotNum} is empty. Nothing to export.` });
-      setTimeout(() => setFeedback(null), 3000);
-      return;
+  const confirmDelete = () => {
+    const slotNum = confirmState.slot;
+    if (!slotNum) return;
+    StorageService.deleteSaveData(slotNum);
+    setFeedback({ type: 'error', msg: `Save Slot ${slotNum} deleted.` });
+    refreshSummaries();
+    if (settings.activeSlot === slotNum) {
+      resetGame();
     }
-
-    // Download file
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hollywood_rising_slot${slotNum}_export.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    setFeedback({ type: 'success', msg: `Slot ${slotNum} JSON save file exported successfully!` });
+    setConfirmState({ type: null, slot: null });
     setTimeout(() => setFeedback(null), 3500);
-  };
-
-  const handleImportJson = () => {
-    if (!importText.trim()) {
-      setFeedback({ type: 'error', msg: 'Please paste raw JSON save data or select a valid JSON save file.' });
-      setTimeout(() => setFeedback(null), 3000);
-      return;
-    }
-
-    const res = StorageService.importSaveFromJson(importText, selectedImportSlot);
-    if (res.success) {
-      setFeedback({ type: 'success', msg: res.message });
-      setImportText('');
-      setShowImportBox(false);
-      refreshSummaries();
-      if (settings.activeSlot === selectedImportSlot) {
-        switchSaveSlot(selectedImportSlot);
-      }
-    } else {
-      setFeedback({ type: 'error', msg: res.message });
-    }
-    setTimeout(() => setFeedback(null), 4000);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        setImportText(content);
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -185,9 +133,9 @@ export const SaveManagerModal: React.FC = () => {
               <Database className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white uppercase tracking-wider">SAVE MANAGER & CLOUD EXPORT</h2>
+              <h2 className="text-lg font-black text-white uppercase tracking-wider">OFFLINE SAVE MANAGER</h2>
               <p className="text-[11px] text-amber-300 font-medium">
-                Manage 5 save slots, manual saves, backups, and save files.
+                Manage 3 offline save slots — local device only.
               </p>
             </div>
           </div>
@@ -213,78 +161,41 @@ export const SaveManagerModal: React.FC = () => {
           </div>
         )}
 
-        {/* Content Body */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs">
-          {/* Quick Import Toggle */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-black/40 border border-white/10">
-            <div className="flex items-center gap-2">
-              <Upload className="w-4 h-4 text-amber-400" />
-              <div>
-                <strong className="text-white block text-xs">Import Save File (JSON)</strong>
-                <span className="text-[10px] text-gray-400">Restore or transfer save files across devices</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowImportBox(!showImportBox)}
-              className="px-4 py-2 rounded-xl bg-amber-400 text-black font-black text-xs hover:scale-102 transition-all cursor-pointer shadow"
-            >
-              {showImportBox ? 'Hide Import Box' : 'Open Import Tools'}
-            </button>
-          </div>
-
-          {/* Import Box */}
-          {showImportBox && (
-            <div className="p-4 rounded-2xl bg-black/60 border border-amber-500/30 space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-300">Target Save Slot for Import:</span>
-                <select
-                  value={selectedImportSlot}
-                  onChange={(e) => setSelectedImportSlot(Number(e.target.value))}
-                  className="bg-gray-900 text-white border border-white/20 rounded-xl px-3 py-1.5 text-xs font-bold"
-                >
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <option key={s} value={s}>
-                      Slot {s} ({StorageService.getSlotTitle(s)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-1 font-bold">Upload Save File (.json):</label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-400 file:text-black hover:file:bg-amber-300 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-1 font-bold">Or Paste Raw JSON String:</label>
-                <textarea
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="Paste SaveData JSON string here..."
-                  rows={3}
-                  className="w-full bg-black/80 text-amber-300 border border-white/10 rounded-xl p-2.5 font-mono text-[10px] focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
+        {/* Custom Confirm Modal - No browser alert, no arena link */}
+        {confirmState.type && (
+          <div className="mx-5 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-3">
+            <p className="text-xs font-black text-amber-300">
+              {confirmState.type === 'delete'
+                ? `Permanently delete Save Slot ${confirmState.slot}? This cannot be undone.`
+                : `Restore Slot ${confirmState.slot} from backup? Current data will be overwritten.`}
+            </p>
+            <div className="flex items-center justify-center gap-3">
               <button
-                onClick={handleImportJson}
-                className="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-black text-xs hover:bg-emerald-400 transition-all cursor-pointer shadow flex items-center justify-center gap-2"
+                onClick={() => setConfirmState({ type: null, slot: null })}
+                className="px-4 py-2 rounded-xl bg-white/10 text-white font-bold text-xs hover:bg-white/20 cursor-pointer"
               >
-                <Upload className="w-4 h-4" />
-                Validate & Import Save to Slot {selectedImportSlot}
+                Cancel
+              </button>
+              <button
+                onClick={() => (confirmState.type === 'delete' ? confirmDelete() : confirmRestore())}
+                className={`px-4 py-2 rounded-xl font-black text-xs cursor-pointer ${
+                  confirmState.type === 'delete'
+                    ? 'bg-rose-500 text-white hover:bg-rose-400'
+                    : 'bg-amber-400 text-black hover:bg-amber-300'
+                }`}
+              >
+                {confirmState.type === 'delete' ? 'Delete' : 'Restore'}
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Save Slots List */}
+        {/* Content Body */}
+        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+          {/* Save Slots List - 3 Offline Slots */}
           <div className="space-y-3">
             <h4 className="font-extrabold text-gray-300 uppercase tracking-wider text-[11px]">
-              Available Save Slots (1 - 5)
+              Offline Save Slots (1 - 3)
             </h4>
 
             {summaries.map((summary) => {
@@ -397,7 +308,7 @@ export const SaveManagerModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Actions Toolbar */}
+                  {/* Actions Toolbar - Offline Only */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     {!isActive && (
                       <button
@@ -415,16 +326,6 @@ export const SaveManagerModal: React.FC = () => {
                       <Save className="w-3.5 h-3.5 text-emerald-400" />
                       Save Current State
                     </button>
-
-                    {summary.hasData && (
-                      <button
-                        onClick={() => handleExportJson(summary.slotNumber)}
-                        className="px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5 text-sky-400" />
-                        Export JSON
-                      </button>
-                    )}
 
                     {summary.hasBackup && (
                       <button
