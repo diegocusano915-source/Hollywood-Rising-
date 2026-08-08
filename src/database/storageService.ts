@@ -360,7 +360,7 @@ export function validateAndEnforceCallboardRoster(
   }
 
   // ENSURE 10-25 total - endless pool, no fake simulation
-  const targetTotal = 10 + Math.floor(Math.random() * 16); // 10-25
+  const targetTotal = 20 + Math.floor(Math.random() * 6); // 20-25 as requested
   while (roster.length < 10) {
     const r = Math.random();
     if (r < 0.5) {
@@ -384,7 +384,7 @@ export function validateAndEnforceCallboardRoster(
   return roster;
 }
 
-export function generateCallboardProjects(count: number = 10 + Math.floor(Math.random() * 16), playerFameXp: number = 0): CallboardProject[] { // 10-25 endless pool
+export function generateCallboardProjects(count: number = 20 + Math.floor(Math.random() * 6), playerFameXp: number = 0): CallboardProject[] { // 20-25 endless pool as requested
   const projects: CallboardProject[] = [];
 
   // Always seed initial batch with guaranteed mix
@@ -586,7 +586,7 @@ export class StorageService {
       slotNumber: slot,
       hasCreatedCharacter: Boolean(newPlayer.firstName && newPlayer.firstName.trim().length > 0 && newPlayer.firstName !== 'Jordan'),
       player: newPlayer,
-      callboard: generateCallboardProjects(10 + Math.floor(Math.random() * 16)), // 10-25 initial
+      callboard: generateCallboardProjects(20 + Math.floor(Math.random() * 6)), // 20-25 initial as requested
       auditions: [],
       bookedProjects: [],
       releasedMovies: [],
