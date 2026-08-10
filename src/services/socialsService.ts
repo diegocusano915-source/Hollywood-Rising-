@@ -1038,11 +1038,11 @@ export class SocialsService {
 
     // 6. Generate New Brand Sponsorship Offers if requirements met
     const totalFollowersNow = Object.values(state.followers).reduce((a, b) => a + b, 0);
-    // BALANCED TIER 1: Sponsorships only after Fame 500 + 10000 followers + 2 movies + SAG, no spam in first 4 weeks
-    const hasMoviesForSocialSponsor = (player.moviesCompleted || 0) >= 2;
+    // Level 3: Sponsorships only after Fame 800 + 10000 followers + 5 movies + SAG, no spam until Level 3
+    const hasMoviesForSocialSponsor = (player.moviesCompleted || 0) >= 5;
     const hasSagForSocialSponsor = player.isUnionMember === true;
-    const isIncubation = (player.dateWeek || 1) <= 4;
-    if (totalFollowersNow >= 10000 && player.fameXp >= 500 && hasMoviesForSocialSponsor && hasSagForSocialSponsor && !isIncubation) {
+    const isIncubation = player.fameXp < 800; // Level 3
+    if (totalFollowersNow >= 10000 && player.fameXp >= 800 && hasMoviesForSocialSponsor && hasSagForSocialSponsor && !isIncubation) {
       const pendingOffersCount = state.sponsorshipDeals.filter((d) => d.status === 'OFFER').length;
       if (pendingOffersCount < 1 && Math.random() < 0.15) {
         const brandNames = ['Gucci', 'Porsche', 'Apple', 'Ferrari', 'Netflix', 'Red Bull', 'Armani', 'Sony'];

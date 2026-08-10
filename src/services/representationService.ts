@@ -282,10 +282,10 @@ export class RepresentationService {
     });
 
     // 5. Generate Brand Offers if Player Has Earned Fame - BALANCED TIER 1 (requires Fame 200 + 1 movie + 1000 fans, no offers first 4 weeks)
-    const hasCompletedMovieForBrand = (player.moviesCompleted || 0) >= 1;
-    const hasFanBaseForBrand = (player.fans || 0) >= 1000;
-    const meetsFameForBrand = player.fameXp >= 200;
-    const isIncubationPeriod = (player.dateWeek || 1) <= 4 && (player.dateYear || 2026) === 2026 && (player.moviesCompleted || 0) === 0;
+    const hasCompletedMovieForBrand = (player.moviesCompleted || 0) >= 2;
+    const hasFanBaseForBrand = (player.fans || 0) >= 2000;
+    const meetsFameForBrand = player.fameXp >= 300; // Level 2
+    const isIncubationPeriod = player.fameXp < 300; // Level 2 - no brands until Level 2
     if (meetsFameForBrand && hasCompletedMovieForBrand && hasFanBaseForBrand && !isIncubationPeriod) {
       const activePendingCount = state.brandOffers.filter(
         (b) => b.status === 'OFFER_PENDING' || b.status === 'ACTIVE'
@@ -300,12 +300,12 @@ export class RepresentationService {
       }
     }
 
-    // 6. Generate Major Sponsorship Offers - BALANCED TIER 1 (requires Fame 500 + 2 movies + 5000 fans + SAG, no offers first 4 weeks)
-    const hasCompletedMoviesForSponsor = (player.moviesCompleted || 0) >= 2;
-    const hasFanBaseForSponsor = (player.fans || 0) >= 5000;
+    // 6. Generate Major Sponsorship Offers - Level 3 (requires Fame 800 + 5 movies + 10000 fans + SAG, no offers until Level 3)
+    const hasCompletedMoviesForSponsor = (player.moviesCompleted || 0) >= 5;
+    const hasFanBaseForSponsor = (player.fans || 0) >= 10000;
     const isSagForSponsor = player.isUnionMember === true;
-    const meetsFameForSponsor = player.fameXp >= 500;
-    const isIncubationForSponsor = (player.dateWeek || 1) <= 4;
+    const meetsFameForSponsor = player.fameXp >= 800; // Level 3
+    const isIncubationForSponsor = player.fameXp < 800; // Level 3 - no sponsorship until Level 3
     if (meetsFameForSponsor && hasCompletedMoviesForSponsor && hasFanBaseForSponsor && isSagForSponsor && !isIncubationForSponsor) {
       const activeSponsorsCount = state.sponsorships.filter((s) => s.status === 'ACTIVE' || s.status === 'OFFER').length;
       if (activeSponsorsCount < 1 && Math.random() < 0.15) {

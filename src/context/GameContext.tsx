@@ -1334,7 +1334,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else if (nextWeeks <= 5) status = 'Callback';
         else if (nextWeeks <= 10) status = 'Casting';
 
-        careerAuditions.push(`PENDING: '${aud.movieTitle}' (${aud.roleType}) - ${nextWeeks} weeks remaining`);
+        careerAuditions.push(`PENDING AUDITION: '${aud.movieTitle}' (${aud.roleType}) - ${nextWeeks} weeks until decision (still in progress, not rejected)`);
         if (nextWeeks === 1) {
           nextAuditions.push(`Decision due next week for '${aud.movieTitle}' (${aud.roleType})`);
         }
@@ -1815,14 +1815,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           saveData.bookedProjects.some(b => b.id === project.id || b.movieTitle === project.title);
 
         if (playerInteracted) {
+          // Only notify if player actually applied - and make it clear this is Callboard expiration, NOT audition rejection
+          // Audition for Pacific Crest will still show as pending in Auditions tab until its weeksRemaining hits 0
           newInboxMessages.unshift({
             id: `msg_npc_fill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             category: 'CASTING',
             sender: `${project.studio || 'Studio'} Casting`,
             senderRole: 'Casting Director',
             senderAvatar: project.posterUrl,
-            subject: `Role Filled: ${project.title}`,
-            body: `The ${project.roleType} role in "${project.title}" has already been filled by a competing actor. Keep checking the Callboard for new opportunities!`,
+            subject: `Callboard Expired: ${project.title} (No Application)`,
+            body: `Heads up: The ${project.roleType} role in "${project.title}" on the Callboard has expired and was filled by another actor. This was a Callboard listing you did NOT apply to - your active Auditions (like "Pacific Crest") are still pending and will be decided separately. Keep checking the Callboard for new 20-25 fresh opportunities!`,
             date: dateInfo.fullDateText,
             read: false,
           });
