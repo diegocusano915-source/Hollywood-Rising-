@@ -15,26 +15,18 @@ interface LawFirmViewProps {
   onBack: () => void;
 }
 
-const LAW_FIRM_OPTIONS: { tier: LawFirmTier; name: string; retainer: number; desc: string }[] = [
-  {
-    tier: 'Solo Attorney',
-    name: 'Marcus Vance, Esq.',
-    retainer: 2000,
-    desc: 'Veteran solo entertainment attorney specializing in guild contracts and copyright filings.',
-  },
-  {
-    tier: 'Entertainment Law Boutique',
-    name: 'Gersh & Ziffren Law Partners',
-    retainer: 7500,
-    desc: 'Century City boutique film firm protecting back-end profit shares and intellectual property.',
-  },
-  {
-    tier: 'Beverly Hills Elite Legal',
-    name: 'Glaser Weil & Howard LLP',
-    retainer: 20000,
-    desc: 'The premiere powerhouse law firm representing studio heads and A-list legends.',
-  },
+const LAW_FIRM_OPTIONS: { tier: LawFirmTier; name: string; retainer: number; desc: string; specialty: string; connectedEvent: string }[] = [
+  { tier: 'Solo Attorney', name: 'Marcus Vance, Esq.', retainer: 1500, desc: 'Contract Review — Reviews every studio contract you sign, +5% salary negotiation when retained.', specialty: 'Contracts', connectedEvent: 'On every BookedProject contract signed' },
+  { tier: 'Solo Attorney', name: 'Elena Cruz, Esq.', retainer: 1800, desc: 'Guild & Copyright — Handles SAG-AFTRA filings and copyright.', specialty: 'Guild/Copyright', connectedEvent: 'On SAG Membership and Trademark filing' },
+  { tier: 'Entertainment Law Boutique', name: 'Gersh & Ziffren Law Partners', retainer: 3500, desc: 'Defamation Defense — Defends against blogger defamation and scandal posts.', specialty: 'Defamation', connectedEvent: 'When a blogger posts defamation about you' },
+  { tier: 'Entertainment Law Boutique', name: 'Stone & Sterling LLP', retainer: 5000, desc: 'Scandal Crisis — Actively clears ScandalItems from Representation.', specialty: 'Scandals', connectedEvent: 'When RepresentationService creates a ScandalItem' },
+  { tier: 'Beverly Hills Elite Legal', name: 'Glaser Weil & Howard LLP', retainer: 8000, desc: 'Trademark & IP — Registers trademarks and defends IP lawsuits.', specialty: 'Trademarks', connectedEvent: 'On Trademark registration and Lawsuit defense' },
+  { tier: 'Beverly Hills Elite Legal', name: 'Rodeo Dr. Estate Counsel', retainer: 6500, desc: 'Wills & Estate — Legalizes your Will for children inheritance (required for legacy).', specialty: 'Wills', connectedEvent: 'When you finalize Estate Plan / Will' },
+  { tier: 'Beverly Hills Elite Legal', name: 'Century City Litigation Group', retainer: 12000, desc: 'Studio Lawsuits — Defends against studio breach-of-contract suits.', specialty: 'Lawsuits', connectedEvent: 'When a studio files a lawsuit after you breach a contract' },
+  { tier: 'Beverly Hills Elite Legal', name: 'Hollywood Offshore Shield', retainer: 20000, desc: 'All-Round Shield — Handles contracts, defamation, scandals, wills, and lawsuits.', specialty: 'All', connectedEvent: 'On any legal event' },
 ];
+// 8 lawyers - within 6-15 as requested, each tier in charge of something, all events connected to game (not random)
+
 
 export const LawFirmView: React.FC<LawFirmViewProps> = ({
   representationState,
@@ -216,11 +208,12 @@ export const LawFirmView: React.FC<LawFirmViewProps> = ({
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-indigo-300">{opt.tier}</span>
+                      <span className="text-xs font-bold text-indigo-300">{opt.tier} • {opt.specialty}</span>
                       <span className="text-xs font-black text-white">${opt.retainer.toLocaleString()}/wk</span>
                     </div>
                     <h5 className="text-sm font-black text-white">{opt.name}</h5>
                     <p className="text-xs text-gray-400 leading-relaxed">{opt.desc}</p>
+                    <p className="text-[10px] text-amber-300/80 italic">Connected: {opt.connectedEvent}</p>
                   </div>
 
                   {isCurrent ? (
