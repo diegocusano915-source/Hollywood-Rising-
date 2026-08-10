@@ -733,7 +733,7 @@ export class SocialsService {
         {
           id: 'b_4',
           name: 'Dylan Cross - Awards Watch Blogger',
-          tier: 'High',
+          tier: 'Elite',
           agencyName: 'AwardsWatch Blog Network',
           weeklyCost: 1200,
           postsPerWeek: 5,
@@ -749,7 +749,7 @@ export class SocialsService {
         {
           id: 'b_5',
           name: 'Mika Sato - Tokyo Cinema Blog',
-          tier: 'High',
+          tier: 'Elite',
           agencyName: 'Asia Cinema Blog Network',
           weeklyCost: 1500,
           postsPerWeek: 4,
