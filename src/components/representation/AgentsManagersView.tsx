@@ -401,6 +401,20 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section,
               >
                 <X className="w-3.5 h-3.5" /> Terminate Contract
               </button>
+
+              {/* VISIBLE MANAGER ACTIVITY — weekly report */}
+              {currentManager.activity && currentManager.activity.length > 0 && (
+                <div className="bg-black/40 p-3 rounded-xl border border-purple-500/30 space-y-1.5">
+                  <p className="text-[9px] text-purple-300 uppercase font-bold tracking-wider">This Week's Manager Activity</p>
+                  {currentManager.activity.map((a, i) => (
+                    <p key={i} className="text-[10px] text-gray-300 leading-relaxed">• {a}</p>
+                  ))}
+                  <div className="flex gap-3 pt-1 border-t border-white/10 text-[10px] text-gray-400">
+                    <span>Deals sourced: <strong className="text-white">{currentManager.totalDealsSourced || 0}</strong></span>
+                    <span>Commission earned: <strong className="text-white">${(currentManager.totalCommissionEarned || 0).toLocaleString()}</strong></span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

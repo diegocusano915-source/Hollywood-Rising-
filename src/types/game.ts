@@ -107,6 +107,10 @@ export interface ManagerInfo {
   pitchMessage?: string;
   signedWeek?: number;
   signedYear?: number;
+  // Visible manager activity (weekly reports + career totals)
+  activity?: string[];
+  totalDealsSourced?: number;
+  totalCommissionEarned?: number;
 }
 
 export interface PlayerRepresentation {

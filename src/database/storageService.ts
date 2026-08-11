@@ -180,7 +180,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Lionsgate', 'Focus Features', 'Hulu Originals', 'Sony Pictures', 'Netflix'][Math.floor(Math.random() * 5)];
     category = isTvSeries ? 'TV Series' : 'Feature Film';
     description = `Studio mid-budget ${category.toLowerCase()} casting a co-lead principal actor with strong charisma.`;
-    roleType = Math.random() < 0.35 ? 'Principal' : 'Lead'; // 35% Principal - leads carry the board
+    roleType = Math.random() < 0.9 ? 'Principal' : 'Lead'; // 90% Principal - principals dominate
   } else if (tier === 'Established Star') {
     // Established Pay: $60,000 - $180,000
     salary = Math.floor(60000 + Math.random() * 120000);
@@ -188,7 +188,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Warner Bros.', 'Universal Pictures', 'Paramount Pictures', 'HBO Max'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
     description = `Major theatrical production seeking a recognized lead actor for global release.`;
-    roleType = Math.random() < 0.25 ? 'Principal' : 'Lead'; // 25% Principal - stars mostly take Leads
+    roleType = Math.random() < 0.8 ? 'Principal' : 'Lead'; // 80% Principal - principals dominate
   } else {
     // A-List Franchise Blockbuster: $400,000 - $1,500,000
     salary = Math.floor(400000 + Math.random() * 1100000);
@@ -196,7 +196,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Marvel Studios', 'Universal Blockbusters', 'Paramount Tentpoles', 'Searchlight Pictures'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
     description = `Tier-1 global theatrical tentpole with worldwide marketing campaign and box office backend.`;
-    roleType = 'Lead';
+    roleType = Math.random() < 0.6 ? 'Principal' : 'Lead'; // 60% Principal - still majority
   }
 
   // Multiplier for Franchise sequels
@@ -338,21 +338,21 @@ export function validateAndEnforceCallboardRoster(
   let supportCount = roster.filter(p => p.roleType === 'Support' || p.roleType === 'Recurring').length;
   let minorCount = roster.filter(p => p.roleType === 'Cameo' || p.roleType === 'Guest Star' || p.roleType === 'Background').length;
 
-  // FAILSAFE 1: Enforce 3-4 Principal Roles per week (3-4, not more)
-  const targetPrincipal = 3 + Math.floor(Math.random() * 2); // 3-4
+  // FAILSAFE 1: PRINCIPALS MUST OUTNUMBER LEADS - 7-9 Principal roles per week
+  const targetPrincipal = 7 + Math.floor(Math.random() * 3); // 7-9
   while (principalCount < targetPrincipal) {
     const newPrincipal = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
     roster.unshift({ ...newPrincipal, roleType: 'Principal' });
     principalCount++;
   }
 
-  // PRINCIPAL CAP: max 4 Principal roles per week - the rest are Leads & other roles
-  while (principalCount > 4) {
-    const pIdx = roster.findIndex(p => p.roleType === 'Principal');
-    if (pIdx === -1) break;
-    roster[pIdx] = { ...roster[pIdx], roleType: 'Lead', salary: Math.floor((roster[pIdx].salary || 0) * 1.15) };
-    principalCount--;
-    leadCount++;
+  // LEAD CAP: max 4 Lead roles per week - convert excess Leads into Principals
+  while (leadCount > 4) {
+    const lIdx = roster.findIndex(p => p.roleType === 'Lead');
+    if (lIdx === -1) break;
+    roster[lIdx] = { ...roster[lIdx], roleType: 'Principal', salary: Math.floor((roster[lIdx].salary || 0) * 0.85) };
+    leadCount--;
+    principalCount++;
   }
 
   // FAILSAFE 2: Enforce Minimum 2 Supporting Roles
@@ -369,8 +369,8 @@ export function validateAndEnforceCallboardRoster(
     minorCount++;
   }
 
-  // LEAD PRESENCE: guarantee at least 3 Lead roles so the board isn't all support/minor
-  while (leadCount < 3) {
+  // LEAD PRESENCE: guarantee at least 2 Lead roles (rare, aspirational)
+  while (leadCount < 2) {
     const newLead = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
     roster.push({ ...newLead, roleType: 'Lead' });
     leadCount++;
@@ -380,9 +380,9 @@ export function validateAndEnforceCallboardRoster(
   const targetTotal = 20 + Math.floor(Math.random() * 6); // 20-25 as requested
   while (roster.length < 10) {
     const r = Math.random();
-    if (r < 0.3) {
+    if (r < 0.5) {
       roster.push(generateSinglePrincipalRole(playerFameXp, roster.length + 1));
-    } else if (r < 0.65) {
+    } else if (r < 0.8) {
       roster.push(generateSingleSupportingRole(playerFameXp, roster.length + 1));
     } else {
       roster.push(generateSingleMinorRole(playerFameXp, roster.length + 1));
@@ -413,9 +413,9 @@ export function generateCallboardProjects(count: number = 20 + Math.floor(Math.r
 
   while (projects.length < count) {
     const r = Math.random();
-    if (r < 0.25) {
+    if (r < 0.5) {
       projects.push(generateSinglePrincipalRole(playerFameXp, projects.length + 1));
-    } else if (r < 0.65) {
+    } else if (r < 0.8) {
       projects.push(generateSingleSupportingRole(playerFameXp, projects.length + 1));
     } else {
       projects.push(generateSingleMinorRole(playerFameXp, projects.length + 1));

@@ -1602,13 +1602,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const tier = signedAgent.tier || 1;
         const pitchCount = tier >= 4 ? 3 : tier >= 3 ? 2 : 1;
         const dealCap = signedAgent.dealCap || 15000000;
-        // AGENTS PITCH PRINCIPAL ROLES FIRST (agents specialize in principal bookings);
-        // fall back to any role within the agent's deal cap if principals are scarce.
+        // AGENTS PITCH ANY GOOD ROLE (principals, supporting, recurring) — Lead roles are
+        // NOT the priority; they only appear if nothing else is available in the deal cap.
         const withinCap = saveData.callboard.filter((c) => (c.salary || 0) <= dealCap);
-        const principalRoles = withinCap
-          .filter((c) => c.roleType === 'Principal')
+        const goodRoles = withinCap
+          .filter((c) => c.roleType !== 'Lead')
           .sort((a, b) => (b.salary || 0) - (a.salary || 0));
-        const eligible = principalRoles.length > 0 ? principalRoles : withinCap.sort((a, b) => (b.salary || 0) - (a.salary || 0));
+        const eligible = goodRoles.length >= pitchCount
+          ? goodRoles
+          : withinCap.sort((a, b) => (b.salary || 0) - (a.salary || 0));
         const picked = eligible.slice(0, pitchCount);
 
         picked.forEach((proj) => {
@@ -2188,6 +2190,63 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       return { ...movie, sequelOffered: true, sequelOfferedPart: nextPart, sequelCheckWeeks: checks };
     });
+
+    // 7d. MANAGER WEEKLY ACTIVITY & VISIBILITY — real reports, visible actions
+    const signedMgr = p.representation?.manager;
+    if (signedMgr?.signed) {
+      const mgrActivity: string[] = [];
+
+      // Sponsorship managed this week (real payouts)
+      if ((sponsorshipIncomeThisWeek || 0) > 0) {
+        mgrActivity.push(`💼 Managing corporate sponsorship payouts (+$${sponsorshipIncomeThisWeek.toLocaleString()} this week)`);
+      }
+
+      // Franchise/sequel deal negotiated this week (real)
+      const dealThisWeek = updatedBookedProjects.some((b) => b.sourcedByManager && b.status === 'Pending Negotiation');
+      if (dealThisWeek) {
+        mgrActivity.push('🤝 Negotiated a franchise/sequel offer with the studio — check Production Hub');
+        signedMgr.totalDealsSourced = (signedMgr.totalDealsSourced || 0) + 1;
+      }
+
+      // TV/Radio interview booked every 6 weeks (visible, real rewards)
+      if (p.dateWeek % 6 === 0) {
+        const fee = Math.floor(2000 + (p.fameXp || 0) * 2);
+        const fameGain = Math.floor(15 + (p.fameXp || 0) * 0.02);
+        const fanGain = Math.floor(200 + (p.fans || 0) * 0.002);
+        mgrActivity.push(`🎙️ Booked a TV/Radio interview — fee $${fee.toLocaleString()} paid, +${fameGain} XP, +${fanGain.toLocaleString()} fans`);
+        p.money = (p.money || 0) + fee;
+        p.fameXp = (p.fameXp || 0) + fameGain;
+        p.fans = (p.fans || 0) + fanGain;
+        fameGainedThisWeek += fameGain;
+        newInboxMessages.unshift({
+          id: `msg_mgr_interview_${Date.now()}`,
+          category: 'CAREER',
+          sender: signedMgr.name,
+          senderRole: signedMgr.company,
+          senderAvatar: signedMgr.avatarUrl,
+          subject: '🎙️ INTERVIEW BOOKED BY YOUR MANAGER',
+          body: `Your manager ${signedMgr.name} (${signedMgr.company}) booked you on a major TV/Radio interview this week.\n\n• Appearance Fee: $${fee.toLocaleString()} (deposited)\n• Fame: +${fameGain} XP\n• Fans: +${fanGain.toLocaleString()}\n\n${signedMgr.name} continues to build your public profile.`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+        newTimelineEvents.push({
+          id: `tl_mgr_interview_${Date.now()}`,
+          year: newYear,
+          week: newWeek,
+          category: 'MILESTONE',
+          title: `Interview Booked: ${signedMgr.name}`,
+          description: `Your manager booked a TV/Radio interview (+$${fee.toLocaleString()} fee, +${fanGain.toLocaleString()} fans).`,
+        });
+      }
+
+      // Always show baseline activity
+      if (mgrActivity.length === 0) {
+        mgrActivity.push('📋 Reviewing your contracts and pitching studios on your behalf');
+      }
+      signedMgr.activity = mgrActivity;
+      signedMgr.totalCommissionEarned = signedMgr.totalCommissionEarned || 0;
+      p.representation = { ...p.representation, manager: signedMgr };
+    }
 
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)
     const remainingCallboard: CallboardProject[] = [];
