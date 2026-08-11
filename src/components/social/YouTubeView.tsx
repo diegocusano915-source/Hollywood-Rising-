@@ -14,6 +14,8 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [state, setState] = useState<SocialsState>(() => SocialsService.getState());
   const [tab, setTab] = useState<'HOME' | 'SHORTS' | 'CHANNEL' | 'CREATOR' | 'PREMIUM'>('HOME');
   const [playing, setPlaying] = useState<any>(null);
+  const [videoTitle, setVideoTitle] = useState('');
+  const [fb, setFb] = useState<string | null>(null);
 
   const premium = state.premium || { tier: 'none' as const };
   const algo = state.youtubeAlgorithm || { lifetimeVideos: 0, discovered: false };
@@ -24,16 +26,16 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Algorithm is INVISIBLE — never shown to the player.
 
   const publish = () => {
-    if (!latest) return;
+    const title = videoTitle.trim() || (latest ? `'${latest.movieTitle}' — Official Trailer & Behind the Scenes` : `My New Video #${(state.youtubeVideos?.length || 0) + 1}`);
     const views = youtubeAlgorithmViews(algo.lifetimeVideos, player.fameXp || 0, algo.discovered);
     state.youtubeVideos = state.youtubeVideos || [];
     state.youtubeVideos.unshift({
       id: `yt_${Date.now()}`,
-      title: `'${latest.movieTitle}' — Official Trailer & Behind the Scenes`,
+      title,
       views,
       likes: Math.floor(views * 0.04),
       comments: Math.floor(views * 0.005),
-      thumbnailUrl: latest.posterUrl,
+      thumbnailUrl: latest?.posterUrl || player.avatarUrl,
       channelName: `${player.firstName} ${player.lastName}`,
       duration: '2:15',
       isPlayer: true,
@@ -43,6 +45,9 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (state.youtubeAlgorithm.lifetimeVideos >= 55) state.youtubeAlgorithm.discovered = true;
     SocialsService.saveState(state);
     setState({ ...state });
+    setVideoTitle('');
+    setFb('🎬 Video published to your channel!');
+    setTimeout(() => setFb(null), 3000);
   };
 
   const VideoCard: React.FC<{ v: any }> = ({ v }) => (
@@ -117,9 +122,18 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {tab === 'HOME' && (
         <div className="space-y-3">
+          {fb && <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-[11px] font-bold">{fb}</div>}
+          <div className="flex gap-2">
+            <input
+              value={videoTitle}
+              onChange={(e) => setVideoTitle(e.target.value)}
+              placeholder={latest ? `Video title (e.g. '${latest.movieTitle}' trailer)...` : 'Video title...'}
+              className="flex-1 bg-black/50 border border-white/10 rounded-2xl px-3 py-2.5 text-xs outline-none"
+            />
+            <button onClick={publish} className="px-4 py-2 rounded-2xl bg-red-600 text-white text-[10px] font-black cursor-pointer">Upload</button>
+          </div>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase text-gray-300">Recommended for you</h3>
-            <button onClick={publish} className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black cursor-pointer">+ Publish Video</button>
           </div>
           {videos.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No videos yet. Publish your first one! (New channels get 0-100 views — the algorithm learns from consistent posting.)</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{videos.slice(0, 12).map((v: any) => <VideoCard key={v.id} v={v} />)}</div>

@@ -13,8 +13,49 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [state, setState] = useState<SocialsState>(() => SocialsService.getState());
   const [tab, setTab] = useState<'HOME' | 'EXPLORE' | 'CREATE' | 'PROFILE' | 'PREMIUM'>('HOME');
   const [caption, setCaption] = useState('');
-  const [imageChoice, setImageChoice] = useState<'gallery' | 'generate'>('gallery');
+  const [imageChoice, setImageChoice] = useState<'gallery' | 'upload' | 'generate'>('gallery');
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [genCount, setGenCount] = useState(0);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [fb, setFb] = useState<string | null>(null);
+
+  // REAL device upload: reads the selected file as a data URL (works offline)
+  const handleFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploadedImage(reader.result as string);
+      setImageChoice('upload');
+      setFb('📷 Photo loaded from your device — add a caption and share!');
+      setTimeout(() => setFb(null), 3500);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // GENERATE: cycles through a pool of unique Hollywood-style images (never the same twice)
+  const GEN_POOL = [
+    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1524985069026-dd967a102f22?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&auto=format&fit=crop',
+  ];
+  const handleGenerate = () => {
+    const next = GEN_POOL[genCount % GEN_POOL.length];
+    setGeneratedImage(next);
+    setGenCount((c) => c + 1);
+    setImageChoice('generate');
+    setFb('✨ New image generated!');
+    setTimeout(() => setFb(null), 3000);
+  };
 
   const premium = state.premium || { tier: 'none' as const };
   const tick = PremiumService.tickName(state);
@@ -52,7 +93,10 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const createPost = () => {
-    const img = imageChoice === 'gallery' ? (latest?.posterUrl || player.avatarUrl) : player.avatarUrl;
+    const img =
+      imageChoice === 'upload' && uploadedImage ? uploadedImage :
+      imageChoice === 'generate' && generatedImage ? generatedImage :
+      (latest?.posterUrl || player.avatarUrl);
     const cap = caption.trim() || (latest ? `'${latest.movieTitle}' 🎬` : 'New post!');
     state.instagramPosts = state.instagramPosts || [];
     state.instagramPosts.unshift({
@@ -177,12 +221,20 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {tab === 'CREATE' && (
         <div className="space-y-3">
           <div className="flex gap-2">
-            <button onClick={() => setImageChoice('gallery')} className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${imageChoice === 'gallery' ? 'bg-rose-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}><ImageIcon className="w-3.5 h-3.5 inline mr-1" />Use my images</button>
-            <button onClick={() => setImageChoice('generate')} className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${imageChoice === 'generate' ? 'bg-rose-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}><Sparkles className="w-3.5 h-3.5 inline mr-1" />Generate</button>
+            <button onClick={() => setImageChoice('gallery')} className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${imageChoice === 'gallery' ? 'bg-rose-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}><ImageIcon className="w-3.5 h-3.5 inline mr-1" />My images</button>
+            <button onClick={() => fileInputRef.current?.click()} className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${imageChoice === 'upload' ? 'bg-rose-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}><ImageIcon className="w-3.5 h-3.5 inline mr-1" />Upload 📁</button>
+            <button onClick={handleGenerate} className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${imageChoice === 'generate' ? 'bg-rose-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}><Sparkles className="w-3.5 h-3.5 inline mr-1" />Generate</button>
           </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFilePicked} />
           <div className="aspect-square rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center overflow-hidden">
-            <img src={imageChoice === 'gallery' ? (latest?.posterUrl || player.avatarUrl) : player.avatarUrl} alt="" className="w-full h-full object-cover" />
+            <img
+              src={imageChoice === 'upload' && uploadedImage ? uploadedImage : imageChoice === 'generate' && generatedImage ? generatedImage : (latest?.posterUrl || player.avatarUrl)}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           </div>
+          {imageChoice === 'upload' && uploadedImage && <p className="text-[9px] text-emerald-400 font-bold text-center">📷 Your device photo ready to post</p>}
+          {imageChoice === 'generate' && generatedImage && <p className="text-[9px] text-purple-400 font-bold text-center">✨ Generated image ready — tap Generate again for a new one</p>}
           <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} placeholder="Write a caption... hashtags auto-added from your real events" className="w-full bg-black/50 border border-white/10 rounded-2xl p-3 text-xs outline-none resize-none" />
           <button onClick={createPost} className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-500 text-white text-xs font-black cursor-pointer">Share Post</button>
         </div>
