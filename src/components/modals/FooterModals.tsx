@@ -289,6 +289,14 @@ export const CreditsModal: React.FC = () => {
           </div>
 
           <div className="p-3 bg-black/40 rounded-xl border border-white/5 space-y-1">
+            <span className="text-amber-400 font-bold block text-[10px] uppercase">Music</span>
+            <p className="text-gray-200 font-medium text-[11px] leading-relaxed">
+              Original soundtrack: "Guts and Bourbon", "Bama Country", "Carefree", "Dreamer" and more —
+              Music by Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 3.0.
+            </p>
+          </div>
+
+          <div className="p-3 bg-black/40 rounded-xl border border-white/5 space-y-1">
             <span className="text-amber-400 font-bold block text-[10px] uppercase">Support</span>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-amber-300 font-mono font-bold underline">
               {SUPPORT_EMAIL}

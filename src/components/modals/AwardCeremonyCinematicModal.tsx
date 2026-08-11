@@ -33,7 +33,6 @@ export const AwardCeremonyCinematicModal: React.FC<AwardCeremonyCinematicModalPr
 
   useEffect(() => {
     // Play camera flashes & applause sound on mount
-    soundService.playMusicTrack('awards');
     soundService.playCameraFlash();
     soundService.playApplause();
   }, []);

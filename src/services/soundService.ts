@@ -24,19 +24,28 @@ export interface SoundtrackTrackInfo {
   durationSeconds: number;
 }
 
+// REAL ROYALTY-FREE MUSIC - 18 tracks by Kevin MacLeod (incompetech.com)
+// Licensed under Creative Commons: By Attribution 3.0 (free to use commercially with credit)
+// Country & soulful-pop selection - real acoustic instruments, no synthetic beats.
 export const HOLLYWOOD_SOUNDTRACK_PLAYLIST: SoundtrackTrackInfo[] = [
-  { id: 1, title: 'Sunset Boulevard Soul', genre: 'Soulful Neo-Soul', filename: 'track_1.mp3', durationSeconds: 45 },
-  { id: 2, title: 'Bel-Air Chillhop', genre: 'Smooth Chillhop Lofi', filename: 'track_2.mp3', durationSeconds: 48 },
-  { id: 3, title: 'Hollywood Golden Hour', genre: 'Warm Soulful Piano', filename: 'track_3.mp3', durationSeconds: 45 },
-  { id: 4, title: 'Midnight Penthouse', genre: 'Ambient Jazz & Rhodes', filename: 'track_4.mp3', durationSeconds: 52 },
-  { id: 5, title: 'Malibu Ocean Breeze', genre: 'Smooth California Soul', filename: 'track_5.mp3', durationSeconds: 50 },
-  { id: 6, title: 'Chateau Marmont Noir', genre: 'Late-Night Velvet Soul', filename: 'track_6.mp3', durationSeconds: 48 },
-  { id: 7, title: 'Oscar Prestige Gala', genre: 'Cinematic Orchestral Soul', filename: 'track_7.mp3', durationSeconds: 55 },
-  { id: 8, title: 'Century City Horizon', genre: 'Mellow Lounge Ambient', filename: 'track_8.mp3', durationSeconds: 50 },
-  { id: 9, title: 'Rodeo Drive Velvet', genre: 'Lush Acoustic Harmonies', filename: 'track_9.mp3', durationSeconds: 52 },
-  { id: 10, title: 'Pacific Coast Twilight', genre: 'Chill Acoustic Vibe', filename: 'track_10.mp3', durationSeconds: 50 },
-  { id: 11, title: 'Starlight Studio Vibes', genre: 'Hip-Hop Soul & Rhodes', filename: 'track_11.mp3', durationSeconds: 55 },
-  { id: 12, title: 'The Star Journey', genre: 'Triumphant Emotional Anthem', filename: 'track_12.mp3', durationSeconds: 50 },
+  { id: 1, title: 'Guts and Bourbon', genre: 'Country', filename: 'track_1.mp3', durationSeconds: 208 },
+  { id: 2, title: 'Bama Country', genre: 'Country', filename: 'track_2.mp3', durationSeconds: 211 },
+  { id: 3, title: 'River Valley Breakdown', genre: 'Bluegrass Country', filename: 'track_3.mp3', durationSeconds: 366 },
+  { id: 4, title: "Drankin' Song", genre: 'Country', filename: 'track_4.mp3', durationSeconds: 246 },
+  { id: 5, title: 'Cattails', genre: 'Country Folk', filename: 'track_5.mp3', durationSeconds: 159 },
+  { id: 6, title: 'Fireflies and Stardust', genre: 'Americana', filename: 'track_6.mp3', durationSeconds: 255 },
+  { id: 7, title: 'Crossing the Divide', genre: 'Americana', filename: 'track_7.mp3', durationSeconds: 193 },
+  { id: 8, title: 'Carefree', genre: 'Soulful Pop', filename: 'track_8.mp3', durationSeconds: 205 },
+  { id: 9, title: 'Life of Riley', genre: 'Soulful Pop', filename: 'track_9.mp3', durationSeconds: 235 },
+  { id: 10, title: 'Sunshine', genre: 'Soulful Pop', filename: 'track_10.mp3', durationSeconds: 224 },
+  { id: 11, title: 'Clear Air', genre: 'Acoustic Pop', filename: 'track_11.mp3', durationSeconds: 183 },
+  { id: 12, title: 'Montauk Point', genre: 'Warm Pop', filename: 'track_12.mp3', durationSeconds: 219 },
+  { id: 13, title: 'Somewhere Sunny', genre: 'Acoustic Pop', filename: 'track_13.mp3', durationSeconds: 114 },
+  { id: 14, title: 'Dream Culture', genre: 'Dreamy Pop', filename: 'track_14.mp3', durationSeconds: 214 },
+  { id: 15, title: 'Angel Share', genre: 'Uplifting Pop', filename: 'track_15.mp3', durationSeconds: 200 },
+  { id: 16, title: 'Dreamer', genre: 'Soulful Piano Pop', filename: 'track_16.mp3', durationSeconds: 204 },
+  { id: 17, title: 'Inner Light', genre: 'Romantic Pop', filename: 'track_17.mp3', durationSeconds: 576 },
+  { id: 18, title: 'Promises to Keep', genre: 'Soulful Piano', filename: 'track_18.mp3', durationSeconds: 304 },
 ];
 
 class SoundService {
@@ -127,15 +136,9 @@ class SoundService {
 
   public playMusicTrack(mode?: MusicTrackMode) {
     if (!this.musicEnabled) return;
-
-    let trackIdx = this.currentTrackIndex;
-    if (mode === 'menu') trackIdx = 0;
-    else if (mode === 'relationships') trackIdx = 1;
-    else if (mode === 'empire' || mode === 'box_office') trackIdx = 4;
-    else if (mode === 'awards' || mode === 'premiere') trackIdx = 6;
-    else if (mode === 'production') trackIdx = 10;
-
-    this.playTrackAtIndex(trackIdx);
+    // Music is continuous - never restart just because a section changed.
+    if (this.isMusicPlaying && this.audioPlayer && !this.audioPlayer.paused) return;
+    this.startContinuousSoundtrack();
   }
 
   public startContinuousSoundtrack() {

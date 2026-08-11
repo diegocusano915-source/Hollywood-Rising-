@@ -397,29 +397,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData.player]);
 
   useEffect(() => {
-    if (currentScreen === 'game_home') {
-      switch (activeMainTab) {
-        case 'HOME':
-          soundService.playMusicTrack('career');
-          break;
-        case 'TALENT':
-          soundService.playMusicTrack('production');
-          break;
-        case 'WORLD':
-          soundService.playMusicTrack('empire');
-          break;
-        case 'NETWORK':
-          soundService.playMusicTrack('relationships');
-          break;
-        case 'EMPIRE':
-          soundService.playMusicTrack('empire');
-          break;
-        case 'REPRESENTATION':
-          soundService.playMusicTrack('career');
-          break;
-      }
-    } else if (currentScreen === 'main_menu') {
-      soundService.playMusicTrack('menu');
+    // MUSIC IS CONTINUOUS: the soundtrack plays on without restarting when the
+    // player navigates between tabs/sections. Tracks play fully before advancing.
+    if (currentScreen === 'game_home' || currentScreen === 'main_menu') {
+      soundService.startContinuousSoundtrack();
     }
   }, [activeMainTab, currentScreen]);
 

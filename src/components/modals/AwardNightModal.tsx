@@ -39,7 +39,6 @@ export const AwardNightModal: React.FC<AwardNightModalProps> = ({ data, onClose 
   };
 
   useEffect(() => {
-    soundService.playMusicTrack('awards');
     soundService.playFanfare();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

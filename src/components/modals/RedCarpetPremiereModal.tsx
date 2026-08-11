@@ -31,7 +31,6 @@ export const RedCarpetPremiereModal: React.FC<RedCarpetPremiereModalProps> = ({
   const [selectedResponse, setSelectedResponse] = useState<number | null>(null);
 
   useEffect(() => {
-    soundService.playMusicTrack('premiere');
     soundService.playCameraFlash();
     soundService.playApplause();
   }, []);
