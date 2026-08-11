@@ -1,10 +1,11 @@
 /**
- * HOLLYWOOD RISING - Talent Agents & Personal Managers Marketplace (Rebuilt)
- * Two SEPARATE sections. Each is always visible but LOCKED until requirements are met:
- *   - Talent Agent   : 4 Principal Roles OR 4 Movies Released
+ * HOLLYWOOD RISING - Talent Agents OR Personal Managers (separate screens)
+ * Rendered by section prop:
+ *   - section="agents"   -> ONLY the Talent Agents marketplace
+ *   - section="managers" -> ONLY the Personal Managers marketplace
+ * No tabs, no mixing. Cards are locked until requirements are met.
+ *   - Talent Agent    : 4 Principal Roles OR 4 Movies Released
  *   - Personal Manager: 8 Lead Roles OR 8 Movies Released + 3,000 Fame XP
- * 10 agents + 10 managers rotate weekly from pools of 28 each (4 tiers, ratings).
- * Agents & managers pitch themselves in your Inbox when you're doing well.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -15,7 +16,6 @@ import { RepresentationService } from '../../services/representationService';
 import { THEMES } from '../../theme/colors';
 import {
   ArrowLeft,
-  Briefcase,
   Star,
   Lock,
   Check,
@@ -23,14 +23,15 @@ import {
   Zap,
   DollarSign,
   Calendar,
-  AlertTriangle,
   UserCheck,
   X,
   Sparkles,
-  Film,
+  Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface AgentsManagersViewProps {
+  section: 'agents' | 'managers';
   representationState: RepresentationFullState;
   onRefresh: () => void;
   onBack: () => void;
@@ -43,16 +44,11 @@ const TIER_BADGES: Record<number, { label: string; cls: string }> = {
   4: { label: 'TIER 4 · ELITE', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/40' },
 };
 
-const AGENT_SPECIALTIES = [
-  'Film Agent', 'TV Agent', 'Voice & MoCap Agent', 'Franchise Agent', 'International Agent',
-  'Commercial & Web Agent', 'A-List Film Agent', 'Global Superstar Agent', 'Legendary Agent', 'Film & TV Agent',
-];
-
-export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ representationState, onRefresh, onBack }) => {
+export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section, representationState, onRefresh, onBack }) => {
   const { player, signAgentContract, hireManager, terminateRepresentation, settings } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
-  const [activeSection, setActiveSection] = useState<'AGENTS' | 'MANAGERS'>('AGENTS');
+  const isAgents = section === 'agents';
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [managers, setManagers] = useState<ManagerInfo[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -65,20 +61,22 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
 
   const agentUnlocked = principalCount + moviesCount >= 4;
   const managerUnlocked = leadCount + moviesCount >= 8 && fameXp >= 3000;
+  const unlocked = isAgents ? agentUnlocked : managerUnlocked;
 
   const currentAgent = player.representation?.agent;
   const currentManager = player.representation?.manager;
+  const current = isAgents ? currentAgent : currentManager;
 
   const refresh = () => {
-    setAgents(RepresentationService.getWeeklyAgents());
-    setManagers(RepresentationService.getWeeklyManagers());
+    if (isAgents) setAgents(RepresentationService.getWeeklyAgents());
+    else setManagers(RepresentationService.getWeeklyManagers());
     onRefresh();
   };
 
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection]);
+  }, [section]);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
@@ -101,8 +99,8 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
     if (res.success) refresh();
   };
 
-  const handleFire = (kind: 'agent' | 'manager') => {
-    const current = kind === 'agent' ? currentAgent : currentManager;
+  const handleFire = () => {
+    const kind = isAgents ? ('agent' as const) : ('manager' as const);
     const weeksLeft = current?.weeksRemaining || 0;
     const penalty = weeksLeft > 0 ? current?.breachPenalty || 0 : 0;
     if (!window.confirm(
@@ -117,64 +115,41 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
     if (res.success) refresh();
   };
 
-  const agentInterested = (agent: AgentInfo) => {
-    // Elite agents demand fame before they'll work with you (realistic ladder)
-    return fameXp >= (agent.minFameXp || 0);
-  };
+  const agentInterested = (agent: AgentInfo) => fameXp >= (agent.minFameXp || 0);
+  const managerInterested = (mgr: ManagerInfo) =>
+    fameXp >= (mgr.tier === 4 ? 8000 : mgr.tier === 3 ? 3000 : 0);
 
   return (
-    <div
-      className="min-h-screen w-full flex flex-col p-3 sm:p-5 select-none overflow-y-auto pb-28 space-y-4"
-      style={{ backgroundColor: theme.background }}
-    >
-      {/* Navigation Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          onClick={onBack}
-          className="px-4 py-2.5 rounded-2xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg"
-        >
-          <ArrowLeft className="w-4 h-4 text-amber-400" />
-          <span>Back to World</span>
-        </button>
-        <div className="flex items-center gap-2 text-xs font-black text-white uppercase tracking-wider">
-          <Briefcase className="w-5 h-5 text-amber-400" />
-          <span>Talent Representation</span>
-        </div>
-      </div>
-
+    <div className="space-y-6 text-white select-none pb-12">
+      {/* Feedback Toast */}
       {feedback && (
         <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-xs font-black text-center shadow">
           {feedback}
         </div>
       )}
 
-      {/* Section Tabs */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between bg-black/60 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
         <button
-          onClick={() => setActiveSection('AGENTS')}
-          className={`px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-            activeSection === 'AGENTS'
-              ? 'bg-amber-500 text-black border-amber-400 shadow-lg'
-              : 'bg-black/40 text-gray-300 border-white/10 hover:border-white/30'
-          }`}
+          onClick={onBack}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition-all cursor-pointer"
         >
-          <Star className="w-4 h-4" />
-          Talent Agents
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Representation</span>
         </button>
-        <button
-          onClick={() => setActiveSection('MANAGERS')}
-          className={`px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-            activeSection === 'MANAGERS'
-              ? 'bg-amber-500 text-black border-amber-400 shadow-lg'
-              : 'bg-black/40 text-gray-300 border-white/10 hover:border-white/30'
-          }`}
-        >
-          <Crown className="w-4 h-4" />
-          Personal Managers
-        </button>
+        <div className="flex items-center gap-2">
+          {isAgents ? (
+            <Star className="w-5 h-5 text-amber-400" />
+          ) : (
+            <Crown className="w-5 h-5 text-purple-400" />
+          )}
+          <h2 className="text-sm font-black text-white uppercase tracking-wider">
+            {isAgents ? 'TALENT AGENTS' : 'PERSONAL MANAGERS'}
+          </h2>
+        </div>
       </div>
 
-      {activeSection === 'AGENTS' ? (
+      {isAgents ? (
         <div className="space-y-5">
           {/* LOCKED REQUIREMENT CARD (always visible) */}
           {!agentUnlocked && (
@@ -242,7 +217,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
                 </div>
               </div>
               <button
-                onClick={() => handleFire('agent')}
+                onClick={handleFire}
                 className="px-4 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-500 text-white text-[10px] font-black uppercase transition-all cursor-pointer flex items-center gap-2"
               >
                 <X className="w-3.5 h-3.5" /> Terminate Contract
@@ -250,7 +225,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
             </div>
           )}
 
-          {/* MARKETPLACE */}
+          {/* MARKETPLACE — only when unlocked */}
           {agentUnlocked && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -381,13 +356,13 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
 
           {/* CURRENT CONTRACT */}
           {currentManager?.signed && (
-            <div className="p-5 rounded-3xl border-2 border-amber-400/60 bg-gradient-to-br from-amber-950/40 via-black/70 to-black/70 space-y-3">
+            <div className="p-5 rounded-3xl border-2 border-purple-400/60 bg-gradient-to-br from-purple-950/40 via-black/70 to-black/70 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
-                  <img src={currentManager.avatarUrl} alt="" className="w-12 h-12 rounded-2xl object-cover border-2 border-amber-400/50" />
+                  <img src={currentManager.avatarUrl} alt="" className="w-12 h-12 rounded-2xl object-cover border-2 border-purple-400/50" />
                   <div>
                     <p className="text-sm font-black text-white">{currentManager.name}</p>
-                    <p className="text-[10px] text-amber-300 font-bold uppercase">{currentManager.company} · {currentManager.specialty}</p>
+                    <p className="text-[10px] text-purple-300 font-bold uppercase">{currentManager.company} · {currentManager.specialty}</p>
                   </div>
                 </div>
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase flex items-center gap-1.5">
@@ -413,7 +388,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
                 </div>
               </div>
               <button
-                onClick={() => handleFire('manager')}
+                onClick={handleFire}
                 className="px-4 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-500 text-white text-[10px] font-black uppercase transition-all cursor-pointer flex items-center gap-2"
               >
                 <X className="w-3.5 h-3.5" /> Terminate Contract
@@ -421,12 +396,12 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
             </div>
           )}
 
-          {/* MARKETPLACE */}
+          {/* MARKETPLACE — only when unlocked */}
           {managerUnlocked && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-black uppercase tracking-wider text-gray-200 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" /> Weekly Manager Pool
+                  <Sparkles className="w-4 h-4 text-purple-400" /> Weekly Manager Pool
                 </h3>
                 <span className="text-[10px] text-gray-500 font-bold">10 shown · 28 total · refreshes weekly</span>
               </div>
@@ -436,7 +411,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
               {managers.map((mgr) => {
                 const badge = TIER_BADGES[mgr.tier || 1];
                 const totalCost = Math.floor(((mgr.yearlySalary || 0) * (mgr.contractLengthWeeks || 52)) / 52);
-                const interested = fameXp >= (mgr.tier === 4 ? 8000 : mgr.tier === 3 ? 3000 : 0);
+                const interested = managerInterested(mgr);
                 return (
                   <div key={mgr.id} className="p-5 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-md space-y-3">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -449,7 +424,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2.5 py-1 rounded-lg border text-[9px] font-black ${badge.cls}`}>{badge.label}</span>
-                        <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-[10px] font-black text-amber-300 flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-[10px] font-black text-purple-300 flex items-center gap-1">
                           <Star className="w-3 h-3 fill-current" /> {mgr.rating}
                         </span>
                       </div>
@@ -462,7 +437,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
                       </div>
                       <div className="bg-black/40 p-2.5 rounded-xl border border-white/10">
                         <span className="text-[9px] text-gray-500 uppercase block font-bold">Paid Upfront</span>
-                        <span className="font-black text-amber-300">${totalCost.toLocaleString()}</span>
+                        <span className="font-black text-purple-300">${totalCost.toLocaleString()}</span>
                       </div>
                       <div className="bg-black/40 p-2.5 rounded-xl border border-white/10">
                         <span className="text-[9px] text-gray-500 uppercase block font-bold">Deal Cap</span>
@@ -476,13 +451,13 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
 
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <p className="text-[10px] text-gray-500 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                        <Calendar className="w-3.5 h-3.5 text-purple-400" />
                         Contract: {((mgr.contractLengthWeeks || 52) / 52).toFixed(1)} yr(s) · Breach: ${(mgr.breachPenalty || 0).toLocaleString()} · {mgr.perks}
                       </p>
                       {interested ? (
                         <button
                           onClick={() => handleHireManager(mgr)}
-                          className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-2"
+                          className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-purple-400 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-2"
                         >
                           <DollarSign className="w-4 h-4" /> Hire Manager
                         </button>
@@ -502,10 +477,21 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ represen
 
       {/* Footer explanation */}
       <div className="p-4 rounded-2xl bg-black/40 border border-white/10 text-[10px] text-gray-500 leading-relaxed space-y-1">
-        <p className="font-black text-gray-400 uppercase tracking-wider flex items-center gap-2"><Zap className="w-3.5 h-3.5 text-amber-400" /> How it works</p>
-        <p>• <strong className="text-gray-300">Agents</strong> auto-submit you to real Callboard roles (1 every few weeks by tier), take a % commission from your acting salaries, and unlock brand endorsements. Elite agents demand high Fame XP before they'll take you on.</p>
-        <p>• <strong className="text-gray-300">Managers</strong> negotiate your franchise/sequel deals with studios, source corporate sponsorships (Nike, Mercedes, Omega), and handle bankroll & interviews. Salary is paid <strong className="text-gray-300">upfront</strong> for the full contract term.</p>
-        <p>• Breaking a contract early = breach penalty. When contracts end at term, no penalty.</p>
+        <p className="font-black text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          {isAgents ? <Star className="w-3.5 h-3.5 text-amber-400" /> : <Crown className="w-3.5 h-3.5 text-purple-400" />}
+          How {isAgents ? 'agents' : 'managers'} work
+        </p>
+        {isAgents ? (
+          <>
+            <p>• <strong className="text-gray-300">Agents</strong> auto-submit you to real Callboard roles (1 every few weeks by tier), take a % commission from your acting salaries, and unlock brand endorsements. Elite agents demand high Fame XP before they'll take you on.</p>
+            <p>• Breaking a contract early = breach penalty. When contracts end at term, no penalty.</p>
+          </>
+        ) : (
+          <>
+            <p>• <strong className="text-gray-300">Managers</strong> negotiate your franchise/sequel deals with studios, source corporate sponsorships (Nike, Mercedes, Omega), and handle bankroll & interviews. Salary is paid <strong className="text-gray-300">upfront</strong> for the full contract term.</p>
+            <p>• Breaking a contract early = breach penalty. When contracts end at term, no penalty.</p>
+          </>
+        )}
       </div>
     </div>
   );
