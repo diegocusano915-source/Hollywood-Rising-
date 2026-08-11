@@ -5,7 +5,7 @@
  */
 
 import { Player, InboxMessage } from '../types/game';
-import { SocialPost, HiredWriter } from '../types/world';
+import { SocialPost, HiredWriter, PremiumState, RedditPost, RedditComment, TelegramStory, MarqueeJob } from '../types/world';
 import { RepresentationService } from './representationService';
 
 export type PlatformType = 'Twitter' | 'Facebook' | 'Instagram' | 'Reddit' | 'YouTube' | 'Telegram';
@@ -294,6 +294,21 @@ export interface SocialsState {
   fanFeed: FanFeedItem[];
   analyticsHistory: SocialAnalyticsSnapshot[];
   trendingTopics: string[];
+
+  // SOCIAL MEDIA HUB V2 (7 platforms)
+  premium: PremiumState;
+  youtubeAlgorithm: { lifetimeVideos: number; discovered: boolean };
+  facebookPosts: SocialPost[];
+  redditPosts: RedditPost[];
+  redditComments: RedditComment[];
+  marqueePosts: SocialPost[];
+  marqueeJobs: MarqueeJob[];
+  telegramStories: TelegramStory[];
+  telegramChannelSubs: number;
+  redditKarma: number;
+  marqueeConnections: number;
+  facebookFriends: number;
+  creatorStudio: { totalImpressions: number; totalAdRevenue: number; weeklyAdRevenue: number };
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -825,6 +840,19 @@ export class SocialsService {
 
       sponsorshipDeals: [], // BALANCED: Removed pre-seeded fake offers - sponsorships now only appear after Fame 500 + fans 10000 (Tier 1)
       fanFeed: [], // FIXED: Removed auto Jessica Miller comment - fan club starts empty
+      premium: { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 },
+      youtubeAlgorithm: { lifetimeVideos: 0, discovered: false },
+      facebookPosts: [],
+      redditPosts: [],
+      redditComments: [],
+      marqueePosts: [],
+      marqueeJobs: [],
+      telegramStories: [],
+      telegramChannelSubs: 0,
+      redditKarma: 0,
+      marqueeConnections: 0,
+      facebookFriends: 0,
+      creatorStudio: { totalImpressions: 0, totalAdRevenue: 0, weeklyAdRevenue: 0 },
       analyticsHistory: [],
       trendingTopics: ['#HollywoodRising', '#BoxOfficeRecord', '#OscarBuzz', '#SAGAwards', '#CaliforniaFilm'],
     };
@@ -1884,4 +1912,362 @@ export class SocialsService {
       message: `Application submitted! Partner Program review will take approx ${state.youtubeReviewWeeksLeft} weeks.`,
     };
   }
+}
+
+// ============================================================
+// SOCIAL MEDIA HUB V2 — PREMIUM, WRITERS, ALGORITHM, CREATOR STUDIO
+// ============================================================
+
+export const PREMIUM_TIERS = {
+  premium: { name: 'Premium', monthly: 22, yearly: 220, tick: 'BLUE', boost: 1.35 },
+  plus: { name: 'Premium+', monthly: 30, yearly: 300, tick: 'GOLD', boost: 1.6 },
+  pro: { name: 'Premium++', monthly: 150, yearly: 1500, tick: 'GRAY', boost: 2.0 },
+} as const;
+
+export interface SocialWriter {
+  id: string;
+  name: string;
+  tier: 1 | 2 | 3 | 4;
+  tierLabel: string;
+  specialty: string;
+  weeklyCost: number;
+  postsPerWeek: number;
+  qualityBoost: number;
+  maxContractWeeks: number;
+  cancelFee: number;
+  minFame: number;
+  bio: string;
+  avatar: string;
+  agencyName: string;
+}
+
+const WRITER_AVATARS = [
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop',
+];
+
+// 24-WRITER POOL: 4 tiers x 6 specialties
+export const SOCIAL_WRITER_POOL: SocialWriter[] = [
+  // TIER 1 — Junior Bloggers ($250-400/wk)
+  { id: 'w_j1', name: 'Nina Vale', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 250, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 500, minFame: 0, bio: 'Fresh film blog voice covering indie releases.', avatar: WRITER_AVATARS[0], agencyName: 'The Daily Marquee Blog' },
+  { id: 'w_j2', name: 'Caleb Frost', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Gossip & Celebrity', weeklyCost: 275, postsPerWeek: 3, qualityBoost: 9, maxContractWeeks: 30, cancelFee: 550, minFame: 0, bio: 'Sunset Strip gossip columnist in training.', avatar: WRITER_AVATARS[1], agencyName: 'Sunset Scoop' },
+  { id: 'w_j3', name: 'Rhea Patel', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Lifestyle & Brand', weeklyCost: 260, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 520, minFame: 0, bio: 'Lifestyle writer for emerging talent.', avatar: WRITER_AVATARS[2], agencyName: 'La La Life Blog' },
+  { id: 'w_j4', name: 'Oscar Bennet', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 240, postsPerWeek: 2, qualityBoost: 7, maxContractWeeks: 30, cancelFee: 480, minFame: 0, bio: 'Movie lover writing honest reviews.', avatar: WRITER_AVATARS[3], agencyName: 'Popcorn Prophet' },
+  { id: 'w_j5', name: 'Lena Cruz', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Awards Watch', weeklyCost: 280, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 560, minFame: 0, bio: 'Tracks the awards season calendar.', avatar: WRITER_AVATARS[4], agencyName: 'The Reel Report' },
+  { id: 'w_j6', name: 'Dante Fox', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Business & Trade', weeklyCost: 300, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 600, minFame: 0, bio: 'Reports on Hollywood money moves.', avatar: WRITER_AVATARS[5], agencyName: 'Studio Gate' },
+  // TIER 2 — Content Writers ($600-900/wk)
+  { id: 'w_c1', name: 'Ava Reed', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 650, postsPerWeek: 4, qualityBoost: 18, maxContractWeeks: 30, cancelFee: 1500, minFame: 300, bio: 'Hollywood Insider blogger covering releases and red carpets.', avatar: WRITER_AVATARS[0], agencyName: 'Hollywood Insider Blog Network' },
+  { id: 'w_c2', name: 'Jaxon Cole', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Gossip & Celebrity', weeklyCost: 600, postsPerWeek: 5, qualityBoost: 20, maxContractWeeks: 30, cancelFee: 1400, minFame: 500, bio: 'Gossip Wire specialist in celebrity news.', avatar: WRITER_AVATARS[1], agencyName: 'Gossip Wire Media' },
+  { id: 'w_c3', name: 'Sierra Lane', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 750, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 1700, minFame: 600, bio: 'Cinema Review Collective critic.', avatar: WRITER_AVATARS[2], agencyName: 'Cinema Review Collective' },
+  { id: 'w_c4', name: 'Dylan Cross', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Awards Watch', weeklyCost: 800, postsPerWeek: 5, qualityBoost: 24, maxContractWeeks: 30, cancelFee: 1800, minFame: 800, bio: 'AwardsWatch blogger with insider buzz.', avatar: WRITER_AVATARS[3], agencyName: 'AwardsWatch Blog Network' },
+  { id: 'w_c5', name: 'Mika Sato', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'International', weeklyCost: 900, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 2000, minFame: 1000, bio: 'Tokyo cinema blogger with global reach.', avatar: WRITER_AVATARS[4], agencyName: 'Asia Cinema Blog Network' },
+  { id: 'w_c6', name: 'Ethan Brooks', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Business & Trade', weeklyCost: 850, postsPerWeek: 4, qualityBoost: 21, maxContractWeeks: 30, cancelFee: 1900, minFame: 900, bio: 'Trade reporter for financing and deals.', avatar: WRITER_AVATARS[5], agencyName: 'The Marquee Trade Desk' },
+  // TIER 3 — Senior Publicists ($1,200-2,000/wk)
+  { id: 'w_s1', name: 'Sophia Sterling', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'PR & Lifestyle', weeklyCost: 1250, postsPerWeek: 6, qualityBoost: 35, maxContractWeeks: 30, cancelFee: 4000, minFame: 2000, bio: 'Sterling PR Media Group senior publicist.', avatar: WRITER_AVATARS[0], agencyName: 'Sterling PR Media Group' },
+  { id: 'w_s2', name: 'Marcus Hayes', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Awards Watch', weeklyCost: 1500, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 5000, minFame: 2500, bio: 'Beverly Hills PR specialist for campaigns.', avatar: WRITER_AVATARS[1], agencyName: 'Beverly Hills PR Specialists' },
+  { id: 'w_s3', name: 'Isabella Fontaine', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Film Reviewer', weeklyCost: 1400, postsPerWeek: 6, qualityBoost: 38, maxContractWeeks: 30, cancelFee: 4600, minFame: 2200, bio: 'Trades-level critic and reporter.', avatar: WRITER_AVATARS[2], agencyName: 'Redwood Review Desk' },
+  { id: 'w_s4', name: 'Andre Whitfield', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Business & Trade', weeklyCost: 1600, postsPerWeek: 7, qualityBoost: 42, maxContractWeeks: 30, cancelFee: 5200, minFame: 3000, bio: 'Variety-style entertainment business reporter.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Business Desk' },
+  { id: 'w_s5', name: 'Camille Dubois', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Gossip & Celebrity', weeklyCost: 1300, postsPerWeek: 7, qualityBoost: 36, maxContractWeeks: 30, cancelFee: 4200, minFame: 2000, bio: 'Celebrity features writer with sources.', avatar: WRITER_AVATARS[4], agencyName: 'Fame Focus Media' },
+  { id: 'w_s6', name: 'Lucas Meyer', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'International', weeklyCost: 2000, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 6000, minFame: 3500, bio: 'Global press tour specialist.', avatar: WRITER_AVATARS[5], agencyName: 'Global Press Group' },
+  // TIER 4 — Elite Ghostwriters ($3,000-5,000/wk)
+  { id: 'w_e1', name: 'Vanguard Global PR', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'PR & Lifestyle', weeklyCost: 3200, postsPerWeek: 8, qualityBoost: 70, maxContractWeeks: 30, cancelFee: 12000, minFame: 6000, bio: 'Top-tier global PR agency with 24/7 account management.', avatar: WRITER_AVATARS[0], agencyName: 'Vanguard Global Communications Inc.' },
+  { id: 'w_e2', name: 'Julian Cross', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Awards Watch', weeklyCost: 3800, postsPerWeek: 9, qualityBoost: 80, maxContractWeeks: 30, cancelFee: 14000, minFame: 8000, bio: 'Oscar campaign whisperer.', avatar: WRITER_AVATARS[1], agencyName: 'Cross Campaigns' },
+  { id: 'w_e3', name: 'Victoria Reign', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Gossip & Celebrity', weeklyCost: 3500, postsPerWeek: 10, qualityBoost: 75, maxContractWeeks: 30, cancelFee: 13000, minFame: 7500, bio: 'The most connected celebrity writer in Hollywood.', avatar: WRITER_AVATARS[2], agencyName: 'Reign Media' },
+  { id: 'w_e4', name: 'Silas Monroe', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Film Reviewer', weeklyCost: 3000, postsPerWeek: 8, qualityBoost: 65, maxContractWeeks: 30, cancelFee: 11000, minFame: 5000, bio: 'Legendary critic with a trusted byline.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Review' },
+  { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 30, cancelFee: 16000, minFame: 10000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
+  { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 30, cancelFee: 18000, minFame: 12000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
+];
+
+// ---------- PREMIUM ----------
+export class PremiumService {
+  static getActive(state: SocialsState): boolean {
+    const p = state.premium || { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
+    return p.tier !== 'none' && (p.plan === 'none' || true);
+  }
+  static boostFor(state: SocialsState): number {
+    const p = state.premium;
+    if (!p || p.tier === 'none') return 1;
+    return PREMIUM_TIERS[p.tier].boost;
+  }
+  static tickName(state: SocialsState): string {
+    const p = state.premium;
+    if (!p || p.tier === 'none') return 'NONE';
+    return PREMIUM_TIERS[p.tier].tick;
+  }
+  static purchase(
+    state: SocialsState,
+    tier: 'premium' | 'plus' | 'pro',
+    plan: 'monthly' | 'yearly',
+    money: number,
+    week: number,
+    year: number
+  ): { success: boolean; message: string; newMoney: number } {
+    const cfg = PREMIUM_TIERS[tier];
+    const cost = plan === 'monthly' ? cfg.monthly : cfg.yearly;
+    if (money < cost) return { success: false, message: `Insufficient funds — ${cfg.name} ${plan} costs $${cost}.`, newMoney: money };
+    const weeks = plan === 'monthly' ? 4 : 52;
+    state.premium = { tier, plan, expiresWeek: (week + weeks - 1) % 52 + 1, expiresYear: year + Math.floor((week + weeks - 1) / 52) };
+    return { success: true, message: `${cfg.name} (${plan}) activated — ${weeks} weeks!`, newMoney: money - cost };
+  }
+}
+
+// ---------- YOUTUBE ALGORITHM (invisible tracker) ----------
+export function youtubeAlgorithmViews(lifetimeVideos: number, fameXp: number, discovered: boolean): number {
+  // New channels are invisible (0-100 views). After ~55 posts the algorithm pushes videos out.
+  if (!discovered) {
+    if (lifetimeVideos >= 55) return Math.floor(500 + fameXp * 8 + Math.random() * 2000);
+    return Math.floor(Math.random() * 100); // 0-100 views until the algorithm picks you up
+  }
+  return Math.floor(2000 + fameXp * 60 + Math.random() * fameXp * 20);
+}
+
+// ---------- WRITERS (hire 1, max 30 weeks, cancel fee) ----------
+export function hireSocialWriter(
+  state: SocialsState,
+  writerId: string,
+  money: number
+): { success: boolean; message: string; newMoney: number } {
+  const existing = state.writers.find((w) => w.hired);
+  if (existing) return { success: false, message: 'You already have a hired writer. Cancel their contract first.', newMoney: money };
+  const w = SOCIAL_WRITER_POOL.find((x) => x.id === writerId);
+  if (!w) return { success: false, message: 'Writer not found.', newMoney: money };
+  if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, newMoney: money };
+  state.writers = state.writers.map((wr) => wr.hired ? wr : wr);
+  state.writers.push({
+    id: w.id,
+    name: w.name,
+    tier: w.tier === 1 ? 'Low' : w.tier === 2 ? 'Medium' : w.tier === 3 ? 'Elite' : 'Elite',
+    weeklyCost: w.weeklyCost,
+    postsPerWeek: w.postsPerWeek,
+    contractWeeksRemaining: w.maxContractWeeks,
+    postsThisWeek: 0,
+    qualityBoost: w.qualityBoost,
+    hired: true,
+    agencyName: w.agencyName,
+    minFame: w.minFame,
+    bio: w.bio,
+    avatar: w.avatar,
+  });
+  return { success: true, message: `${w.name} (${w.agencyName}) hired for ${w.maxContractWeeks} weeks!`, newMoney: money };
+}
+
+export function fireSocialWriter(state: SocialsState, money: number): { success: boolean; message: string; newMoney: number } {
+  const existing = state.writers.find((w) => w.hired);
+  if (!existing) return { success: false, message: 'No writer hired.', newMoney: money };
+  const pool = SOCIAL_WRITER_POOL.find((w) => w.id === existing.id);
+  const fee = pool ? pool.cancelFee : 1000;
+  if (money < fee) return { success: false, message: `Insufficient funds for cancellation fee ($${fee}).`, newMoney: money };
+  state.writers = state.writers.filter((w) => w.id !== existing.id);
+  return { success: true, message: `${existing.name} fired. Paid $${fee} cancellation fee.`, newMoney: money - fee };
+}
+
+
+// ============================================================
+// WEEKLY HUB PROCESSOR — called every END WEEK from GameContext
+// Premium expiry, writer auto-posts on all 7 platforms, YouTube
+// algorithm tracker, Creator Studio ad revenue, real-event content.
+// ============================================================
+export function processSocialHubWeek(
+  state: SocialsState,
+  player: any,
+  saveData: any
+): { messages: string[]; weeklyAdRevenue: number; moneyDelta: number } {
+  const messages: string[] = [];
+  let weeklyAdRevenue = 0;
+  let moneyDelta = 0;
+
+  const week = player?.dateWeek || 1;
+  const year = player?.dateYear || 2026;
+  const fameXp = player?.fameXp || 0;
+  const movies = saveData?.releasedMovies || [];
+  const latest = movies[0];
+  const awards = player?.awardsWon || 0;
+  const premium = state.premium || { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
+
+  // 1. PREMIUM EXPIRY
+  if (premium.tier !== 'none') {
+    if (year > premium.expiresYear || (year === premium.expiresYear && week > premium.expiresWeek)) {
+      state.premium = { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
+      messages.push('⏳ Your platform Premium subscription expired.');
+    }
+  }
+
+  // 2. WRITER AUTO-POSTS (1 hired writer posts on EVERY platform about REAL events)
+  const writer = state.writers.find((w) => w.hired);
+  if (writer && writer.contractWeeksRemaining > 0) {
+    writer.contractWeeksRemaining -= 1;
+    const boost = writer.qualityBoost || 10;
+    const realEvent = latest
+      ? { title: latest.movieTitle, gross: latest.worldwideGross || 0, aud: latest.audienceRating || 0 }
+      : null;
+
+    // Twitter (For You = player feed)
+    if (realEvent) {
+      const t = [
+        `'${realEvent.title}' is IN THEATERS — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! 🎬`,
+        `The critics are raving about '${realEvent.title}' (${realEvent.aud}% audience score)!`,
+        awards > 0 ? `🏆 ${awards} award(s) this season — what a year it's been!` : `Excited about what's next — stay tuned!`,
+      ];
+      state.playerPosts.Twitter = state.playerPosts.Twitter || [];
+      state.playerPosts.Twitter.unshift({
+        id: `w_tw_${Date.now()}`,
+        authorName: `${player.firstName} ${player.lastName}`,
+        authorHandle: `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
+        authorAvatar: player.avatarUrl || '',
+        platform: 'Twitter',
+        tab: 'PLAYER_FEED',
+        text: t[Math.floor(Math.random() * t.length)],
+        likes: Math.floor(50 + fameXp * 0.5 + boost),
+        comments: Math.floor(10 + fameXp * 0.2),
+        retweets: Math.floor(20 + fameXp * 0.3),
+        shares: 0,
+        timestamp: 'Just now',
+        isPlayer: true,
+        isNpc: false,
+        sentiment: 'Positive',
+        generatedByWriter: true,
+      });
+    }
+    // Instagram caption/story
+    if (realEvent) {
+      state.instagramPosts = state.instagramPosts || [];
+      state.instagramPosts.unshift({
+        id: `w_ig_${Date.now()}`,
+        imageUrl: latest?.posterUrl || player.avatarUrl || '',
+        caption: `Behind the scenes of '${realEvent.title}' 🎬 #${realEvent.title.replace(/[^a-zA-Z0-9]/g, '')}`,
+        likes: Math.floor(80 + fameXp * 0.6 + boost),
+        comments: Math.floor(12 + fameXp * 0.15),
+        username: `${player.firstName}${player.lastName}`,
+        timestamp: 'Just now',
+        isPlayer: true,
+      } as any);
+    }
+    // YouTube video publish + algorithm tracker
+    if (realEvent) {
+      state.youtubeVideos = state.youtubeVideos || [];
+      state.youtubeVideos.unshift({
+        id: `w_yt_${Date.now()}`,
+        title: `'${realEvent.title}' — Official Trailer & BTS`,
+        views: Math.floor(youtubeAlgorithmViews(state.youtubeAlgorithm.lifetimeVideos, fameXp, state.youtubeAlgorithm.discovered)),
+        likes: 0,
+        comments: 0,
+        thumbnailUrl: latest?.posterUrl || player.avatarUrl || '',
+        channelName: `${player.firstName} ${player.lastName}`,
+        duration: '2:15',
+        isPlayer: true,
+        isLive: false,
+      } as any);
+      state.youtubeAlgorithm.lifetimeVideos += 1;
+      if (state.youtubeAlgorithm.lifetimeVideos >= 55 && !state.youtubeAlgorithm.discovered) {
+        state.youtubeAlgorithm.discovered = true;
+        messages.push('🚀 The YouTube algorithm has discovered your channel — your videos are being pushed to new audiences!');
+      }
+    }
+    // Facebook post
+    state.facebookPosts = state.facebookPosts || [];
+    state.facebookPosts.unshift({
+      id: `w_fb_${Date.now()}`,
+      authorName: `${player.firstName} ${player.lastName}`,
+      authorHandle: '',
+      authorAvatar: player.avatarUrl || '',
+      platform: 'Facebook',
+      tab: 'PLAYER_FEED',
+      text: realEvent
+        ? `So proud of '${realEvent.title}' — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! Thank you to everyone who came out. ❤️`
+        : `Grateful for this incredible journey. More announcements coming soon! ✨`,
+      likes: Math.floor(100 + fameXp * 0.8 + boost),
+      comments: Math.floor(15 + fameXp * 0.2),
+      retweets: 0,
+      shares: Math.floor(30 + fameXp * 0.4),
+      timestamp: 'Just now',
+      isPlayer: true,
+      isNpc: false,
+      sentiment: 'Positive',
+      generatedByWriter: true,
+    } as any);
+    // The Marquee professional post
+    state.marqueePosts = state.marqueePosts || [];
+    state.marqueePosts.unshift({
+      id: `w_mq_${Date.now()}`,
+      authorName: `${player.firstName} ${player.lastName}`,
+      authorHandle: '',
+      authorAvatar: player.avatarUrl || '',
+      platform: 'Twitter',
+      tab: 'PLAYER_FEED',
+      text: realEvent
+        ? `Thrilled to share that '${realEvent.title}' has earned $${(realEvent.gross / 1000000).toFixed(1)}M at the worldwide box office. Grateful to the studio and the incredible cast and crew.`
+        : `Excited for what's next in this chapter of my career.`,
+      likes: Math.floor(40 + fameXp * 0.4 + boost),
+      comments: Math.floor(8 + fameXp * 0.1),
+      retweets: 0,
+      shares: Math.floor(10 + fameXp * 0.2),
+      timestamp: 'Just now',
+      isPlayer: true,
+      isNpc: false,
+      sentiment: 'Positive',
+      generatedByWriter: true,
+    } as any);
+    // Reddit promo thread
+    state.redditPosts = state.redditPosts || [];
+    if (realEvent) {
+      state.redditPosts.unshift({
+        id: `w_rd_${Date.now()}`,
+        subreddit: 'r/HollywoodRising',
+        author: `u/${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
+        title: `I'm ${player.firstName} ${player.lastName}, star of '${realEvent.title}' — ask me anything! 🎬`,
+        text: `AMA! Ask me anything about '${realEvent.title}', the box office run, or my career.`,
+        upvotes: Math.floor(30 + fameXp * 0.4 + boost),
+        commentCount: Math.floor(5 + fameXp * 0.1),
+        isPlayer: true,
+        isNpc: false,
+        flair: 'AMA',
+        timeText: 'Just now',
+        week,
+        year,
+      });
+    }
+    // Telegram channel post + subscriber growth
+    state.telegramStories = state.telegramStories || [];
+    state.telegramStories.unshift({
+      id: `w_tg_${Date.now()}`,
+      author: `${player.firstName} ${player.lastName}`,
+      text: realEvent ? `📣 '${realEvent.title}' is in theaters now — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide!` : `📣 New week, new moves. Stay tuned.`,
+      hoursLeft: 24,
+      isPlayer: true,
+      week,
+      year,
+    });
+    const subGrowth = Math.floor(2 + fameXp * 0.4 + boost);
+    state.telegramChannelSubs = (state.telegramChannelSubs || 0) + subGrowth;
+
+    messages.push(`✍️ ${writer.name} published content across your platforms (+${subGrowth} Telegram channel subs).`);
+    if (writer.contractWeeksRemaining <= 0) {
+      messages.push(`✅ Writer contract with ${writer.name} completed.`);
+    }
+  }
+
+  // 3. CREATOR STUDIO — ad revenue share (Premium only, real impressions)
+  const totalPosts = Object.values(state.playerPosts || {}).reduce((a: number, arr: any[]) => a + (arr?.length || 0), 0);
+  const impressions = totalPosts * Math.floor(500 + fameXp * 3);
+  state.creatorStudio.totalImpressions += impressions;
+  if (premium.tier !== 'none') {
+    weeklyAdRevenue = Math.floor(impressions * 0.004 * (premium.tier === 'pro' ? 2 : premium.tier === 'plus' ? 1.5 : 1));
+    state.creatorStudio.totalAdRevenue += weeklyAdRevenue;
+    state.creatorStudio.weeklyAdRevenue = weeklyAdRevenue;
+    moneyDelta = weeklyAdRevenue;
+    if (weeklyAdRevenue > 0) messages.push(`💰 Creator Studio ad revenue: +$${weeklyAdRevenue.toLocaleString()} (${impressions.toLocaleString()} impressions)`);
+  }
+
+  // 4. Reddit karma from real engagement
+  state.redditKarma = (state.redditKarma || 0) + Math.floor(state.redditPosts.filter((p) => p.isPlayer).length * (2 + fameXp * 0.05));
+
+  // 5. Marquee connections grow with projects
+  state.marqueeConnections = (state.marqueeConnections || 0) + Math.floor((movies.length - (state as any)._lastMarqueeMovies || 0) * 2);
+  (state as any)._lastMarqueeMovies = movies.length;
+
+  return { messages, weeklyAdRevenue, moneyDelta };
 }

@@ -379,3 +379,71 @@ export interface StudioRelationship {
   points: number; // 0 to 100
   activeContract?: string;
 }
+
+// ============ SOCIAL MEDIA HUB V2 (7 platforms) ============
+export type PremiumTierId = 'none' | 'premium' | 'plus' | 'pro';
+export interface PremiumState {
+  tier: PremiumTierId;
+  plan: 'none' | 'monthly' | 'yearly';
+  expiresWeek: number;
+  expiresYear: number;
+}
+
+export interface RedditPost {
+  id: string;
+  subreddit: string;
+  author: string;
+  title: string;
+  text: string;
+  upvotes: number;
+  commentCount: number;
+  isPlayer: boolean;
+  isNpc: boolean;
+  flair?: string;
+  timeText: string;
+  week: number;
+  year: number;
+}
+
+export interface RedditComment {
+  id: string;
+  postId: string;
+  author: string;
+  text: string;
+  upvotes: number;
+  isPlayer: boolean;
+}
+
+export interface TelegramStory {
+  id: string;
+  author: string;
+  text: string;
+  hoursLeft: number;
+  isPlayer: boolean;
+  week: number;
+  year: number;
+}
+
+export interface MarqueeJob {
+  id: string;
+  studio: string;
+  title: string;
+  roleType: string;
+  budget: number;
+  salary: number;
+  requiredMovies: number;
+  requiredFame: number;
+  status: 'OPEN' | 'APPLIED' | 'FILLED';
+  week: number;
+  year: number;
+}
+
+export interface SocialHubStats {
+  twitterFollowers: number;
+  instagramFollowers: number;
+  youtubeSubscribers: number;
+  facebookFriends: number;
+  marqueeConnections: number;
+  redditKarma: number;
+  telegramChannelSubs: number;
+}

@@ -45,7 +45,7 @@ import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
-import { SocialsService } from '../services/socialsService';
+import { SocialsService, processSocialHubWeek } from '../services/socialsService';
 import { ToastMessage, ToastCategory } from '../components/common/ToastContainer';
 import { MarketEngineService } from '../services/marketEngineService';
 import { NetworkService } from '../services/networkService';
@@ -1135,6 +1135,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const empireResult = EmpireService.processEndWeek(p);
     const repResult = RepresentationService.processEndWeek(p, saveData.bookedProjects, saveData.releasedMovies);
     const socialsResult = SocialsService.processEndWeek(p, saveData);
+
+    // SOCIAL MEDIA HUB WEEKLY PROCESSING (premium, writers, algorithm, creator studio)
+    try {
+      const hubState = SocialsService.getState();
+      const hubResult = processSocialHubWeek(hubState, p, saveData);
+      if (hubResult.moneyDelta > 0) p.money = (p.money || 0) + hubResult.moneyDelta;
+      if (hubResult.messages.length > 0) {
+        socialReputation.push(...hubResult.messages);
+      }
+      SocialsService.saveState(hubState);
+    } catch (e) {
+      console.error('Error processing social hub week:', e);
+    }
     const livingWorldResult = LivingWorldService.advanceWorldWeek(newWeek, newYear, p);
 
     if (socialsResult.socialPosts) socialPosts.push(...socialsResult.socialPosts);
