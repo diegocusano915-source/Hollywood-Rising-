@@ -5,9 +5,10 @@
 
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { NPC_CELEBRITY_POOL } from '../../database/representationDatabase';
 import { RepresentationFullState, PRAgencyTier } from '../../types/representation';
 import { RepresentationService } from '../../services/representationService';
-import { Megaphone, ShieldAlert, Sparkles, Award, ArrowLeft, Plus, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Megaphone, ShieldAlert, Sparkles, Award, ArrowLeft, Plus, CheckCircle, AlertTriangle, Target } from 'lucide-react';
 
 interface PublicRelationsViewProps {
   representationState: RepresentationFullState;
@@ -44,7 +45,7 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player } = useGame();
+  const { player, saveData, updateSave } = useGame();
   const pr = representationState.pr;
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRESS_RELEASE' | 'CRISIS' | 'TRAINING'>('OVERVIEW');
@@ -121,6 +122,48 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
 
     RepresentationService.saveState(state);
     alert('🎤 Media Training Session Completed! Professionalism & Public Trust boosted.');
+    onRefresh();
+  };
+
+  // ---- SCANDAL SYSTEM (Issue 12) ----
+  const [scandalFeedback, setScandalFeedback] = useState<string | null>(null);
+  const [smearTarget, setSmearTarget] = useState<string>(NPC_CELEBRITY_POOL[0]?.name || 'A Rival Star');
+
+  const handleResolveScandal = (scandalId: string, strategy: 'LAWYER' | 'PR' | 'APOLOGIZE' | 'DENY') => {
+    const state = RepresentationService.getState();
+    const scandal = state.pr.scandals.find((sc) => sc.id === scandalId);
+    if (!scandal || scandal.resolved) return;
+
+    const res = RepresentationService.resolveScandal(scandalId, strategy, player);
+    // Persist player money/fans changes
+    updateSave({ ...saveData, player: { ...player } });
+    if (res.success) {
+      setScandalFeedback(res.message);
+      onRefresh();
+    } else {
+      setScandalFeedback(res.message);
+    }
+    setTimeout(() => setScandalFeedback(null), 6000);
+  };
+
+  const handleSmearCampaign = () => {
+    const fame = player.fameXp || 0;
+    const cost = Math.max(5000, Math.floor(5000 + fame * 8));
+    if (player.money < cost) {
+      setScandalFeedback(`Insufficient funds for a smear campaign ($${cost.toLocaleString()}).`);
+      setTimeout(() => setScandalFeedback(null), 4000);
+      return;
+    }
+    if (!window.confirm(`Hire bloggers to smear ${smearTarget}?
+
+Cost: $${cost.toLocaleString()}
+⚠️ RISK: If caught, you'll be sued for slander and your public trust will collapse.`)) {
+      return;
+    }
+    const res = RepresentationService.launchSmearCampaign(smearTarget, cost, player);
+    updateSave({ ...saveData, player: { ...player } });
+    setScandalFeedback(res.message);
+    setTimeout(() => setScandalFeedback(null), 7000);
     onRefresh();
   };
 
@@ -301,7 +344,42 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
 
       {activeTab === 'CRISIS' && (
         <div className="space-y-4">
-          {pr.scandals.length === 0 ? (
+          {scandalFeedback && (
+            <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-xs font-bold text-center leading-relaxed">
+              {scandalFeedback}
+            </div>
+          )}
+
+          {/* Smear Campaign Launcher (competitive play) */}
+          <div className="p-5 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-md space-y-3">
+            <h3 className="text-sm font-black uppercase text-gray-200 tracking-wider flex items-center gap-2">
+              <Target className="w-4 h-4 text-rose-400" /> Offensive Play — Hire Bloggers to Smear a Rival
+            </h3>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Pay gossip bloggers to run a defamation narrative against a rival celebrity. If you're caught,
+              you face a SLANDER/DEFAMATION lawsuit and public trust damage. Your law firm reduces the risk.
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={smearTarget}
+                onChange={(e) => setSmearTarget(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-black/50 border border-white/20 text-white text-xs outline-none flex-1 min-w-40"
+              >
+                {NPC_CELEBRITY_POOL.map((npc) => (
+                  <option key={npc.name} value={npc.name}>{npc.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleSmearCampaign}
+                className="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-2"
+              >
+                <Target className="w-4 h-4" /> Launch Smear (${Math.max(5000, Math.floor(5000 + (player.fameXp || 0) * 8)).toLocaleString()})
+              </button>
+            </div>
+          </div>
+
+          {/* Active Scandals with 4-choice resolution */}
+          {pr.scandals.filter((sc) => !sc.resolved).length === 0 ? (
             <div className="p-8 rounded-3xl border border-white/10 bg-black/40 text-center space-y-2">
               <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
               <h3 className="text-base font-black text-white">NO ACTIVE SCANDALS OR CONTROVERSIES</h3>
@@ -310,19 +388,82 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {pr.scandals.map((s) => (
-                <div key={s.id} className="p-4 rounded-2xl border border-red-500/30 bg-red-950/20 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
-                    <div>
-                      <h4 className="text-sm font-black text-white">{s.title}</h4>
-                      <p className="text-xs text-gray-400">{s.cause}</p>
+            <div className="space-y-4">
+              {pr.scandals.filter((sc) => !sc.resolved).map((s) => (
+                <div key={s.id} className={`p-5 rounded-3xl border-2 bg-black/60 backdrop-blur-md space-y-3 ${
+                  s.severity === 'CRITICAL' ? 'border-red-500/50' : s.severity === 'MODERATE' ? 'border-orange-500/40' : 'border-yellow-500/30'
+                }`}>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <AlertTriangle className={`w-6 h-6 shrink-0 ${s.severity === 'CRITICAL' ? 'text-red-400' : 'text-orange-400'}`} />
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-black text-white">{s.title}</h4>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{s.story || s.cause}</p>
+                      </div>
                     </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase shrink-0 ${
+                      s.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-300' : s.severity === 'MODERATE' ? 'bg-orange-500/20 text-orange-300' : 'bg-yellow-500/20 text-yellow-300'
+                    }`}>
+                      {s.severity} SCANDAL
+                    </span>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-300 text-xs font-bold uppercase">
-                    {s.severity} SCANDAL
-                  </span>
+
+                  {s.source === 'NPC_ATTACK' && s.instigator && (
+                    <p className="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/30 p-2 rounded-xl">
+                      🕵️ Competitive attack: {s.instigator} funded bloggers to defame you. Your law firm can fight this.
+                    </p>
+                  )}
+
+                  {/* 4-choice resolution */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      onClick={() => handleResolveScandal(s.id, 'LAWYER')}
+                      className="px-3 py-2.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-[10px] font-black uppercase transition-all cursor-pointer text-center"
+                    >
+                      ⚖️ Let Lawyers Handle It
+                    </button>
+                    <button
+                      onClick={() => handleResolveScandal(s.id, 'PR')}
+                      className="px-3 py-2.5 rounded-xl bg-sky-600/80 hover:bg-sky-500 text-white text-[10px] font-black uppercase transition-all cursor-pointer text-center"
+                    >
+                      📣 PR Statement / Campaign
+                    </button>
+                    <button
+                      onClick={() => handleResolveScandal(s.id, 'APOLOGIZE')}
+                      className="px-3 py-2.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-black uppercase transition-all cursor-pointer text-center"
+                    >
+                      🙏 Own It / Apologize
+                    </button>
+                    <button
+                      onClick={() => handleResolveScandal(s.id, 'DENY')}
+                      className="px-3 py-2.5 rounded-xl bg-black/60 border border-white/20 hover:border-white/40 text-gray-300 text-[10px] font-black uppercase transition-all cursor-pointer text-center"
+                    >
+                      🚫 Deny & Ride It Out
+                    </button>
+                  </div>
+
+                  {/* Lawyer readiness */}
+                  <p className="text-[10px] text-gray-500">
+                    {representationState.lawFirm.hiredFirmTier === 'None'
+                      ? '⚠️ No law firm retained — legal defense will be weak and expensive.'
+                      : `⚖️ ${representationState.lawFirm.hiredFirmTier} retained — strong legal defense available.`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Resolved history */}
+          {pr.scandals.filter((sc) => sc.resolved).length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider">Resolved Incidents</h4>
+              {pr.scandals.filter((sc) => sc.resolved).slice(0, 5).map((s) => (
+                <div key={s.id} className="p-3 rounded-2xl bg-black/40 border border-white/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-gray-300">{s.title}</p>
+                    <span className="text-[9px] text-gray-500 uppercase font-bold">W{s.weekOccurred} {s.yearOccurred}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{s.resolutionNote}</p>
                 </div>
               ))}
             </div>

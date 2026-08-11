@@ -81,9 +81,16 @@ export const AuditionsModal: React.FC = () => {
                       </p>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow">
-                      {aud.roleType} Role
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {aud.agentPitched && (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow flex items-center gap-1">
+                          🎯 Agent-Pitched
+                        </span>
+                      )}
+                      <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow">
+                        {aud.roleType} Role
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs md:text-sm text-gray-300">

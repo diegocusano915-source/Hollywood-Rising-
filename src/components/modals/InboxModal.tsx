@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { InboxCategory, InboxMessage } from '../../types/game';
+import { getAgentById, getManagerById } from '../../database/representationDatabase';
 import { THEMES } from '../../theme/colors';
 
 type TabType =
@@ -67,6 +68,10 @@ export const InboxModal: React.FC = () => {
     deleteMessage,
     archiveMessage,
     settings,
+    saveData,
+    updateSave,
+    signAgentContract,
+    hireManager,
   } = useGame();
 
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
@@ -75,6 +80,36 @@ export const InboxModal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<InboxMessage | null>(null);
+  const [offerFeedback, setOfferFeedback] = useState<string | null>(null);
+
+  const markOfferHandled = (msgId: string) => {
+    updateSave({
+      ...saveData,
+      inbox: saveData.inbox.map((mm) => (mm.id === msgId ? { ...mm, handled: true, read: true } : mm)),
+    });
+  };
+
+  const handleAcceptOffer = (msg: InboxMessage) => {
+    if (!msg.offerType || !msg.offerRefId) return;
+    let res: { success: boolean; message: string };
+    if (msg.offerType === 'AGENT') {
+      const agent = getAgentById(msg.offerRefId);
+      res = agent ? signAgentContract(agent) : { success: false, message: 'Agent not found.' };
+    } else {
+      const mgr = getManagerById(msg.offerRefId);
+      res = mgr ? hireManager(mgr) : { success: false, message: 'Manager not found.' };
+    }
+    if (res.success) markOfferHandled(msg.id);
+    setOfferFeedback(res.message);
+    setTimeout(() => setOfferFeedback(null), 5000);
+  };
+
+  const handleRejectOffer = (msg: InboxMessage) => {
+    markOfferHandled(msg.id);
+    setOfferFeedback('Offer declined.');
+    setTimeout(() => setOfferFeedback(null), 3000);
+  };
+
 
   // Map legacy categories to modern tabs
   const getEffectiveCategory = (cat: InboxCategory): TabType => {
@@ -494,6 +529,40 @@ export const InboxModal: React.FC = () => {
               <div className="bg-black/60 p-4 sm:p-5 rounded-2xl border border-white/10 text-xs sm:text-sm leading-relaxed text-gray-200 font-sans whitespace-pre-line shadow-inner">
                 {selectedMsg.body}
               </div>
+
+              {/* AGENT / MANAGER OFFER ACTIONS */}
+              {selectedMsg.offerType && !selectedMsg.handled && (
+                <div className="p-5 rounded-2xl border-2 border-amber-400/50 bg-gradient-to-br from-amber-950/40 via-black/70 to-black/70 space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-300 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /> Representation Offer — Respond Below
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleAcceptOffer(selectedMsg)}
+                      className="px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 transition-all cursor-pointer"
+                    >
+                      ✅ Accept
+                    </button>
+                    <button
+                      onClick={() => handleRejectOffer(selectedMsg)}
+                      className="px-4 py-3 rounded-2xl bg-rose-600/80 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      ✕ Reject
+                    </button>
+                  </div>
+                  {offerFeedback && (
+                    <p className="text-[11px] font-bold text-amber-200 bg-black/40 p-2.5 rounded-xl border border-amber-500/30 leading-relaxed">
+                      {offerFeedback}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {selectedMsg.offerType && selectedMsg.handled && (
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold text-center">
+                  ✓ This offer has been {selectedMsg.read ? 'responded to' : 'handled'}.
+                </div>
+              )}
             </div>
           </div>
         )}

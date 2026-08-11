@@ -61,23 +61,57 @@ export interface AgentInfo {
   name: string;
   agencyName: string;
   avatarUrl: string;
-  commissionPercent: number; // 10% to 15%
+  commissionPercent: number; // 10% to 22% (tier based)
   minTalentAverage: number;
   minLeadRoles: number;
   minFameXp: number;
   perks: string;
   signed: boolean;
+  // Marketplace (Agents & Managers rebuild)
+  tier?: 1 | 2 | 3 | 4;
+  tierName?: string;
+  rating?: number; // 30-99
+  specialty?: string;
+  contractLengthWeeks?: number;
+  weeksRemaining?: number;
+  breachPenalty?: number;
+  leadFlowWeeks?: number; // 1 lead every N weeks
+  dealCap?: number; // max total deal value agent can bring over contract
+  fanBonusPercent?: number;
+  negotiationBonus?: number;
+  residualBonusPercent?: number;
+  royaltyRangeText?: string;
+  pitchMessage?: string;
+  signedWeek?: number;
+  signedYear?: number;
+  lastPitchWeek?: number;
+}
+
+export interface ManagerInfo {
+  id: string;
+  name: string;
+  company: string;
+  commissionPercent: number;
+  signed: boolean;
+  avatarUrl?: string;
+  tier?: 1 | 2 | 3 | 4;
+  tierName?: string;
+  rating?: number;
+  specialty?: string;
+  yearlySalary?: number; // paid upfront on signing/renewal
+  contractLengthWeeks?: number;
+  weeksRemaining?: number;
+  breachPenalty?: number;
+  dealCap?: number; // max total deal value manager can source
+  perks?: string;
+  pitchMessage?: string;
+  signedWeek?: number;
+  signedYear?: number;
 }
 
 export interface PlayerRepresentation {
   agent?: AgentInfo;
-  manager?: {
-    id: string;
-    name: string;
-    company: string;
-    commissionPercent: number;
-    signed: boolean;
-  };
+  manager?: ManagerInfo;
 }
 
 export interface PlayerEmpire {
@@ -221,6 +255,7 @@ export interface AuditionApplication {
   status: 'Waiting' | 'Casting' | 'Callback' | 'Decision Pending';
   appliedWeek: number;
   appliedYear: number;
+  agentPitched?: boolean;
   studio?: string;
   director?: string;
 }
@@ -278,6 +313,9 @@ export interface BookedProject {
   weeksRemaining: number;
   isFilmingComplete: boolean;
   boostedThisTurn?: boolean;
+  productionWeeksCompleted?: number;
+  agentPitched?: boolean;
+  sourcedByManager?: boolean;
   studio?: string;
   director?: string;
   genre?: string;
@@ -357,6 +395,9 @@ export interface ReleasedMovie {
   criticScore?: number;
   audienceScore?: number;
   boxOfficeGross?: number;
+  sequelCheckWeeks?: number;
+  sequelOffered?: boolean;
+  sequelOfferedPart?: number;
 }
 
 export interface TrophyItem {
@@ -370,7 +411,8 @@ export interface TrophyItem {
     | 'Critics Choice'
     | 'Independent Spirit'
     | 'Festival Award'
-    | 'Lifetime Achievement';
+    | 'Lifetime Achievement'
+    | 'Hollywood Rising Award';
   category: string; // e.g., 'Best Actor in a Leading Role'
   year: number;
   movieTitle: string;
@@ -392,7 +434,8 @@ export interface AwardRecord {
     | 'SAG Awards'
     | 'Emmys'
     | 'Critics Choice'
-    | 'Independent Spirit';
+    | 'Independent Spirit'
+    | 'Hollywood Rising Awards';
   category: string;
   winnerTitle: string;
   winnerName: string;
@@ -444,6 +487,9 @@ export interface InboxMessage {
   archived?: boolean;
   dateWeek?: number;
   dateYear?: number;
+  offerType?: 'AGENT' | 'MANAGER';
+  offerRefId?: string;
+  handled?: boolean;
 }
 
 export type RelationshipStage = 
@@ -674,3 +720,38 @@ export interface SaveData {
   careerTimeline?: TimelineEvent[];
 }
 
+
+// ---- YEAR-END AWARDS NIGHT (unified ceremony) ----
+export interface AwardNominee {
+  name: string;
+  movieTitle: string;
+  score: number;
+  isPlayer: boolean;
+  avatarUrl?: string;
+  studio?: string;
+  genre?: string;
+}
+
+export interface AwardCategoryResult {
+  category: string;
+  nominees: AwardNominee[];
+  winner: AwardNominee;
+  playerWon: boolean;
+  playerNominated: boolean;
+}
+
+export interface AwardCeremonyResult {
+  year: number;
+  eventName: string;
+  venue: string;
+  host: string;
+  categories: AwardCategoryResult[];
+  playerWins: number;
+  playerNominations: number;
+  newTrophies: TrophyItem[];
+  newRecords: AwardRecord[];
+  fameGained: number;
+  inboxMessages: InboxMessage[];
+  newPlayerAwardsWon: number;
+  playerEligible: boolean;
+}

@@ -34,7 +34,7 @@ interface BoxOfficeViewProps {
 }
 
 export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
-  const { player, releasedMovies, settings } = useGame();
+  const { player, releasedMovies, settings, updatePlayer } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [mainTab, setMainTab] = useState<'CHART' | 'IN_THEATERS' | 'PLAYER_FILMS' | 'RECORDS' | 'STUDIOS'>('CHART');
@@ -67,8 +67,11 @@ export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
     if (filterType === 'SERIES' && item.type !== 'Series') return false;
 
     // Tab filter
-    if (mainTab === 'IN_THEATERS') return item.inTheaters && item.type === 'Movie';
+    if (mainTab === 'IN_THEATERS') return item.inTheaters && item.type === 'Movie' && (item.weeklyGross || 0) >= 1250000;
     if (mainTab === 'PLAYER_FILMS') return item.isPlayerMovie;
+
+    // REALISTIC CHART FLOOR: movies below the theater floor never chart (no $0.62M junk)
+    if ((item.weeklyGross || 0) < 1250000 && !item.isPlayerMovie) return false;
 
     return true;
   });
@@ -366,7 +369,33 @@ export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
                   </div>
 
                   {/* Right: Gross Metrics */}
-                  <div className="flex items-center gap-4 text-right w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-3 md:pt-0 shrink-0">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                  {item.isPlayerMovie && item.inTheaters && (
+                    <button
+                      onClick={() => {
+                        const cost = Math.max(250000, Math.floor((budget || 30000000) * 0.05));
+                        if (player.money < cost) {
+                          alert(`Insufficient funds for theater expansion ($${cost.toLocaleString()}).`);
+                          return;
+                        }
+                        if (!window.confirm(`Launch theater expansion for "${item.title}"?\n\nCost: $${cost.toLocaleString()}\nEffect: weekly drop HALVED for 2 weeks (4-week cooldown).`)) return;
+                        const res = BoxOfficeEngineService.launchTheaterExpansion(
+                          (item as any).playerMovieId || item.id,
+                          player.dateWeek,
+                          cost
+                        );
+                        if (res.success) {
+                          updatePlayer({ money: Math.max(0, player.money - cost) });
+                          setBoxOfficeState(BoxOfficeEngineService.getState());
+                        }
+                        alert(res.message);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow"
+                    >
+                      📈 Expand Theaters ${(item as any).expansionWeeksLeft ? '(Active)' : `$${Math.max(250000, Math.floor((budget || 30000000) * 0.05)).toLocaleString()}`}
+                    </button>
+                  )}
+                  <div className="flex items-center gap-4 text-right w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
                     {item.type === 'Movie' ? (
                       <div className="space-y-1">
                         <div>
@@ -385,6 +414,15 @@ export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
                         <div className="text-[9px] text-gray-500">
                           Dom: ${(dom / 1000000).toFixed(1)}M | Intl: ${(intl / 1000000).toFixed(1)}M
                         </div>
+                        {item.isPlayerMovie && item.inTheaters && (() => {
+                          const runMax = (item as any).extendedRun ? 26 : 20;
+                          const runWeek = item.weeksReleased || 1;
+                          return (
+                            <div className="text-[9px] text-amber-300/80 font-bold">
+                              Run: W{runWeek}/{runMax} {(item as any).extendedRun ? '🦵 LEGS' : ''} {(item as any).awardBoostWeeks ? '🏆 Boost' : ''}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="space-y-1">
@@ -397,6 +435,7 @@ export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
                         </div>
                       </div>
                     )}
+                  </div>
                   </div>
                 </div>
               );

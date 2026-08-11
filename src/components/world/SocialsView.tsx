@@ -107,7 +107,12 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
 
   // Infinite Scroll state for X NPC Feed
   const [npcPosts, setNpcPosts] = useState<SocialPost[]>(() =>
-    SocialsService.generateNpcPostsBatch('Twitter', 20)
+    SocialsService.generateNpcPostsBatch('Twitter', 20, {
+      playerName: `${player.firstName} ${player.lastName}`,
+      releasedMovies,
+      fans: player.fans,
+      fameXp: player.fameXp,
+    })
   );
   const [isLoadingMoreNpc, setIsLoadingMoreNpc] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +143,12 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
 
   const openNpcProfile = (name: string, handle: string, avatar: string, category?: string) => {
     const handleClean = handle.startsWith('@') ? handle : `@${handle}`;
-    const generatedPosts = SocialsService.generateNpcPostsBatch('Twitter', 6).map((p) => ({
+    const generatedPosts = SocialsService.generateNpcPostsBatch('Twitter', 6, {
+      playerName: `${player.firstName} ${player.lastName}`,
+      releasedMovies,
+      fans: player.fans,
+      fameXp: player.fameXp,
+    }).map((p) => ({
       ...p,
       authorName: name,
       authorHandle: handleClean,
@@ -191,7 +201,12 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
       if (scrollTop + clientHeight >= scrollHeight - 300) {
         setIsLoadingMoreNpc(true);
         setTimeout(() => {
-          const newBatch = SocialsService.generateNpcPostsBatch('Twitter', 12);
+          const newBatch = SocialsService.generateNpcPostsBatch('Twitter', 12, {
+            playerName: `${player.firstName} ${player.lastName}`,
+            releasedMovies,
+            fans: player.fans,
+            fameXp: player.fameXp,
+          });
           setNpcPosts((prev) => [...prev, ...newBatch]);
           setIsLoadingMoreNpc(false);
         }, 500);

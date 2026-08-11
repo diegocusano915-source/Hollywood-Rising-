@@ -23,6 +23,7 @@ import {
   ActingCourse,
   ActiveCourse,
   AgentInfo,
+  ManagerInfo,
   WeeklyRecapData,
   TrophyItem,
   AwardRecord,
@@ -41,6 +42,7 @@ import {
 import { generateWeeklyCourses, ACTING_COURSES_POOL } from '../database/actingSchoolDatabase';
 import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
+import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService } from '../services/socialsService';
@@ -50,6 +52,7 @@ import { NetworkService } from '../services/networkService';
 import { BoxOfficeEngineService } from '../services/boxOfficeEngineService';
 import { RoyaltyEngineService } from '../services/royaltyService';
 import { AwardsService } from '../services/awardsService';
+import { AwardCeremonyResult } from '../types/game';
 import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
@@ -92,7 +95,8 @@ type ModalType =
   | 'completion_tracker'
   | 'photo_mode'
   | 'notification_history'
-  | 'retainer_management';
+  | 'retainer_management'
+  | 'award_ceremony';
 
 interface GameContextType {
   // Navigation & Main Tabs
@@ -128,6 +132,8 @@ interface GameContextType {
   // Phase 6 Awards & Campaign
   selectedFycMovieId: string | null;
   setSelectedFycMovieId: (id: string | null) => void;
+  awardCeremonyData: AwardCeremonyResult | null;
+  setAwardCeremonyData: (data: AwardCeremonyResult | null) => void;
   launchFycCampaign: (
     movieId: string,
     level: 'Ads' | 'Screenings' | 'Dinners' | 'Blitz',
@@ -139,6 +145,8 @@ interface GameContextType {
   updatePlayer: (updates: Partial<Player>) => void;
   enrollInCourse: (courseId: string) => { success: boolean; message: string };
   signAgentContract: (agent: AgentInfo) => { success: boolean; message: string };
+  hireManager: (manager: ManagerInfo) => { success: boolean; message: string };
+  terminateRepresentation: (kind: 'agent' | 'manager') => { success: boolean; message: string };
 
   // Core Actions
   createNewCharacter: (
@@ -201,6 +209,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastWeeklyRecap, setLastWeeklyRecap] = useState<WeeklyRecapData | null>(null);
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [selectedFycMovieId, setSelectedFycMovieId] = useState<string | null>(null);
+  const [awardCeremonyData, setAwardCeremonyData] = useState<AwardCeremonyResult | null>(null);
 
   // Notification Toast System State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -652,14 +661,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signAgentContract = (agent: AgentInfo) => {
     soundService.playFanfare();
 
+    if (saveData.player.representation?.agent?.signed) {
+      return { success: false, message: 'You already have a signed talent agent. Terminate that contract first.' };
+    }
+
+    const contractWeeks = agent.contractLengthWeeks || 52;
+    const signedAgent: AgentInfo = {
+      ...agent,
+      signed: true,
+      weeksRemaining: contractWeeks,
+      signedWeek: saveData.player.dateWeek,
+      signedYear: saveData.player.dateYear,
+      lastPitchWeek: 0,
+    };
+
     const updatedPlayer: Player = {
       ...saveData.player,
       representation: {
         ...saveData.player.representation,
-        agent: {
-          ...agent,
-          signed: true,
-        },
+        agent: signedAgent,
       },
     };
 
@@ -670,7 +690,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       senderRole: `${agent.agencyName} Senior Partner`,
       senderAvatar: agent.avatarUrl,
       subject: `WELCOME TO ${agent.agencyName.toUpperCase()}!`,
-      body: `It is an honor to represent you in Hollywood. We take a ${agent.commissionPercent}% commission on booked contracts and will pitch you for high-profile film auditions.`,
+      body: `It is an honor to represent you in Hollywood. We take a ${agent.commissionPercent}% commission on booked contracts and will pitch you for high-profile film auditions.\n\nCONTRACT TERMS:\n• Length: ${(contractWeeks / 52).toFixed(1)} year(s) (${contractWeeks} weeks)\n• Lead Flow: 1 pitch every ${agent.leadFlowWeeks || 5} week(s)\n• Breach Penalty: $${(agent.breachPenalty || 0).toLocaleString()}`,
       date: `Week ${saveData.player.dateWeek}, ${saveData.player.dateYear}`,
       read: false,
     };
@@ -680,7 +700,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveData.player.dateWeek,
       'EMPIRE',
       `Contract Signed: ${agent.name}`,
-      `Signed exclusive talent representation contract with ${agent.agencyName} (${agent.commissionPercent}% commission).`
+      `Signed exclusive talent representation contract with ${agent.agencyName} (${agent.commissionPercent}% commission, ${(contractWeeks / 52).toFixed(1)} yr contract).`
     );
 
     addFameXp(75, `Signed with Agent ${agent.name}`);
@@ -698,10 +718,131 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  // Hire a Personal Manager — yearly salary paid UPFRONT for the full contract term
+  const hireManager = (manager: ManagerInfo) => {
+    soundService.playFanfare();
+
+    if (saveData.player.representation?.manager?.signed) {
+      return { success: false, message: 'You already have a signed personal manager. Terminate that contract first.' };
+    }
+
+    const contractWeeks = manager.contractLengthWeeks || 52;
+    const yearly = manager.yearlySalary || 0;
+    const totalCost = Math.floor((yearly * contractWeeks) / 52);
+
+    if (saveData.player.money < totalCost) {
+      return {
+        success: false,
+        message: `Insufficient funds! ${manager.name} (${manager.company}) requires $${totalCost.toLocaleString()} paid upfront (${(contractWeeks / 52).toFixed(1)} yrs x $${yearly.toLocaleString()}/yr).`,
+      };
+    }
+
+    const updatedPlayer: Player = {
+      ...saveData.player,
+      money: saveData.player.money - totalCost,
+      representation: {
+        ...saveData.player.representation,
+        manager: {
+          ...manager,
+          signed: true,
+          weeksRemaining: contractWeeks,
+          signedWeek: saveData.player.dateWeek,
+          signedYear: saveData.player.dateYear,
+        },
+      },
+    };
+
+    const newInboxMsg: InboxMessage = {
+      id: `msg_manager_signed_${Date.now()}`,
+      category: 'BUSINESS',
+      sender: manager.name,
+      senderRole: `${manager.company} Managing Partner`,
+      senderAvatar: manager.avatarUrl,
+      subject: `WELCOME TO ${manager.company.toUpperCase()}!`,
+      body: `It is an honor to manage your career finances. I negotiated directly with studios on your behalf and will source bankroll, franchise, sponsorship and investing opportunities.\n\nCONTRACT TERMS:\n• Length: ${(contractWeeks / 52).toFixed(1)} year(s) (${contractWeeks} weeks)\n• Salary: $${yearly.toLocaleString()}/yr — PAID UPFRONT: $${totalCost.toLocaleString()}\n• Deal Cap: up to $${((manager.dealCap || 0) / 1000000).toFixed(0)}M in sourced deals\n• Breach Penalty: $${(manager.breachPenalty || 0).toLocaleString()}`,
+      date: `Week ${saveData.player.dateWeek}, ${saveData.player.dateYear}`,
+      read: false,
+    };
+
+    const managerTimelineEvent = createTimelineEvent(
+      saveData.player.dateYear,
+      saveData.player.dateWeek,
+      'EMPIRE',
+      `Contract Signed: ${manager.name}`,
+      `Signed personal management contract with ${manager.company} ($${yearly.toLocaleString()}/yr paid upfront, ${(contractWeeks / 52).toFixed(1)} yr term).`
+    );
+
+    addFameXp(60, `Signed with Manager ${manager.name}`);
+
+    updateSave({
+      ...saveData,
+      player: updatedPlayer,
+      inbox: [newInboxMsg, ...saveData.inbox],
+      careerTimeline: [managerTimelineEvent, ...(saveData.careerTimeline || [])],
+    });
+
+    return {
+      success: true,
+      message: `Signed with ${manager.name} (${manager.company})! Paid $${totalCost.toLocaleString()} upfront for ${(contractWeeks / 52).toFixed(1)} years.`,
+    };
+  };
+
+  // Terminate agent or manager — breach fine applies when contract has weeks remaining
+  const terminateRepresentation = (kind: 'agent' | 'manager') => {
+    const rep = saveData.player.representation || {};
+    const current = kind === 'agent' ? rep.agent : rep.manager;
+    if (!current?.signed) {
+      return { success: false, message: 'No active contract to terminate.' };
+    }
+    const weeksLeft = current.weeksRemaining || 0;
+    const penalty = weeksLeft > 0 ? current.breachPenalty || 0 : 0;
+
+    if (saveData.player.money < penalty) {
+      return {
+        success: false,
+        message: `Insufficient funds to break the contract! Breach penalty: $${penalty.toLocaleString()} (${weeksLeft} weeks remaining).`,
+      };
+    }
+
+    const updatedPlayer: Player = {
+      ...saveData.player,
+      money: saveData.player.money - penalty,
+      representation: {
+        ...saveData.player.representation,
+        [kind]: undefined,
+      },
+    };
+
+    const terminationEvent = createTimelineEvent(
+      saveData.player.dateYear,
+      saveData.player.dateWeek,
+      'EMPIRE',
+      `Contract Terminated: ${current.name}`,
+      penalty > 0
+        ? `Terminated ${kind === 'agent' ? 'agent' : 'manager'} contract with ${current.name} early. Paid $${penalty.toLocaleString()} breach penalty (${weeksLeft} weeks remaining).`
+        : `Contract with ${current.name} ended at term. No penalty.`
+    );
+
+    updateSave({
+      ...saveData,
+      player: updatedPlayer,
+      careerTimeline: [terminationEvent, ...(saveData.careerTimeline || [])],
+    });
+
+    return {
+      success: true,
+      message:
+        penalty > 0
+          ? `Contract terminated. Paid $${penalty.toLocaleString()} breach penalty.`
+          : 'Contract ended cleanly at term. No penalty.',
+    };
+  };
+
   // ADVANCE WEEK - Core Loop Progression (End Week System)
   const advanceWeek = () => {
     soundService.playGoldChime();
     setIsProcessingWeek(true);
+    let awardNightPending = false;
 
     try {
       let p = { ...saveData.player };
@@ -810,6 +951,56 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextPayments: string[] = [];
 
     const newInboxMessages: InboxMessage[] = [];
+
+    // ------------------------------------------------------------------
+    // REPRESENTATION CONTRACT CLOCK (Agents & Managers tick down weekly)
+    // ------------------------------------------------------------------
+    if (p.representation?.agent?.signed && (p.representation.agent.weeksRemaining ?? 0) > 0) {
+      const newWeeks = (p.representation.agent.weeksRemaining || 1) - 1;
+      if (newWeeks <= 0) {
+        const expiringAgent = p.representation.agent;
+        p.representation = { ...p.representation, agent: undefined };
+        newInboxMessages.unshift({
+          id: `msg_agent_end_${Date.now()}`,
+          category: 'BUSINESS',
+          sender: expiringAgent.name,
+          senderRole: expiringAgent.agencyName,
+          senderAvatar: expiringAgent.avatarUrl,
+          subject: `CONTRACT COMPLETED: ${expiringAgent.agencyName.toUpperCase()}`,
+          body: `Your ${((expiringAgent.contractLengthWeeks || 52) / 52).toFixed(1)}-year contract with ${expiringAgent.name} has reached its term. No penalty. If you want to continue, find a new offer in the Representation hub.`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+      } else {
+        p.representation = {
+          ...p.representation,
+          agent: { ...p.representation.agent, weeksRemaining: newWeeks },
+        };
+      }
+    }
+    if (p.representation?.manager?.signed && (p.representation.manager.weeksRemaining ?? 0) > 0) {
+      const newWeeks = (p.representation.manager.weeksRemaining || 1) - 1;
+      if (newWeeks <= 0) {
+        const expiringMgr = p.representation.manager;
+        p.representation = { ...p.representation, manager: undefined };
+        newInboxMessages.unshift({
+          id: `msg_manager_end_${Date.now()}`,
+          category: 'BUSINESS',
+          sender: expiringMgr.name,
+          senderRole: expiringMgr.company,
+          senderAvatar: expiringMgr.avatarUrl,
+          subject: `CONTRACT COMPLETED: ${expiringMgr.company.toUpperCase()}`,
+          body: `Your management contract with ${expiringMgr.name} has reached its term. No penalty. Visit the Representation hub to sign a new manager if you wish.`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+      } else {
+        p.representation = {
+          ...p.representation,
+          manager: { ...p.representation.manager, weeksRemaining: newWeeks },
+        };
+      }
+    }
 
     // ------------------------------------------------------------------
     // PROCESS ACTIVE JOBS (JOB PAYROLL SYSTEM)
@@ -985,6 +1176,62 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       worldNews.push(...livingWorldResult.worldNews);
     }
 
+    // AGENT & MANAGER INBOX PITCHES (they pitch themselves when you're doing well)
+    try {
+      const repStateNow = RepresentationService.getState();
+      if (repStateNow.pendingAgentPitches && repStateNow.pendingAgentPitches.length > 0) {
+        repStateNow.pendingAgentPitches.forEach((agentId) => {
+          const ag = getAgentById(agentId);
+          if (!ag) return;
+          newInboxMessages.unshift({
+            id: `msg_agent_pitch_offer_${agentId}_${Date.now()}`,
+            category: 'BUSINESS',
+            sender: ag.name,
+            senderRole: `${ag.specialty || 'Talent Agent'} — ${ag.agencyName}`,
+            senderAvatar: ag.avatarUrl,
+            subject: `${ag.name} (${ag.agencyName}) wants to represent you`,
+            body: `${ag.pitchMessage || `Your performance has been turning heads. ${ag.name} at ${ag.agencyName} wants to partner with you.`}\n\nOFFER HIGHLIGHTS:\n• Agent Cut: ${ag.commissionPercent}%\n• Budget Range: up to $${((ag.dealCap || 15000000) / 1000000).toFixed(0)}M\n• Fan Bonus: +${ag.fanBonusPercent || 0}% | Negotiation: +${ag.negotiationBonus || 0}%\n• Residual Bonus: +${ag.residualBonusPercent || 0}% | Royalty Range: ${ag.royaltyRangeText || '—'}\n• Lead Flow: 1 lead every ${ag.leadFlowWeeks || 5} weeks\n• Contract: ${((ag.contractLengthWeeks || 52) / 52).toFixed(1)} year(s) | Breach Penalty: $${(ag.breachPenalty || 0).toLocaleString()}\n\nAccept to sign the contract, or reject this offer.`,
+            date: dateInfo.fullDateText,
+            read: false,
+            offerType: 'AGENT',
+            offerRefId: ag.id,
+            handled: false,
+          });
+        });
+        repStateNow.pendingAgentPitches = [];
+        RepresentationService.saveState(repStateNow);
+      }
+      if (repStateNow.pendingManagerPitches && repStateNow.pendingManagerPitches.length > 0) {
+        repStateNow.pendingManagerPitches.forEach((managerId) => {
+          const mgr = getManagerById(managerId);
+          if (!mgr) return;
+          newInboxMessages.unshift({
+            id: `msg_manager_pitch_offer_${managerId}_${Date.now()}`,
+            category: 'BUSINESS',
+            sender: mgr.name,
+            senderRole: `${mgr.company}`,
+            senderAvatar: mgr.avatarUrl,
+            subject: `${mgr.name} (${mgr.company}) wants to manage your career`,
+            body: `${mgr.pitchMessage || `${mgr.name} wants to handle your finances and opportunities.`}\n\nOFFER HIGHLIGHTS:\n• Salary: $${(mgr.yearlySalary || 0).toLocaleString()}/yr (paid upfront)\n• Deal Cap: up to $${((mgr.dealCap || 0) / 1000000).toFixed(0)}M sourced\n• Commission on sourced deals: ${mgr.commissionPercent}%\n• Specialty: ${mgr.specialty || 'Financial management'}\n• Contract: ${((mgr.contractLengthWeeks || 52) / 52).toFixed(1)} year(s) | Breach Penalty: $${(mgr.breachPenalty || 0).toLocaleString()}\n\nAccept to sign the contract (salary paid upfront), or reject this offer.`,
+            date: dateInfo.fullDateText,
+            read: false,
+            offerType: 'MANAGER',
+            offerRefId: mgr.id,
+            handled: false,
+          });
+        });
+        repStateNow.pendingManagerPitches = [];
+        RepresentationService.saveState(repStateNow);
+      }
+    } catch (e) {
+      console.error('Error draining representation pitches:', e);
+    }
+
+    // ACHIEVEMENT REWARDS: cash + XP paid directly (no more swallowed rewards)
+    if ((empireResult as any).achievementsCash > 0) {
+      p.money = (p.money || 0) + (empireResult as any).achievementsCash;
+      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${(empireResult as any).achievementsCash.toLocaleString()} cash & +${(empireResult as any).achievementsXp} Fame XP`);
+    }
     const activeBusinesses = (empireResult.updatedState?.businesses || []).filter(b => b.status === 'Active' || b.status === 'Distressed');
     if (activeBusinesses.length > 0) {
       businessIncomeThisWeek = empireResult.weeklyCashYield || 0;
@@ -1094,6 +1341,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (p.isUnionMember) score += 15;
         score += p.leadRolesCount * 5;
         if (p.representation?.agent?.signed) score += 12;
+        if (aud.agentPitched) score += 15; // Agent-submitted auditions carry agency weight
+        if (RepresentationService.hasActiveCriticalScandal()) score -= 25; // Active CRITICAL scandal hurts casting
 
         let requiredScore = 15;
         if (aud.roleType === 'Lead') requiredScore = 40;
@@ -1197,6 +1446,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isFilmingComplete: false,
             studio: studioName,
             director: directorName,
+            agentPitched: aud.agentPitched,
           });
 
           newTimelineEvents.push({
@@ -1347,6 +1597,63 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+
+    // 5b. AGENT AUTO-SUBMIT — invisible talent engine. Your signed agent pitches you
+    // real Callboard roles on a cadence (leadFlowWeeks). No energy cost, no fake listings.
+    const signedAgent = p.representation?.agent;
+    if (signedAgent?.signed && (signedAgent.weeksRemaining ?? 0) > 0) {
+      const flowWeeks = signedAgent.leadFlowWeeks || 5;
+      const weeksSincePitch = p.dateWeek - (signedAgent.lastPitchWeek || 0);
+      if (weeksSincePitch >= flowWeeks) {
+        const tier = signedAgent.tier || 1;
+        const pitchCount = tier >= 4 ? 3 : tier >= 3 ? 2 : 1;
+        const dealCap = signedAgent.dealCap || 15000000;
+        const eligible = saveData.callboard
+          .filter((c) => (c.salary || 0) <= dealCap)
+          .sort((a, b) => (b.salary || 0) - (a.salary || 0));
+        const picked = eligible.slice(0, pitchCount);
+
+        picked.forEach((proj) => {
+          const agentAudition: AuditionApplication = {
+            id: `aud_agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            projectId: proj.id,
+            movieTitle: proj.title,
+            posterUrl: proj.posterUrl,
+            roleType: proj.roleType,
+            salary: proj.salary,
+            filmingWeeks: proj.filmingWeeks,
+            weeksRemaining: proj.decisionTimeWeeks,
+            status: 'Waiting',
+            appliedWeek: p.dateWeek,
+            appliedYear: p.dateYear,
+            studio: proj.studio,
+            director: proj.director,
+            agentPitched: true,
+          };
+          remainingAuditions.unshift(agentAudition);
+          newInboxMessages.unshift({
+            id: `msg_agent_pitch_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            category: 'CAREER',
+            sender: signedAgent.name,
+            senderRole: signedAgent.specialty || 'Talent Agent',
+            senderAvatar: signedAgent.avatarUrl,
+            subject: `🎯 AGENT PITCH: ${proj.title} (${proj.roleType})`,
+            body: `Your agent ${signedAgent.name} (${signedAgent.agencyName}) submitted you for the ${proj.roleType} role in "${proj.title}" (${proj.studio || 'Studio'}) — ${signedAgent.specialty || 'talent agent'}.\n\nNo energy spent: your agent handled the submission. The audition is waiting in your Auditions tab with boosted odds.`,
+            date: dateInfo.fullDateText,
+            read: false,
+          });
+          careerAuditions.push(`🎯 AGENT PITCH: ${signedAgent.name} submitted you for '${proj.title}' (${proj.roleType})`);
+        });
+
+        if (picked.length > 0) {
+          p.representation = {
+            ...p.representation,
+            agent: { ...signedAgent, lastPitchWeek: p.dateWeek },
+          };
+        }
+      }
+    }
+
     // 6. Process Booked Projects Through Multi-Stage Pipeline
     const updatedBookedProjects: BookedProject[] = [];
     const newReleasedMovies: ReleasedMovie[] = [...saveData.releasedMovies];
@@ -1423,21 +1730,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (filmingWeeks <= 0) {
           // Wrapped filming! Automatic Immediate Theatrical Box Office Debut
-          salaryEarnedThisWeek += book.salary;
+          // REAL COMMISSIONS: agent takes % of acting salaries; manager takes % of franchise/sequel deals he packaged
+          const grossSalary = book.salary;
+          let agentCommission = 0;
+          if (p.representation?.agent?.signed) {
+            agentCommission = Math.floor(grossSalary * ((p.representation.agent.commissionPercent || 0) / 100));
+          }
+          let managerCommission = 0;
+          if ((book.isFranchise || book.isSequel) && p.representation?.manager?.signed) {
+            managerCommission = Math.floor(grossSalary * ((p.representation.manager.commissionPercent || 0) / 100));
+          }
+          const netPay = grossSalary - agentCommission - managerCommission;
+          salaryEarnedThisWeek += netPay;
           // INBOX SALARY DEPOSIT NOTIFICATION - so player sees payment clearly (user request: "get paid but don't see it")
+          const commissionLines = [
+            agentCommission > 0 ? `\n• Agent Commission (${p.representation?.agent?.name}, ${p.representation?.agent?.commissionPercent}%): -$${agentCommission.toLocaleString()}` : '',
+            managerCommission > 0 ? `\n• Manager Packaging Fee (${p.representation?.manager?.name}, ${p.representation?.manager?.commissionPercent}%): -$${managerCommission.toLocaleString()}` : '',
+          ].filter(Boolean).join('');
           newInboxMessages.unshift({
             id: `msg_salary_deposit_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             category: 'FINANCE',
             sender: `${book.studio || 'Studio'} Payroll`,
             senderRole: 'Production Finance Dept',
             senderAvatar: book.posterUrl,
-            subject: `💰 SALARY DEPOSITED: $${book.salary.toLocaleString()} for "${book.movieTitle}"`,
-            body: `PAYROLL CONFIRMATION\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\n\nYour contract salary of $${book.salary.toLocaleString()} has been deposited directly to your Century Bank checking account.\n\nThis payment is also reflected in your Weekly Recap → FINANCE tab as "Film/TV Salary".\n\nNext: Box office residuals and backend will accrue weekly while the film is in theaters!`,
+            subject: `💰 SALARY DEPOSITED: $${netPay.toLocaleString()} for "${book.movieTitle}"`,
+            body: `PAYROLL CONFIRMATION\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\n\nGross Contract Salary: $${grossSalary.toLocaleString()}${commissionLines}\n\nNET DEPOSIT: $${netPay.toLocaleString()} has been deposited directly to your Century Bank checking account.\n\nThis payment is reflected in your Weekly Recap → FINANCE tab as "Film/TV Salary".\n\nNext: Box office residuals and backend will accrue weekly while the film is in theaters!`,
             date: dateInfo.fullDateText,
             read: false,
           });
           // Also push to WeeklyRecap finance visibility
-          careerMovies.push(`💰 SALARY PAID: $${book.salary.toLocaleString()} deposited for '${book.movieTitle}' (${book.roleType})`);
+          careerMovies.push(`💰 SALARY PAID: $${netPay.toLocaleString()} (net of commissions) for '${book.movieTitle}' (${book.roleType})`);
           p.moviesCompleted += 1;
           if (book.roleType === 'Lead') p.leadRolesCount += 1;
           else if (book.roleType === 'Principal') p.principalRolesCount += 1;
@@ -1457,7 +1779,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? (1.2 + (starRatingPct - 70) * 0.04)
             : (0.35 + (starRatingPct / 100) * 0.65);
 
-          const openingGross = Math.max(120000, Math.floor(
+          const openingGross = Math.max(1500000, Math.floor(
             (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + fameBonus
           ));
           const domesticGross = Math.floor(openingGross * (2.1 + Math.random() * 0.6));
@@ -1493,6 +1815,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             studio: book.studio || 'Universal Pictures',
             director: book.director || 'Denis Villeneuve',
             genre: book.genre || 'Drama',
+            sequelCheckWeeks: 0,
+            sequelOffered: false,
             budget: book.budget || baseBudget,
             releaseWeek: newWeek,
             releaseYear: newYear,
@@ -1537,86 +1861,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Error triggering Hollywood Insider release article:', e);
           }
 
-          // FRANCHISE SEQUELS (Parts 1 to 5) & TV SERIES RENEWALS (Seasons 1 to 15)
-          const isHit = audienceRating >= 60 && worldwideGross > baseBudget * 1.8;
-          if (isHit) {
-            if (isTv && currentSeason < 15) {
-              const nextSeason = currentSeason + 1;
-              const renewedSeasonProject: BookedProject = {
-                id: `tv_season_${nextSeason}_${Date.now()}`,
-                projectId: `proj_tv_${nextSeason}_${Date.now()}`,
-                movieTitle: `${book.parentMovieTitle || book.movieTitle}: Season ${nextSeason}`,
-                posterUrl: book.posterUrl,
-                roleType: book.roleType,
-                category: 'TV Series',
-                salary: Math.floor(book.salary * 1.35),
-                totalFilmingWeeks: Math.floor(book.totalFilmingWeeks * 1.1),
-                weeksRemaining: Math.floor(book.totalFilmingWeeks * 1.1),
-                isFilmingComplete: false,
-                studio: book.studio,
-                director: book.director,
-                status: 'Pending Negotiation',
-                isTvSeries: true,
-                tvSeason: nextSeason,
-                parentMovieTitle: book.parentMovieTitle || book.movieTitle,
-                backendPercent: (book.backendPercent || 2.0) + 1.0,
-                profitSharePercent: (book.profitSharePercent || 3.0) + 1.5,
-              };
-              updatedBookedProjects.push(renewedSeasonProject);
-              newInboxMessages.unshift({
-                id: `msg_renew_${nextSeason}_${Date.now()}`,
-                category: 'CAREER',
-                sender: `${book.studio || 'Network'} Television`,
-                senderRole: 'President of Scripted Programming',
-                senderAvatar: book.posterUrl,
-                subject: `SERIES RENEWED! "${book.movieTitle}" Greenlit for Season ${nextSeason}!`,
-                body: `CONGRATULATIONS!\n\nDue to stellar viewership and high audience ratings (${audienceRating}%), the network has officially renewed "${book.parentMovieTitle || book.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${renewedSeasonProject.salary.toLocaleString()} (+35% pay raise)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
-                date: dateInfo.fullDateText,
-                read: false,
-              });
-            } else if (!isTv && currentPart < 5 && (book.roleType === 'Lead' || book.roleType === 'Principal')) {
-              const nextPart = currentPart + 1;
-              const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
-              const nextFranchiseTitle = `${book.parentMovieTitle || book.movieTitle} (Part ${nextPart}: ${subtitle})`;
-              const nextBudget = Math.floor(baseBudget * 1.4);
-              const nextSalary = Math.floor(book.salary * 1.5);
-
-              const sequelProject: BookedProject = {
-                id: `franchise_part_${nextPart}_${Date.now()}`,
-                projectId: `proj_franchise_${nextPart}_${Date.now()}`,
-                movieTitle: nextFranchiseTitle,
-                posterUrl: book.posterUrl,
-                roleType: 'Lead',
-                category: 'Feature Film',
-                salary: nextSalary,
-                budget: nextBudget,
-                totalFilmingWeeks: Math.floor(book.totalFilmingWeeks * 1.15),
-                weeksRemaining: Math.floor(book.totalFilmingWeeks * 1.15),
-                isFilmingComplete: false,
-                studio: book.studio,
-                director: book.director,
-                status: 'Pending Negotiation',
-                isFranchise: true,
-                franchisePart: nextPart,
-                parentMovieTitle: book.parentMovieTitle || book.movieTitle,
-                backendPercent: (book.backendPercent || 2.5) + 1.5,
-                profitSharePercent: (book.profitSharePercent || 3.5) + 2.0,
-                boxOfficeBonus: Math.floor(nextSalary * 2.5),
-              };
-              updatedBookedProjects.push(sequelProject);
-              newInboxMessages.unshift({
-                id: `msg_franchise_greenlight_${nextPart}_${Date.now()}`,
-                category: 'CAREER',
-                sender: `${book.studio || 'Studio'} Theatrical`,
-                senderRole: 'Head of Franchise Development',
-                senderAvatar: book.posterUrl,
-                subject: `FRANCHISE SEQUEL GREENLIT: "${nextFranchiseTitle}"!`,
-                body: `BREAKING STUDIO GREENLIGHT!\n\nFollowing the profitable theatrical run of "${book.movieTitle}" ($${(worldwideGross / 1000000).toFixed(1)}M worldwide gross), ${book.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${nextSalary.toLocaleString()} (+50% raise)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
-                date: dateInfo.fullDateText,
-                read: false,
-              });
-            }
-          }
+          // Greenlight decisions now happen in the WEEKLY SEQUEL TRACKER below
+          // (target must be met over weeks in the box office — no instant greenlights).
 
           // Movie is completed & released — do not push back into updatedBookedProjects
           return;
@@ -1640,6 +1886,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hypeScore: hype,
         productionLog: logs,
         boostedThisTurn: false,
+        // INVISIBLE PRODUCTION TICKER: +1 real week per END WEEK, no manual clicks needed
+        productionWeeksCompleted: (book.productionWeeksCompleted || 0) + 1,
       });
     });
 
@@ -1671,7 +1919,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error processing Hollywood Insider weekly news tick:', e);
     }
 
-    // 7b. Awards Ceremony - REBUILT: Triggers on last week (52) and weeks 1-4, hard to win for new players (high thresholds)
+    // 7b. YEAR-END AWARDS NIGHT — one unified ceremony per year, fired at Week 52.
+    // No more scattered mini ceremonies at weeks 1-4.
     let awardsTrophies: any[] = [];
     let awardsRecords: any[] = [];
     let awardsInbox: any[] = [];
@@ -1697,10 +1946,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nextAwardShows.push(`${awardsResult.ceremonyEvent.eventName} Ceremony - Week ${newWeek}`);
         }
       }
-      // Also push next award shows coming up
-      const upcomingCeremonies = [52, 1, 2, 3, 4].filter(w => w > newWeek && w <= newWeek + 2);
-      if (upcomingCeremonies.length > 0) {
-        nextAwardShows.push(`Next ceremonies: Weeks ${upcomingCeremonies.join(', ')}`);
+      if (awardsResult.ceremonyData) {
+        setAwardCeremonyData(awardsResult.ceremonyData);
+        awardNightPending = true;
       }
     } catch (e) {
       console.error('Error processing awards ceremony:', e);
@@ -1750,7 +1998,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const nextWeeks = chartItem.weeksReleased || movie.weeksInCinemas + 1;
-        const nextInCinemas = nextWeeks >= 15 ? false : (chartItem.inTheaters ?? movie.inCinemas);
+        const nextInCinemas = nextWeeks >= 20 ? false : (chartItem.inTheaters ?? movie.inCinemas);
 
         const currentWorldwide = movie.worldwideGross || movie.boxOfficeGross || 0;
         const currentDomestic = movie.domesticGross || 0;
@@ -1796,10 +2044,151 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return {
         ...movie,
         weeksInCinemas: fallbackWeeks,
-        inCinemas: fallbackWeeks >= 15 ? false : movie.inCinemas,
+        inCinemas: fallbackWeeks >= 20 ? false : movie.inCinemas,
         worldwideGross: fallbackGross,
         boxOfficeGross: fallbackGross,
+        sequelCheckWeeks: movie.sequelCheckWeeks,
       };
+    });
+
+    // 7c. SEQUEL & RENEWAL GREENLIGHT TRACKER — weekly check while the movie is in the box
+    // office AND up to 20 weeks after (even after it leaves theaters). No instant greenlight.
+    // Studio offers when the target is met. If a Manager is signed, the Manager negotiates
+    // better terms with the studio and sends the full offer to your Inbox.
+    const finalReleasedMovies = updatedReleasedMovies.map((movie) => {
+      const isTv = movie.isTvSeries || movie.category === 'TV Series';
+      const currentPart = movie.franchisePart || 1;
+      const currentSeason = movie.tvSeason || 1;
+      const maxPart = movie.isFranchise ? 5 : 1;
+      const maxSeason = (movie as any).maxTvSeason || 15;
+      if (movie.sequelOffered) return movie;
+      if (!isTv && movie.roleType !== 'Lead' && movie.roleType !== 'Principal') return movie;
+      if (!isTv && currentPart >= maxPart) return movie;
+      if (isTv && currentSeason >= maxSeason) return movie;
+
+      const checks = (movie.sequelCheckWeeks || 0) + 1;
+      if (checks > 20) return movie; // greenlight decision window closed
+
+      const baseBudget = movie.budget || 1500000;
+      const targetMet =
+        (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8;
+      if (!targetMet) return { ...movie, sequelCheckWeeks: checks };
+
+      // TARGET MET — GREENLIGHT TIME (studio offer, or manager-negotiated offer)
+      const managerSigned = !!p.representation?.manager?.signed;
+      const managerName = p.representation?.manager?.name || 'Your Manager';
+      const managerCompany = p.representation?.manager?.company || '';
+
+      if (isTv) {
+        const nextSeason = currentSeason + 1;
+        const studioSalary = Math.floor((movie.playerEarnings || 2500000) * 1.35);
+        const salary = managerSigned ? Math.floor(studioSalary * 1.2) : studioSalary;
+        const shootWeeks = 6 + Math.floor(Math.random() * 3);
+        const renewedProject: BookedProject = {
+          id: `tv_season_${nextSeason}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          projectId: `proj_tv_${nextSeason}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          movieTitle: `${movie.parentMovieTitle || movie.movieTitle}: Season ${nextSeason}`,
+          posterUrl: movie.posterUrl,
+          roleType: movie.roleType,
+          category: 'TV Series',
+          salary,
+          totalFilmingWeeks: shootWeeks,
+          weeksRemaining: shootWeeks,
+          isFilmingComplete: false,
+          studio: movie.studio,
+          director: movie.director,
+          status: 'Pending Negotiation',
+          isTvSeries: true,
+          tvSeason: nextSeason,
+          parentMovieTitle: movie.parentMovieTitle || movie.movieTitle,
+          backendPercent: managerSigned ? 3.5 : 2.5,
+          profitSharePercent: managerSigned ? 5.5 : 4.0,
+          sourcedByManager: managerSigned,
+        };
+        updatedBookedProjects.push(renewedProject);
+        newInboxMessages.unshift({
+          id: `msg_renew_${nextSeason}_${Date.now()}`,
+          category: 'CAREER',
+          sender: managerSigned ? managerName : `${movie.studio || 'Network'} Television`,
+          senderRole: managerSigned ? 'Personal Manager' : 'President of Scripted Programming',
+          senderAvatar: movie.posterUrl,
+          subject: managerSigned
+            ? `🤝 MANAGER NEGOTIATED: "${movie.parentMovieTitle || movie.movieTitle}" Season ${nextSeason}`
+            : `SERIES RENEWED! "${movie.movieTitle}" Greenlit for Season ${nextSeason}!`,
+          body: managerSigned
+            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its renewal target (${movie.audienceRating}% audience rating, $${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the network'}.\n\nNEGOTIATED RENEWAL TERMS:\n• Next Season Salary: $${salary.toLocaleString()}\n• Backend: ${renewedProject.backendPercent}% | Profit Share: ${renewedProject.profitSharePercent}%\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+            : `CONGRATULATIONS!\n\nDue to stellar viewership (${movie.audienceRating}% audience rating), the network has officially renewed "${movie.parentMovieTitle || movie.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${salary.toLocaleString()} (+35% pay raise)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+        newTimelineEvents.push({
+          id: `tl_renew_${Date.now()}`,
+          year: newYear,
+          week: newWeek,
+          category: 'RELEASE',
+          title: `${movie.movieTitle} renewed for Season ${nextSeason}`,
+          description: `${movie.movieTitle} met its renewal target and was greenlit for Season ${nextSeason}.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+        });
+        return { ...movie, sequelOffered: true, sequelOfferedPart: nextSeason, sequelCheckWeeks: checks };
+      }
+
+      // MOVIE FRANCHISE SEQUEL
+      const nextPart = currentPart + 1;
+      const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
+      const nextFranchiseTitle = `${movie.parentMovieTitle || movie.movieTitle} (Part ${nextPart}: ${subtitle})`;
+      const nextBudget = Math.floor(baseBudget * 1.4);
+      const studioSalary = Math.floor((movie.playerEarnings || 2000000) * 1.5);
+      const salary = managerSigned ? Math.floor(studioSalary * 1.25) : studioSalary;
+      const shootWeeks = 6 + Math.floor(Math.random() * 4);
+      const backend = managerSigned ? 5.0 : 3.5;
+      const sequelProject: BookedProject = {
+        id: `franchise_part_${nextPart}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        projectId: `proj_franchise_${nextPart}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        movieTitle: nextFranchiseTitle,
+        posterUrl: movie.posterUrl,
+        roleType: 'Lead',
+        category: 'Feature Film',
+        salary,
+        budget: nextBudget,
+        totalFilmingWeeks: shootWeeks,
+        weeksRemaining: shootWeeks,
+        isFilmingComplete: false,
+        studio: movie.studio,
+        director: movie.director,
+        status: 'Pending Negotiation',
+        isFranchise: true,
+        franchisePart: nextPart,
+        parentMovieTitle: movie.parentMovieTitle || movie.movieTitle,
+        backendPercent: backend,
+        profitSharePercent: backend + 1.5,
+        boxOfficeBonus: Math.floor(salary * 2.5),
+        sourcedByManager: managerSigned,
+      };
+      updatedBookedProjects.push(sequelProject);
+      newInboxMessages.unshift({
+        id: `msg_franchise_greenlight_${nextPart}_${Date.now()}`,
+        category: 'CAREER',
+        sender: managerSigned ? managerName : `${movie.studio || 'Studio'} Theatrical`,
+        senderRole: managerSigned ? 'Personal Manager' : 'Head of Franchise Development',
+        senderAvatar: movie.posterUrl,
+        subject: managerSigned
+          ? `🤝 MANAGER NEGOTIATED: "${nextFranchiseTitle}" deal ready for review`
+          : `FRANCHISE SEQUEL GREENLIT: "${nextFranchiseTitle}"!`,
+        body: managerSigned
+          ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross vs $${(baseBudget * 1.8 / 1000000).toFixed(1)}M target), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the studio'}.\n\nNEGOTIATED TERMS:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Salary: $${salary.toLocaleString()} (+25% over standard studio offer)\n• Backend: ${sequelProject.backendPercent}% | Profit Share: ${sequelProject.profitSharePercent}%\n• Box Office Bonus: $${sequelProject.boxOfficeBonus.toLocaleString()}\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+          : `BREAKING STUDIO GREENLIGHT!\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide gross, ${movie.audienceRating}% audience rating), ${movie.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${salary.toLocaleString()} (+50% raise)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
+        date: dateInfo.fullDateText,
+        read: false,
+      });
+      newTimelineEvents.push({
+        id: `tl_sequel_${Date.now()}`,
+        year: newYear,
+        week: newWeek,
+        category: 'RELEASE',
+        title: `Sequel Greenlit: ${nextFranchiseTitle}`,
+        description: `"${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross) and Part ${nextPart} was greenlit.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+      });
+      return { ...movie, sequelOffered: true, sequelOfferedPart: nextPart, sequelCheckWeeks: checks };
     });
 
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)
@@ -1809,22 +2198,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 15% chance per week for older projects to be filled by competing NPC actors
       const npcClaimed = remainingWeeks <= 0 || (Math.random() < 0.15 && remainingWeeks <= 2);
       if (npcClaimed) {
-        // ONLY send notification if player interacted with this project!
-        const playerInteracted = (project as any).playerInteracted === true ||
-          saveData.auditions.some(a => a.projectId === project.id || a.movieTitle === project.title) ||
-          saveData.bookedProjects.some(b => b.id === project.id || b.movieTitle === project.title);
+        // ONLY notify when the player ACTUALLY APPLIED to THIS EXACT listing (strict projectId match).
+        // Title matching is banned: recycled titles from the endless pool would spam fake messages.
+        const playerAppliedToThisListing =
+          saveData.auditions.some(a => a.projectId === project.id) ||
+          saveData.bookedProjects.some(b => b.projectId === project.id);
 
-        if (playerInteracted) {
-          // Only notify if player actually applied - and make it clear this is Callboard expiration, NOT audition rejection
-          // Audition for Pacific Crest will still show as pending in Auditions tab until its weeksRemaining hits 0
+        if (playerAppliedToThisListing) {
           newInboxMessages.unshift({
             id: `msg_npc_fill_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             category: 'CASTING',
             sender: `${project.studio || 'Studio'} Casting`,
             senderRole: 'Casting Director',
             senderAvatar: project.posterUrl,
-            subject: `Callboard Expired: ${project.title} (No Application)`,
-            body: `Heads up: The ${project.roleType} role in "${project.title}" on the Callboard has expired and was filled by another actor. This was a Callboard listing you did NOT apply to - your active Auditions (like "Pacific Crest") are still pending and will be decided separately. Keep checking the Callboard for new 20-25 fresh opportunities!`,
+            subject: `Callboard Expired: ${project.title}`,
+            body: `Heads up: The ${project.roleType} role in "${project.title}" on the Callboard has expired and was filled by another actor. Your active Auditions are still pending and will be decided separately. Keep checking the Callboard for fresh opportunities!`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -2074,7 +2462,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callboard: updatedCallboard,
       auditions: remainingAuditions,
       bookedProjects: updatedBookedProjects,
-      releasedMovies: updatedReleasedMovies,
+      releasedMovies: finalReleasedMovies,
       inbox: updatedInbox,
       relationships: updatedRelationships,
       careerTimeline: [...newTimelineEvents, ...(saveData.careerTimeline || [])],
@@ -2084,10 +2472,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Error during advanceWeek processing:', err);
     } finally {
-      // After brief delay, show Weekly Recap modal while preserving current screen/tab
+      // After brief delay, show the Year-End Awards Night (Week 52) or the Weekly Recap
       setTimeout(() => {
         setIsProcessingWeek(false);
-        setActiveModal('weekly_recap');
+        if (awardNightPending) {
+          setActiveModal('award_ceremony');
+        } else {
+          setActiveModal('weekly_recap');
+        }
       }, 1400);
     }
   };
@@ -2670,11 +3062,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         careerTimeline: saveData.careerTimeline || [],
         selectedFycMovieId,
         setSelectedFycMovieId,
+        awardCeremonyData,
+        setAwardCeremonyData,
         launchFycCampaign,
         addTimelineEvent,
         enrollInCourse,
         updatePlayer,
         signAgentContract,
+        hireManager,
+        terminateRepresentation,
         createNewCharacter,
         applyToCallboard,
         advanceWeek,

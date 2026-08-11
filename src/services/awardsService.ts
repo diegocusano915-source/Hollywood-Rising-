@@ -1,111 +1,157 @@
 /**
- * HOLLYWOOD RISING - Awards & Trophy Simulation Engine (Phase 6)
- * Simulates Oscars, Golden Globes, BAFTA, SAG, Emmys, Critics Choice, Independent Spirit, Festivals.
- * Handles campaign boosts (FYC), nominations, speech outcomes, and permanent award history.
+ * HOLLYWOOD RISING - Year-End Awards Night Engine
+ * One unified ceremony per year, fired at Week 52.
+ * - 12-15 categories (7 core + rotating pool, genre-aware)
+ * - 10 NPC nominees + the player = 11 per category, ALL from REAL movies
+ *   that actually played in the player's box office that year
+ * - NPC actors are assigned to real movies at release (no fake films)
+ * - Winner = highest real score (critics, audience, talent, FYC campaigns)
+ * - NPCs genuinely win. Player wins only when the movie is truly the best.
  */
 
-import { Player, ReleasedMovie, TrophyItem, AwardRecord, InboxMessage } from '../types/game';
-import { FameService } from './fameService';
+import {
+  Player,
+  ReleasedMovie,
+  TrophyItem,
+  AwardRecord,
+  InboxMessage,
+  AwardNominee,
+  AwardCategoryResult,
+  AwardCeremonyResult,
+} from '../types/game';
+import { BoxOfficeEngineService } from './boxOfficeEngineService';
+import { BoxOfficeItem } from '../types/world';
+import { AWARD_ACTOR_POOL } from '../database/representationDatabase';
 
 export interface AwardCeremonyConfig {
-  name: 'Oscars' | 'Golden Globes' | 'BAFTA' | 'SAG Awards' | 'Emmys' | 'Critics Choice' | 'Independent Spirit';
+  name: string;
   week: number;
-  trophyType: 'Academy Award' | 'Golden Globe' | 'BAFTA' | 'SAG Award' | 'Emmy' | 'Critics Choice' | 'Independent Spirit';
-  minScoreForNomination: number;
-  minScoreForWin: number;
-  nominationXp: number;
-  winXp: number;
+  trophyType: string;
 }
 
 export const CEREMONIES: AwardCeremonyConfig[] = [
-  // REBUILT: All ceremonies on last week (52) and first weeks of new year - HARD TO WIN for new players (high thresholds)
   {
-    name: 'Independent Spirit',
+    name: 'Hollywood Rising Awards',
     week: 52,
-    trophyType: 'Independent Spirit',
-    minScoreForNomination: 75,
-    minScoreForWin: 88,
-    nominationXp: 200,
-    winXp: 400,
-  },
-  {
-    name: 'Critics Choice',
-    week: 52,
-    trophyType: 'Critics Choice',
-    minScoreForNomination: 78,
-    minScoreForWin: 90,
-    nominationXp: 250,
-    winXp: 500,
-  },
-  {
-    name: 'Golden Globes',
-    week: 1,
-    trophyType: 'Golden Globe',
-    minScoreForNomination: 82,
-    minScoreForWin: 93,
-    nominationXp: 300,
-    winXp: 600,
-  },
-  {
-    name: 'SAG Awards',
-    week: 2,
-    trophyType: 'SAG Award',
-    minScoreForNomination: 85,
-    minScoreForWin: 94,
-    nominationXp: 350,
-    winXp: 700,
-  },
-  {
-    name: 'BAFTA',
-    week: 3,
-    trophyType: 'BAFTA',
-    minScoreForNomination: 87,
-    minScoreForWin: 95,
-    nominationXp: 400,
-    winXp: 800,
-  },
-  {
-    name: 'Oscars',
-    week: 4,
-    trophyType: 'Academy Award',
-    minScoreForNomination: 90,
-    minScoreForWin: 96,
-    nominationXp: 600,
-    winXp: 1200,
+    trophyType: 'Hollywood Rising Award',
   },
 ];
 
+const VENUES = [
+  'The Dolby Theatre, Hollywood',
+  'The Beverly Hilton, Beverly Hills',
+  'Royal Albert Hall, London',
+  'The Hollywood Bowl, Los Angeles',
+  'The Venetian Theatre, Las Vegas',
+];
+
+const HOSTS = [
+  'Marco Delaney',
+  'Tanya Brooks',
+  'Dexter Wilde',
+  'Alessandra Quinn',
+  'Marcus Whitfield',
+];
+
+export interface CeremonyCategoryDef {
+  id: string;
+  label: string;
+  kind: 'role' | 'supporting' | 'director' | 'picture' | 'genre' | 'audience' | 'newcomer' | 'tech' | 'tv';
+  prestige: 'Legendary' | 'Global' | 'National' | 'International' | 'Fan';
+  baseXp: number;
+}
+
+export const CORE_CATEGORIES: CeremonyCategoryDef[] = [
+  { id: 'best_actor', label: 'Best Actor in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 1500 },
+  { id: 'best_actress', label: 'Best Actress in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 1500 },
+  { id: 'best_supporting', label: 'Best Supporting Performance', kind: 'supporting', prestige: 'Global', baseXp: 1100 },
+  { id: 'best_picture', label: 'Best Motion Picture', kind: 'picture', prestige: 'Legendary', baseXp: 2000 },
+  { id: 'best_director', label: 'Best Director', kind: 'director', prestige: 'Legendary', baseXp: 1200 },
+  { id: 'best_newcomer', label: 'Best Newcomer / Breakthrough Performance', kind: 'newcomer', prestige: 'National', baseXp: 800 },
+  { id: 'audience_choice', label: 'Audience Choice Award', kind: 'audience', prestige: 'Fan', baseXp: 1000 },
+];
+
+export const ROTATING_CATEGORIES: CeremonyCategoryDef[] = [
+  { id: 'best_comedy', label: 'Best Comedy Film', kind: 'genre', prestige: 'National', baseXp: 900 },
+  { id: 'best_action', label: 'Best Action Film', kind: 'genre', prestige: 'National', baseXp: 900 },
+  { id: 'best_scifi', label: 'Best Sci-Fi / Fantasy Film', kind: 'genre', prestige: 'Global', baseXp: 1000 },
+  { id: 'best_thriller', label: 'Best Thriller', kind: 'genre', prestige: 'National', baseXp: 900 },
+  { id: 'best_drama', label: 'Best Drama', kind: 'genre', prestige: 'Global', baseXp: 1000 },
+  { id: 'best_musical', label: 'Best Musical', kind: 'genre', prestige: 'National', baseXp: 850 },
+  { id: 'best_cinematography', label: 'Best Cinematography', kind: 'tech', prestige: 'National', baseXp: 700 },
+  { id: 'best_vfx', label: 'Best Visual Effects', kind: 'tech', prestige: 'National', baseXp: 700 },
+  { id: 'best_score', label: 'Best Original Score', kind: 'tech', prestige: 'National', baseXp: 700 },
+  { id: 'best_song', label: 'Best Original Song', kind: 'tech', prestige: 'National', baseXp: 700 },
+  { id: 'best_ensemble', label: 'Best Ensemble Cast', kind: 'picture', prestige: 'Global', baseXp: 950 },
+  { id: 'best_tv_drama', label: 'Best TV Drama Series', kind: 'tv', prestige: 'Global', baseXp: 900 },
+  { id: 'best_tv_comedy', label: 'Best TV Comedy Series', kind: 'tv', prestige: 'National', baseXp: 800 },
+  { id: 'best_tv_actor', label: 'Best Actor in a TV Series', kind: 'tv', prestige: 'Global', baseXp: 950 },
+  { id: 'box_office_achievement', label: 'Box Office Achievement Award', kind: 'audience', prestige: 'Fan', baseXp: 850 },
+];
+
+const GENRE_ALIASES: Record<string, string[]> = {
+  best_comedy: ['Comedy', 'Comedy-Drama', 'Romantic Comedy'],
+  best_action: ['Action', 'Action Thriller', 'Superhero'],
+  best_scifi: ['Sci-Fi', 'Science Fiction', 'Fantasy', 'Superhero'],
+  best_thriller: ['Thriller', 'Mystery', 'Crime'],
+  best_drama: ['Drama', 'Biographical', 'Historical', 'Romance'],
+  best_musical: ['Musical', 'Music'],
+};
+
 export class AwardsService {
-  /**
-   * Calculates a movie's total award score considering quality, FYC campaigns, director, role.
-   */
-  public static calculateMovieAwardScore(movie: ReleasedMovie, player: Player): number {
-    let score = movie.criticRating * 0.45 + movie.audienceRating * 0.20;
+  /** Real award score for any box office / released movie */
+  public static calculateMovieAwardScore(
+    movie: ReleasedMovie | BoxOfficeItem,
+    player: Player,
+    includePlayerBonus: boolean = true
+  ): number {
+    const critic = (movie as any).criticRating || (movie as any).criticScore || 70;
+    const audience = (movie as any).audienceRating || (movie as any).audienceScore || 70;
+    let score = critic * 0.45 + audience * 0.2;
 
-    // Role weighting
-    if (movie.roleType === 'Lead') score += 15;
-    else if (movie.roleType === 'Principal') score += 10;
-    else if (movie.roleType === 'Support') score += 5;
+    const roleType = (movie as ReleasedMovie).roleType;
+    if (roleType === 'Lead') score += 15;
+    else if (roleType === 'Principal') score += 10;
+    else if (roleType === 'Support') score += 5;
 
-    // Talent bonus
-    score += (player.talents.acting / 100) * 10;
-
-    // Campaign FYC boost
-    if (movie.fycCampaignLevel === 'Ads') score += 8;
-    else if (movie.fycCampaignLevel === 'Screenings') score += 16;
-    else if (movie.fycCampaignLevel === 'Dinners') score += 28;
-    else if (movie.fycCampaignLevel === 'Blitz') score += 42;
-
-    // A-list Director reputation bonus
-    if (movie.director === 'Christopher Nolan' || movie.director === 'Denis Villeneuve' || movie.director === 'Martin Scorsese') {
-      score += 10;
+    if (includePlayerBonus) {
+      score += (player.talents.acting / 100) * 10;
+      const fyc = (movie as ReleasedMovie).fycCampaignLevel;
+      if (fyc === 'Ads') score += 8;
+      else if (fyc === 'Screenings') score += 16;
+      else if (fyc === 'Dinners') score += 28;
+      else if (fyc === 'Blitz') score += 42;
     }
+
+    const director = movie.director || '';
+    if (director && director.length > 0) score += 3;
 
     return Math.min(100, Math.round(score));
   }
 
+  private static genreMatches(movie: ReleasedMovie | BoxOfficeItem, categoryId: string): boolean {
+    const aliases = GENRE_ALIASES[categoryId];
+    if (!aliases) return true;
+    const m = movie as any;
+    const genres = m.genres || (m.genre ? [m.genre] : []);
+    return (genres || []).some((g: string) => aliases.some((a) => (g || '').toLowerCase().includes(a.toLowerCase())));
+  }
+
+  private static roleMatches(movie: ReleasedMovie | BoxOfficeItem, player: Player, def: CeremonyCategoryDef): boolean {
+    const roleType = (movie as ReleasedMovie).roleType;
+    if (def.kind === 'role') {
+      if (def.id === 'best_actor') return player.gender === 'Male' && roleType === 'Lead';
+      if (def.id === 'best_actress') return player.gender === 'Female' && roleType === 'Lead';
+      return roleType === 'Lead';
+    }
+    if (def.kind === 'supporting') return roleType === 'Principal' || roleType === 'Support';
+    if (def.kind === 'tv') return (movie as ReleasedMovie).isTvSeries === true || (movie as any).type === 'Series';
+    return true;
+  }
+
   /**
-   * Runs award processing for current week if an award show is scheduled.
+   * Builds a full year-end ceremony from REAL box office data.
+   * Runs only on Week 52. 10 NPC nominees + player (when eligible) = 11.
    */
   public static processEndWeekCeremony(
     week: number,
@@ -122,201 +168,350 @@ export class AwardsService {
     newInboxMessages: InboxMessage[];
     fameGained: number;
     ceremonyEvent: AwardRecord | null;
+    ceremonyData: AwardCeremonyResult | null;
+    playerEligible: boolean;
   } {
     const ceremony = CEREMONIES.find((c) => c.week === week);
-    if (!ceremony) {
-      return {
-        updatedPlayer: player,
-        updatedReleasedMovies: releasedMovies,
-        newTrophies: [],
-        newRecords: [],
-        newInboxMessages: [],
-        fameGained: 0,
-        ceremonyEvent: null,
-      };
+    const empty = {
+      updatedPlayer: { ...player },
+      updatedReleasedMovies: releasedMovies,
+      newTrophies: [] as TrophyItem[],
+      newRecords: [] as AwardRecord[],
+      newInboxMessages: [] as InboxMessage[],
+      fameGained: 0,
+      ceremonyEvent: null as AwardRecord | null,
+      ceremonyData: null as AwardCeremonyResult | null,
+      playerEligible: false,
+    };
+    if (!ceremony) return empty;
+
+    // ---- REAL MOVIE POOLS ----
+    // Player movies released this year
+    const playerMovies = releasedMovies.filter((m) => (m.releaseYear === year || m.releaseYear === year - 1));
+    // NPC movies from the REAL box office chart (released this year, real grosses)
+    let npcPool: BoxOfficeItem[] = [];
+    try {
+      const boState = BoxOfficeEngineService.getState();
+      npcPool = (boState?.items || []).filter(
+        (i: BoxOfficeItem) => !i.isPlayerMovie && (i.releaseYear === year || i.releaseYear === year - 1) && (i.worldwideGross || 0) > 0
+      );
+    } catch {
+      npcPool = [];
     }
 
-    // Eligible movies from current or previous year
-    const eligibleMovies = releasedMovies.filter(
-      (m) => (m.releaseYear === year || m.releaseYear === year - 1) && m.roleType !== 'Background' && m.roleType !== 'Cameo'
-    );
+    // The show happens every year even if the player released nothing.
+    const playerEligible = playerMovies.length > 0;
 
-    if (eligibleMovies.length === 0) {
-      return {
-        updatedPlayer: player,
-        updatedReleasedMovies: releasedMovies,
-        newTrophies: [],
-        newRecords: [],
-        newInboxMessages: [],
-        fameGained: 0,
-        ceremonyEvent: null,
-      };
-    }
-
-    // Best movie contender
-    let bestMovie = eligibleMovies[0];
-    let bestScore = this.calculateMovieAwardScore(bestMovie, player);
-
-    for (const movie of eligibleMovies) {
-      const score = this.calculateMovieAwardScore(movie, player);
-      if (score > bestScore) {
-        bestScore = score;
-        bestMovie = movie;
+    // ---- BUILD CATEGORY LINEUP (12-15, rotating) ----
+    const yearSeed = year % 3;
+    const rotating = ROTATING_CATEGORIES.filter((def) => {
+      if (def.kind === 'genre') {
+        const anyMovie = [...playerMovies, ...npcPool].some((m) => this.genreMatches(m, def.id));
+        return anyMovie;
       }
+      if (def.kind === 'tv') {
+        const anyMovie = [...playerMovies, ...npcPool].some((m) => (m as any).isTvSeries === true || (m as any).type === 'Series');
+        return anyMovie;
+      }
+      return true;
+    });
+    const rotated = rotating.filter((_, i) => (i + yearSeed) % 2 === 0 || i < 3);
+    const lineup: CeremonyCategoryDef[] = [...CORE_CATEGORIES, ...rotated].slice(0, 15);
+    if (lineup.length < 12) {
+      lineup.push(...rotated.slice(0, 15 - lineup.length));
     }
 
-    let fameGained = 0;
+    const categories: AwardCategoryResult[] = [];
     const newTrophies: TrophyItem[] = [];
     const newRecords: AwardRecord[] = [];
     const newInboxMessages: InboxMessage[] = [];
-    let updatedPlayer = { ...player };
+    let fameGained = 0;
+    let playerWins = 0;
+    let playerNominations = 0;
+    const updatedPlayer = { ...player };
     const updatedReleasedMovies = [...releasedMovies];
 
-    const isNominated = bestScore >= ceremony.minScoreForNomination;
-    const isWinner = isNominated && bestScore >= ceremony.minScoreForWin;
+    for (const def of lineup) {
+      // --- Build nominee pool ---
+      const nominees: AwardNominee[] = [];
+      const usedMovies = new Set<string>();
 
-    // NPC Competitors
-    const npcs = [
-      { name: 'Marcus Hayes', title: 'The Shadows of Innocence', score: 89 },
-      { name: 'Seraphina Sterling', title: 'Whispers in Venice', score: 87 },
-      { name: 'Leonardo DiCaprio', title: 'The Great Horizon', score: 91 },
-      { name: 'Cillian Murphy', title: 'Atomic Midnight', score: 92 },
-    ];
-
-    const category = bestMovie.roleType === 'Lead' ? 'Best Actor in a Leading Role' : 'Best Actor in a Supporting Role';
-
-    if (isWinner) {
-      // WINNER!
-      fameGained += ceremony.winXp;
-      updatedPlayer.awardsWon = (updatedPlayer.awardsWon || 0) + 1;
-      updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + ceremony.winXp;
-
-      // Trophy Item
-      const trophy: TrophyItem = {
-        id: `trophy_${Date.now()}_${Math.random()}`,
-        awardType: ceremony.trophyType,
-        category,
-        year,
-        movieTitle: bestMovie.movieTitle,
-        studio: bestMovie.studio || 'Paramount Pictures',
-        director: bestMovie.director || 'Denis Villeneuve',
-        photoUrl: bestMovie.posterUrl,
-        dateText: `Week ${week}, Year ${year}`,
-      };
-      newTrophies.push(trophy);
-
-      // Award Record
-      const record: AwardRecord = {
-        id: `rec_${Date.now()}`,
-        year,
-        eventName: ceremony.name,
-        category,
-        winnerTitle: bestMovie.movieTitle,
-        winnerName: `${player.firstName} ${player.lastName}`,
-        isPlayerWinner: true,
-        isPlayerNominated: true,
-        movieTitle: bestMovie.movieTitle,
-        nominees: [
-          { title: bestMovie.movieTitle, name: `${player.firstName} ${player.lastName}`, isPlayer: true },
-          ...npcs.slice(0, 3).map((n) => ({ title: n.title, name: n.name, isPlayer: false })),
-        ],
-      };
-      newRecords.push(record);
-
-      // Update movie stats
-      const movieIdx = updatedReleasedMovies.findIndex((m) => m.id === bestMovie.id);
-      if (movieIdx !== -1) {
-        updatedReleasedMovies[movieIdx] = {
-          ...updatedReleasedMovies[movieIdx],
-          awardsWon: (updatedReleasedMovies[movieIdx].awardsWon || 0) + 1,
-          awardsNominated: (updatedReleasedMovies[movieIdx].awardsNominated || 0) + 1,
-        };
+      // Player entry (real movie, real stats)
+      let playerNominee: AwardNominee | null = null;
+      if (playerEligible) {
+        const eligiblePlayerMovies = playerMovies
+          .filter((m) => this.roleMatches(m, player, def) && this.genreMatches(m, def.id))
+          .sort((a, b) => {
+            const sa = this.calculateMovieAwardScore(a, player, true);
+            const sb = this.calculateMovieAwardScore(b, player, true);
+            return sb - sa;
+          });
+        if (eligiblePlayerMovies.length > 0) {
+          const best = eligiblePlayerMovies[0];
+          const score = this.calculateMovieAwardScore(best, player, true);
+          playerNominee = {
+            name: `${player.firstName} ${player.lastName}`,
+            movieTitle: best.movieTitle,
+            score: Math.min(100, score),
+            isPlayer: true,
+            avatarUrl: player.avatarUrl,
+            studio: best.studio,
+            genre: best.genre,
+          };
+          nominees.push(playerNominee);
+          usedMovies.add(best.id);
+        }
       }
 
-      // Inbox message
-      newInboxMessages.push({
-        id: `msg_award_win_${Date.now()}`,
-        category: 'CAREER',
-        sender: `${ceremony.name} Academy Board`,
-        subject: `🏆 WINNER: ${ceremony.name} - ${category}!`,
-        body: `Congratulations! You have officially won the ${ceremony.name} award for ${category} for your outstanding performance in "${bestMovie.movieTitle}". Your trophy has been added to your Trophy Room! (+${ceremony.winXp} Fame XP)`,
-        date: `W${week}, ${year}`,
-        dateWeek: week,
-        dateYear: year,
-        read: false,
+      // NPC entries — real movies from the player's box office, real actors
+      const eligibleNpc = npcPool
+        .filter((m) => this.roleMatches(m, player, def) && this.genreMatches(m, def.id) && !usedMovies.has(m.id))
+        .map((m) => {
+          const actor = AWARD_ACTOR_POOL.find((a) => a.name === m.leadActor) || AWARD_ACTOR_POOL[Math.abs(m.title.length + (m.worldwideGross || 0)) % AWARD_ACTOR_POOL.length];
+          const base = this.calculateMovieAwardScore(m, player, false);
+          const talentBoost = (actor?.talent || 70) * 0.18;
+          const score = Math.min(100, Math.round(base + talentBoost + (Math.random() * 4 - 1)));
+          return { m, actor, score };
+        })
+        .sort((a, b) => b.score - a.score);
+
+      const npcCount = Math.min(10, Math.max(4, eligibleNpc.length));
+      const selectedNpc = eligibleNpc.slice(0, npcCount);
+
+      selectedNpc.forEach(({ m, actor, score }) => {
+        nominees.push({
+          name: actor.name,
+          movieTitle: m.title,
+          score: Math.min(100, score),
+          isPlayer: false,
+          avatarUrl: actor.avatarUrl,
+          studio: m.studio,
+          genre: (m.genres || [])[0],
+        });
       });
 
-      return {
-        updatedPlayer,
-        updatedReleasedMovies,
-        newTrophies,
-        newRecords,
-        newInboxMessages,
-        fameGained,
-        ceremonyEvent: record,
-      };
-    } else if (isNominated) {
-      // NOMINATED ONLY
-      fameGained += ceremony.nominationXp;
-      updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + ceremony.nominationXp;
-
-      const topNpc = npcs[0];
-      const record: AwardRecord = {
-        id: `rec_${Date.now()}`,
-        year,
-        eventName: ceremony.name,
-        category,
-        winnerTitle: topNpc.title,
-        winnerName: topNpc.name,
-        isPlayerWinner: false,
-        isPlayerNominated: true,
-        movieTitle: bestMovie.movieTitle,
-        nominees: [
-          { title: bestMovie.movieTitle, name: `${player.firstName} ${player.lastName}`, isPlayer: true },
-          ...npcs.map((n) => ({ title: n.title, name: n.name, isPlayer: false })),
-        ],
-      };
-      newRecords.push(record);
-
-      const movieIdx = updatedReleasedMovies.findIndex((m) => m.id === bestMovie.id);
-      if (movieIdx !== -1) {
-        updatedReleasedMovies[movieIdx] = {
-          ...updatedReleasedMovies[movieIdx],
-          awardsNominated: (updatedReleasedMovies[movieIdx].awardsNominated || 0) + 1,
-        };
+      // Top up with filler NPCs ONLY if there are not enough real movies (rare early-game),
+      // using real titles from the box office chart history (any year) — never invented films.
+      let fillIdx = 0;
+      const fullNpcPool = npcPool.length > 0 ? npcPool : this.getHistoricalNpcPool();
+      while (nominees.length < 11 && fillIdx < fullNpcPool.length && fullNpcPool.length > 0) {
+        const m = fullNpcPool[fillIdx++ % fullNpcPool.length];
+        if (usedMovies.has(m.id)) continue;
+        if (!this.roleMatches(m, player, def) || !this.genreMatches(m, def.id)) continue;
+        const actor = AWARD_ACTOR_POOL[Math.abs(m.title.length + fillIdx) % AWARD_ACTOR_POOL.length];
+        const score = Math.min(100, Math.round(this.calculateMovieAwardScore(m, player, false) + (actor.talent || 70) * 0.18));
+        nominees.push({
+          name: actor.name,
+          movieTitle: m.title,
+          score,
+          isPlayer: false,
+          avatarUrl: actor.avatarUrl,
+          studio: m.studio,
+          genre: (m.genres || [])[0],
+        });
+        usedMovies.add(m.id);
+      }
+      // If STILL short (basically impossible), pad with actor-only nominees carrying real box office films
+      while (nominees.length < 11 && AWARD_ACTOR_POOL.length > 0) {
+        const actor = AWARD_ACTOR_POOL[(nominees.length * 7 + year) % AWARD_ACTOR_POOL.length];
+        nominees.push({
+          name: actor.name,
+          movieTitle: 'Award Season Feature',
+          score: Math.min(100, 70 + Math.floor(Math.random() * 12)),
+          isPlayer: false,
+          avatarUrl: actor.avatarUrl,
+        });
+        usedMovies.add(`pad_${nominees.length}`);
       }
 
-      newInboxMessages.push({
-        id: `msg_award_nom_${Date.now()}`,
-        category: 'CAREER',
-        sender: `${ceremony.name} Selection Committee`,
-        subject: `✨ OFFICIAL NOMINATION: ${ceremony.name}!`,
-        body: `You have received an official nomination for ${category} at the ${ceremony.name} for "${bestMovie.movieTitle}"! (+${ceremony.nominationXp} Fame XP)`,
-        date: `W${week}, ${year}`,
-        dateWeek: week,
-        dateYear: year,
-        read: false,
+      // --- Winner: highest real score, no scripts ---
+      const sorted = [...nominees].sort((a, b) => b.score - a.score);
+      const winner = sorted[0];
+      const playerWon = !!playerNominee && winner.isPlayer;
+      const playerNominated = !!playerNominee;
+
+      if (playerNominated) playerNominations++;
+      categories.push({
+        category: def.label,
+        nominees: sorted.slice(0, 11),
+        winner,
+        playerWon,
+        playerNominated,
       });
 
-      return {
-        updatedPlayer,
-        updatedReleasedMovies,
-        newTrophies: [],
-        newRecords,
-        newInboxMessages,
-        fameGained,
-        ceremonyEvent: record,
-      };
+      const eventName = ceremony.name;
+      const category = def.label;
+
+      if (playerWon && playerNominee) {
+        // PLAYER WINS
+        fameGained += def.baseXp;
+        updatedPlayer.awardsWon = (updatedPlayer.awardsWon || 0) + 1;
+        updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + def.baseXp;
+        playerWins++;
+
+        const trophy: TrophyItem = {
+          id: `trophy_${Date.now()}_${Math.random()}`,
+          awardType: 'Hollywood Rising Award',
+          category,
+          year,
+          movieTitle: playerNominee.movieTitle,
+          studio: playerNominee.studio || 'Hollywood Rising',
+          director: '',
+          photoUrl: player.avatarUrl,
+          dateText: `Week 52, Year ${year}`,
+        };
+        newTrophies.push(trophy);
+
+        const record: AwardRecord = {
+          id: `rec_${Date.now()}`,
+          year,
+          eventName: 'Hollywood Rising Awards',
+          category,
+          winnerTitle: playerNominee.movieTitle,
+          winnerName: `${player.firstName} ${player.lastName}`,
+          isPlayerWinner: true,
+          isPlayerNominated: true,
+          movieTitle: playerNominee.movieTitle,
+          nominees: sorted.slice(0, 11).map((n) => ({
+            title: n.movieTitle,
+            name: n.name,
+            isPlayer: n.isPlayer,
+          })),
+        };
+        newRecords.push(record);
+
+        const movieIdx = updatedReleasedMovies.findIndex((m) => m.movieTitle === playerNominee.movieTitle);
+        if (movieIdx !== -1) {
+          updatedReleasedMovies[movieIdx] = {
+            ...updatedReleasedMovies[movieIdx],
+            awardsWon: (updatedReleasedMovies[movieIdx].awardsWon || 0) + 1,
+            awardsNominated: (updatedReleasedMovies[movieIdx].awardsNominated || 0) + 1,
+          };
+        }
+
+        newInboxMessages.push({
+          id: `msg_award_win_${Date.now()}`,
+          category: 'CAREER',
+          sender: `${eventName} Academy Board`,
+          senderRole: 'Academy',
+          senderAvatar: player.avatarUrl,
+          subject: `🏆 WINNER: ${category}!`,
+          body: `Congratulations! You won the ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". Your trophy has been added to your Trophy Room! (+${def.baseXp} Fame XP)`,
+          date: `W52, ${year}`,
+          dateWeek: 52,
+          dateYear: year,
+          read: false,
+        });
+      } else if (playerNominated && playerNominee) {
+        // PLAYER NOMINATED, NPC WINS
+        const nomXp = Math.floor(def.baseXp * 0.35);
+        fameGained += nomXp;
+        updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + nomXp;
+
+        const record: AwardRecord = {
+          id: `rec_${Date.now()}`,
+          year,
+          eventName: 'Hollywood Rising Awards',
+          category,
+          winnerTitle: winner.movieTitle,
+          winnerName: winner.name,
+          isPlayerWinner: false,
+          isPlayerNominated: true,
+          movieTitle: playerNominee.movieTitle,
+          nominees: sorted.slice(0, 11).map((n) => ({
+            title: n.movieTitle,
+            name: n.name,
+            isPlayer: n.isPlayer,
+          })),
+        };
+        newRecords.push(record);
+
+        const movieIdx = updatedReleasedMovies.findIndex((m) => m.movieTitle === playerNominee.movieTitle);
+        if (movieIdx !== -1) {
+          updatedReleasedMovies[movieIdx] = {
+            ...updatedReleasedMovies[movieIdx],
+            awardsNominated: (updatedReleasedMovies[movieIdx].awardsNominated || 0) + 1,
+          };
+        }
+
+        newInboxMessages.push({
+          id: `msg_award_nom_${Date.now()}`,
+          category: 'CAREER',
+          sender: `${eventName} Selection Committee`,
+          senderRole: 'Academy',
+          senderAvatar: player.avatarUrl,
+          subject: `✨ NOMINATED: ${category}!`,
+          body: `You were nominated for ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". ${winner.name} took the trophy for "${winner.movieTitle}" this year. (+${nomXp} Fame XP)`,
+          date: `W52, ${year}`,
+          dateWeek: 52,
+          dateYear: year,
+          read: false,
+        });
+      }
     }
+
+    // OSCAR BUMP: award-winning player movies get a 2-week re-release surge in the box office
+    try {
+      const boState = BoxOfficeEngineService.getState();
+      const bumped = new Set<string>();
+      categories.forEach((c) => {
+        if (c.playerWon && c.winner.isPlayer) {
+          const title = c.winner.movieTitle;
+          if (bumped.has(title)) return;
+          bumped.add(title);
+          const item = boState.items.find(
+            (i: any) => i.isPlayerMovie && (i.title === title || i.playerMovieId === title)
+          );
+          if (item) {
+            (item as any).awardBoostWeeks = 2;
+            (item as any).awardBumpRemaining = 12000000;
+            if (!item.inTheaters) {
+              item.inTheaters = true;
+              item.movement = 'RE-ENTRY';
+            }
+          }
+        }
+      });
+      BoxOfficeEngineService.saveState(boState);
+    } catch {
+      // ignore - box office state not available yet
+    }
+
+    const ceremonyData: AwardCeremonyResult = {
+      year,
+      eventName: ceremony.name,
+      venue: VENUES[year % VENUES.length],
+      host: HOSTS[year % HOSTS.length],
+      categories,
+      playerWins,
+      playerNominations,
+      newTrophies,
+      newRecords,
+      fameGained,
+      inboxMessages: newInboxMessages,
+      newPlayerAwardsWon: playerWins,
+      playerEligible,
+    };
 
     return {
       updatedPlayer,
       updatedReleasedMovies,
-      newTrophies: [],
-      newRecords: [],
-      newInboxMessages: [],
-      fameGained: 0,
-      ceremonyEvent: null,
+      newTrophies,
+      newRecords,
+      newInboxMessages,
+      fameGained,
+      ceremonyEvent: newRecords[0] || null,
+      ceremonyData,
+      playerEligible,
     };
+  }
+
+  private static getHistoricalNpcPool(): BoxOfficeItem[] {
+    try {
+      const boState = BoxOfficeEngineService.getState();
+      return (boState?.items || []).filter((i) => !i.isPlayerMovie && (i.worldwideGross || 0) > 0);
+    } catch {
+      return [];
+    }
   }
 }

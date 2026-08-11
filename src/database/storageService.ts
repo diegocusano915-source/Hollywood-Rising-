@@ -180,7 +180,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Lionsgate', 'Focus Features', 'Hulu Originals', 'Sony Pictures', 'Netflix'][Math.floor(Math.random() * 5)];
     category = isTvSeries ? 'TV Series' : 'Feature Film';
     description = `Studio mid-budget ${category.toLowerCase()} casting a co-lead principal actor with strong charisma.`;
-    roleType = Math.random() > 0.4 ? 'Lead' : 'Principal';
+    roleType = Math.random() < 0.75 ? 'Principal' : 'Lead'; // PRINCIPAL-FIRST: 75% Principal
   } else if (tier === 'Established Star') {
     // Established Pay: $60,000 - $180,000
     salary = Math.floor(60000 + Math.random() * 120000);
@@ -188,7 +188,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Warner Bros.', 'Universal Pictures', 'Paramount Pictures', 'HBO Max'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
     description = `Major theatrical production seeking a recognized lead actor for global release.`;
-    roleType = 'Lead';
+    roleType = Math.random() < 0.5 ? 'Principal' : 'Lead'; // Balanced 50/50 - keeps Principal pool strong
   } else {
     // A-List Franchise Blockbuster: $400,000 - $1,500,000
     salary = Math.floor(400000 + Math.random() * 1100000);
@@ -334,6 +334,7 @@ export function validateAndEnforceCallboardRoster(
 
   // Count existing role types
   let principalCount = roster.filter(p => p.roleType === 'Lead' || p.roleType === 'Principal').length;
+  let leadCount = roster.filter(p => p.roleType === 'Lead').length;
   let supportCount = roster.filter(p => p.roleType === 'Support' || p.roleType === 'Recurring').length;
   let minorCount = roster.filter(p => p.roleType === 'Cameo' || p.roleType === 'Guest Star' || p.roleType === 'Background').length;
 
@@ -357,6 +358,16 @@ export function validateAndEnforceCallboardRoster(
     const newMinor = generateSingleMinorRole(playerFameXp, roster.length + 1);
     roster.push(newMinor);
     minorCount++;
+  }
+
+  // PRINCIPAL-FIRST RULE: Principal roles must OUTNUMBER Lead roles on every callboard
+  // Convert excess Leads into Principals so the board stays believable for a rising career.
+  while (leadCount > 0 && leadCount >= principalCount) {
+    const leadIdx = roster.findIndex(p => p.roleType === 'Lead');
+    if (leadIdx === -1) break;
+    roster[leadIdx] = { ...roster[leadIdx], roleType: 'Principal', salary: Math.floor((roster[leadIdx].salary || 0) * 0.85) };
+    leadCount--;
+    principalCount++;
   }
 
   // ENSURE 10-25 total - endless pool, no fake simulation

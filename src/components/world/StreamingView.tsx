@@ -30,7 +30,7 @@ interface StreamingViewProps {
 }
 
 export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
-  const { player, settings } = useGame();
+  const { player, settings, releasedMovies, updatePlayer } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [platforms, setPlatforms] = useState<StreamingPlatform[]>(INITIAL_STREAMING_PLATFORMS);
@@ -47,7 +47,12 @@ export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
       return;
     }
 
-    const upfrontPayout = Math.floor(Math.random() * 250000) + 50000;
+    // REALISTIC PAYOUT: based on your real career stats, not a random roll
+    const latestMovie = releasedMovies && releasedMovies.length > 0 ? releasedMovies[0] : null;
+    const trackRecord = Math.floor((player.fameXp || 0) * 220 + (player.fans || 0) * 0.4 + (player.moviesCompleted || 0) * 60000);
+    const lastHit = latestMovie && latestMovie.worldwideGross ? Math.floor(latestMovie.worldwideGross * 0.03) : 0;
+    const upfrontPayout = Math.max(15000, Math.floor((trackRecord + lastHit) * (0.85 + Math.random() * 0.35)));
+    const capped = Math.min(upfrontPayout, Math.floor(200000000));
 
     setPlatforms((prev) =>
       prev.map((p) => {
@@ -58,14 +63,17 @@ export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
             exclusiveDealsCount: p.exclusiveDealsCount + 1,
             moviesLicensed: pitchType === 'Movie' ? p.moviesLicensed + 1 : p.moviesLicensed,
             seriesLicensed: pitchType === 'Series' ? p.seriesLicensed + 1 : p.seriesLicensed,
-            moneyEarned: p.moneyEarned + upfrontPayout,
+            moneyEarned: p.moneyEarned + capped,
           };
         }
         return p;
       })
     );
 
-    setPitchFeedback(`PITCH ACCEPTED! ${selectedPlatform?.name} signed "${pitchTitle}" for an upfront licensing payout of $${upfrontPayout.toLocaleString()}!`);
+    // Player ACTUALLY receives the money (real income)
+    updatePlayer({ money: (player.money || 0) + capped });
+
+    setPitchFeedback(`PITCH ACCEPTED! ${selectedPlatform?.name} signed "${pitchTitle}" for an upfront licensing payout of $${capped.toLocaleString()} — deposited to your account!`);
     setPitchTitle('');
     setTimeout(() => {
       setSelectedPlatform(null);

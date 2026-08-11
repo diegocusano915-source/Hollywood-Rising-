@@ -42,7 +42,7 @@ export interface RetainerItem {
 }
 
 export const RetainerManagementModal: React.FC = () => {
-  const { setActiveModal, player, updatePlayer, settings } = useGame();
+  const { setActiveModal, player, updatePlayer, settings, terminateRepresentation } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const repState = RepresentationService.getState();
@@ -177,6 +177,15 @@ export const RetainerManagementModal: React.FC = () => {
   const handleConfirmCancelContract = () => {
     if (!selectedForCancel) return;
 
+    // Agents & Managers use the REAL contract system (breach penalties, terms)
+    if (selectedForCancel.category === 'AGENT' || selectedForCancel.category === 'MANAGER') {
+      const res = terminateRepresentation(selectedForCancel.category === 'AGENT' ? 'agent' : 'manager');
+      setFeedback({ type: res.success ? 'success' : 'error', msg: res.message });
+      setSelectedForCancel(null);
+      setTimeout(() => setFeedback(null), 4000);
+      return;
+    }
+
     const penalty = selectedForCancel.cancellationPenaltyFee;
 
     if (player.money < penalty) {
@@ -192,10 +201,8 @@ export const RetainerManagementModal: React.FC = () => {
     // Immediately cancel retainer and deduct penalty
     const updatedMoney = player.money - penalty;
 
-    // Update player representation state
+    // Update player representation state (agents/managers are handled by the contract system above)
     let updatedRep = { ...player.representation };
-    if (selectedForCancel.category === 'AGENT') updatedRep.agent = undefined;
-    if (selectedForCancel.category === 'MANAGER') updatedRep.manager = undefined;
 
     // Update RepresentationService state
     if (selectedForCancel.category === 'LAWYER') {
@@ -223,6 +230,12 @@ export const RetainerManagementModal: React.FC = () => {
   };
 
   const handleHireOrRenew = (item: RetainerItem) => {
+    // Agents & Managers are hired ONLY through the marketplace (World → Talent Representation)
+    if (item.category === 'AGENT' || item.category === 'MANAGER') {
+      setActiveModal('none');
+      alert('Hire talent agents and personal managers in World → Talent Representation. They pitch offers to your Inbox too!');
+      return;
+    }
     if (player.money < item.weeklyCost) {
       setFeedback({
         type: 'error',
@@ -232,31 +245,8 @@ export const RetainerManagementModal: React.FC = () => {
       return;
     }
 
-    // Hire professional
+    // Hire professional (agents/managers only via marketplace)
     let updatedRep = { ...player.representation };
-    if (item.category === 'AGENT') {
-      updatedRep.agent = {
-        id: 'ag_caa_1',
-        name: item.providerName,
-        agencyName: 'CAA Talent Agency',
-        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop',
-        commissionPercent: 10,
-        minTalentAverage: 0,
-        minLeadRoles: 4,
-        minFameXp: 100,
-        perks: 'Top-tier studio submissions & +15% salary negotiation',
-        signed: true,
-      };
-    }
-    if (item.category === 'MANAGER') {
-      updatedRep.manager = {
-        id: 'mgr_1',
-        name: item.providerName,
-        company: 'Beverly Hills Wealth Management',
-        commissionPercent: 15,
-        signed: true,
-      };
-    }
     if (item.category === 'LAWYER') {
       repState.lawFirm.hiredFirmTier = 'Solo Attorney';
       repState.lawFirm.weeklyRetainerFee = item.weeklyCost || 2500;
@@ -274,6 +264,7 @@ export const RetainerManagementModal: React.FC = () => {
       type: 'success',
       msg: `Contract successfully signed with ${item.providerName}! Weekly retainer active.`,
     });
+    RepresentationService.saveState(repState);
     setTimeout(() => setFeedback(null), 3000);
   };
 

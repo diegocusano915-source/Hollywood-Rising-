@@ -14,6 +14,7 @@ import { GameHomeScreen } from './components/screens/GameHomeScreen';
 // Overlays & Weekly Recap
 import { ProcessingWeekOverlay } from './components/common/ProcessingWeekOverlay';
 import { WeeklyRecapModal } from './components/modals/WeeklyRecapModal';
+import { AwardNightModal } from './components/modals/AwardNightModal';
 import { ToastContainer } from './components/common/ToastContainer';
 
 // Modals
@@ -59,7 +60,7 @@ import {
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const AppContent: React.FC = () => {
-  const { currentScreen, activeModal, isProcessingWeek, selectedFycMovieId, releasedMovies, setActiveModal, toasts, dismissToast } = useGame();
+  const { currentScreen, activeModal, isProcessingWeek, selectedFycMovieId, releasedMovies, awardCeremonyData, setAwardCeremonyData, setActiveModal, toasts, dismissToast } = useGame();
 
   const fycMovie = releasedMovies.find((m) => m.id === selectedFycMovieId) || releasedMovies[0];
 
@@ -77,6 +78,17 @@ const AppContent: React.FC = () => {
       {/* Overlays & Recap */}
       {isProcessingWeek && <ProcessingWeekOverlay />}
       {activeModal === 'weekly_recap' && <WeeklyRecapModal />}
+
+      {/* Year-End Awards Night (Week 52) */}
+      {activeModal === 'award_ceremony' && awardCeremonyData && (
+        <AwardNightModal
+          data={awardCeremonyData}
+          onClose={() => {
+            setAwardCeremonyData(null);
+            setActiveModal('weekly_recap');
+          }}
+        />
+      )}
 
       {/* Modal Manager */}
       {activeModal === 'callboard' && <CallboardModal />}

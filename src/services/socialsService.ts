@@ -975,13 +975,24 @@ export class SocialsService {
         writerWeeklyCost = hiredWriter.weeklyCost;
         writerPostCount = Math.min(4, Math.max(1, Math.floor(hiredWriter.postsPerWeek / 2)));
 
-        // Ghostwriter posts on player feed
+        // Ghostwriter posts on player feed — references REAL events (releases, box office, awards)
         const mainPlatform: PlatformType = 'Twitter';
         if (state.createdPlatforms[mainPlatform]) {
+          const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
+          const realTitle = latestRealMovie?.movieTitle || '';
+          const realGross = latestRealMovie?.worldwideGross || 0;
+          const realAud = latestRealMovie?.audienceRating || 0;
+          const realAwards = (player as any).awardsWon || 0;
           const writerPostTemplates = [
-            `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
-            `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
-            `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
+            realTitle
+              ? `'${realTitle}' is IN THEATERS NOW! ${realGross > 0 ? `Already past $${(realGross / 1000000).toFixed(1)}M worldwide ` : ''}— thank you to every single fan who showed up! 🎬🍿 #${realTitle.replace(/[^a-zA-Z0-9]/g, '')}`
+              : `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
+            realTitle
+              ? `The critics are loving '${realTitle}' (${realAud}% audience score)! This is only the beginning of the ride. 🔥`
+              : `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
+            realAwards > 0
+              ? `What a season it's been — ${realAwards} award(s) and counting. Grateful beyond words. ❤️🏆`
+              : `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
             `On set preparing for a demanding role. The hustle never stops in Los Angeles! Stay tuned! 🎭✨`,
           ];
 
@@ -1088,6 +1099,13 @@ export class SocialsService {
         if (cleanTitle) {
           newTrends.push(`#${cleanTitle}`);
           newTrends.push(`#${cleanTitle}BoxOffice`);
+        }
+        // STREAMING MILESTONE POST: platforms talk about YOUR movie while it's fresh
+        const weeksOut = latestMovie.weeksInCinemas || latestMovie.weeksInTheaters || 99;
+        if (weeksOut <= 4 && (latestMovie.worldwideGross || 0) > 0) {
+          const views = Math.max(800000, Math.round((latestMovie.worldwideGross || 0) / 6));
+          const viewsText = views >= 1000000000 ? `${(views / 1000000000).toFixed(1)}B` : views >= 1000000 ? `${(views / 1000000).toFixed(1)}M` : `${(views / 1000).toFixed(0)}K`;
+          socialPosts.push(`📺 Streaming platforms spotlighting '${rawTitle}' — ${viewsText} global views this month!`);
         }
       }
     }
@@ -1694,12 +1712,77 @@ export class SocialsService {
 
   /**
    * Generate endless batch of realistic NPC & Government posts.
+   * When a player movie context is provided, streaming platforms & bloggers
+   * post about the player's REAL releases (no fake simulation).
    */
-  public static generateNpcPostsBatch(platform: PlatformType, count: number): SocialPost[] {
+  public static generateNpcPostsBatch(
+    platform: PlatformType,
+    count: number,
+    ctx?: { playerName?: string; releasedMovies?: any[]; fans?: number; fameXp?: number }
+  ): SocialPost[] {
     const posts: SocialPost[] = [];
+    const latestMovie = ctx?.releasedMovies && ctx.releasedMovies.length > 0 ? ctx.releasedMovies[0] : null;
+    const playerTag = ctx?.playerName || 'the breakout star';
 
     for (let i = 0; i < count; i++) {
       const roll = Math.random();
+      // Streaming & blogger posts reference REAL player movies when available
+      const playerMovieActive = !!latestMovie && roll < 0.55;
+
+      if (playerMovieActive && latestMovie) {
+        const isStreaming = Math.random() < 0.5;
+        const views = Math.max(800000, Math.round((latestMovie.worldwideGross || 80000000) / 6));
+        const viewsText = views >= 1000000000 ? `${(views / 1000000000).toFixed(1)}B` : views >= 1000000 ? `${(views / 1000000).toFixed(1)}M` : `${(views / 1000).toFixed(0)}K`;
+        const title = latestMovie.movieTitle || latestMovie.title || '';
+        if (isStreaming) {
+          const streamAcc = STREAMING_ACCOUNTS[Math.floor(Math.random() * STREAMING_ACCOUNTS.length)];
+          posts.push({
+            id: `stream_post_real_${platform}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+            authorName: streamAcc.name,
+            authorHandle: streamAcc.handle,
+            authorAvatar: streamAcc.avatar,
+            platform,
+            tab: 'NPC_FEED',
+            text: `STREAMING SPOTLIGHT: '${title}' pulls ${viewsText} views across global accounts this month! 🎬🍿 #${title.replace(/[^a-zA-Z0-9]/g, '')}`,
+            likes: Math.floor(Math.random() * 85000) + 5000,
+            comments: Math.floor(Math.random() * 4500) + 200,
+            retweets: Math.floor(Math.random() * 12000) + 800,
+            shares: Math.floor(Math.random() * 3000) + 150,
+            timestamp: `${Math.floor(Math.random() * 12) + 1}h ago`,
+            isPlayer: false,
+            isNpc: true,
+            sentiment: 'Viral',
+          });
+        } else {
+          const blogger = MEDIA_AND_NPC_ACCOUNTS[Math.floor(Math.random() * MEDIA_AND_NPC_ACCOUNTS.length)];
+          const critic = latestMovie.criticRating || latestMovie.criticScore || 70;
+          const templates = [
+            `BLOGGER REVIEW: '${title}' — critics at ${critic}% and audiences can't stop talking. Is this the year of ${playerTag}? 🎬`,
+            `BOX OFFICE BUZZ: '${title}' keeps climbing the charts. ${playerTag} just proved the doubters wrong.`,
+            `HOT TAKE: '${title}' might be the most underrated release of the year. Watch it before the hype catches up. 🍿`,
+            `THE REEL REPORT: '${title}' is a certified crowd-pleaser — ${critic}% on the critic meter. ${playerTag} is on a heater. 🔥`,
+          ];
+          const text = templates[i % templates.length];
+          posts.push({
+            id: `blogger_post_real_${platform}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+            authorName: blogger.name,
+            authorHandle: blogger.handle,
+            authorAvatar: blogger.avatar,
+            platform,
+            tab: 'NPC_FEED',
+            text,
+            likes: Math.floor(Math.random() * 22000) + 400,
+            comments: Math.floor(Math.random() * 1400) + 30,
+            retweets: Math.floor(Math.random() * 3500) + 80,
+            shares: Math.floor(Math.random() * 900) + 20,
+            timestamp: `${Math.floor(Math.random() * 22) + 1}h ago`,
+            isPlayer: false,
+            isNpc: true,
+            sentiment: 'Positive',
+          });
+        }
+        continue;
+      }
 
       if (roll < 0.25) {
         const govIndex = Math.floor(Math.random() * GOVERNMENT_POST_TEMPLATES.length);

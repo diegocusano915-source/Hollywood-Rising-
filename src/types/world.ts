@@ -35,7 +35,7 @@ export interface BoxOfficeItem {
   grossWorldwide?: number; // legacy alias
   grossDomestic?: number; // legacy alias
   grossInternational?: number; // legacy alias
-  movement: 'NEW' | 'UP' | 'DOWN' | 'STABLE' | 'OUT';
+  movement: 'NEW' | 'UP' | 'DOWN' | 'STABLE' | 'OUT' | 'RE-ENTRY';
   trend?: 'UP' | 'DOWN' | 'STABLE';
   studio: string;
   genres: string[];
@@ -55,6 +55,14 @@ export interface BoxOfficeItem {
   sequelPart?: number;
   seriesSeason?: number;
   director?: string;
+  leadActor?: string; // assigned at release for the Awards Night (real movies only)
+  // Dynamic Theatrical Run Engine
+  previousWeeklyGross?: number;
+  expansionWeeksLeft?: number;
+  expansionCooldownWeek?: number;
+  extendedRun?: boolean;
+  awardBoostWeeks?: number;
+  awardBumpRemaining?: number;
 }
 
 export type RecordCategoryType =

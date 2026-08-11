@@ -58,6 +58,24 @@ export interface ScandalItem {
   yearOccurred: number;
   resolved: boolean;
   resolutionStrategy?: string;
+  story?: string;
+  source?: 'EVENT' | 'NPC_ATTACK' | 'PLAYER_ACTION';
+  instigator?: string;
+  fansLost?: number;
+  resolutionNote?: string;
+}
+
+export type FanClubTierId = 'backstage' | 'frontRow' | 'redCarpet' | 'directorSuite' | 'legendCircle';
+
+export interface FanClubFeedItem {
+  id: string;
+  author: string;
+  tier: FanClubTierId | 'Staff';
+  text: string;
+  likes: number;
+  week: number;
+  year: number;
+  isPlayer?: boolean;
 }
 
 export interface PRState {
@@ -179,6 +197,8 @@ export interface FanClubState {
   weeklyDuesRevenue: number;
   announcements: { id: string; title: string; content: string; date: string }[];
   hostedEventsCount: number;
+  tierCounts: Record<FanClubTierId, number>;
+  feed: FanClubFeedItem[];
 }
 
 // 7. MERCHANDISE
@@ -297,4 +317,11 @@ export interface RepresentationFullState {
   website: WebsiteState;
   mediaGallery: GalleryPhoto[];
   charities: CharityCause[];
+  // Weekly rotating agent/manager marketplace (talent representation)
+  offersWeek?: number;
+  weeklyAgentIds?: string[];
+  weeklyManagerIds?: string[];
+  pendingAgentPitches?: string[];
+  pendingManagerPitches?: string[];
 }
+
