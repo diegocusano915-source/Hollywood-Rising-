@@ -43,7 +43,7 @@ import { generateWeeklyCourses, ACTING_COURSES_POOL } from '../database/actingSc
 import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
-import { scheduleTvInterview, processTvOffersWeekly } from '../services/tvInterviewEngine';
+import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
@@ -1597,11 +1597,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // real Callboard roles on a cadence (leadFlowWeeks). No energy cost, no fake listings.
     const signedAgent = p.representation?.agent;
     if (signedAgent?.signed && (signedAgent.weeksRemaining ?? 0) > 0) {
-      const flowWeeks = signedAgent.leadFlowWeeks || 5;
+      // AGENT PITCHES: 2 auditions every 4 weeks (any role acceptable)
+      const flowWeeks = 4;
       const weeksSincePitch = p.dateWeek - (signedAgent.lastPitchWeek || 0);
       if (weeksSincePitch >= flowWeeks) {
         const tier = signedAgent.tier || 1;
-        const pitchCount = tier >= 4 ? 3 : tier >= 3 ? 2 : 1;
+        const pitchCount = 2;
         const dealCap = signedAgent.dealCap || 15000000;
         // AGENTS PITCH ANY GOOD ROLE (principals, supporting, recurring) — Lead roles are
         // NOT the priority; they only appear if nothing else is available in the deal cap.
@@ -1652,6 +1653,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             agent: { ...signedAgent, lastPitchWeek: p.dateWeek },
           };
         }
+      }
+
+      // AGENT BOOKS RADIO INTERVIEWS every 4 weeks (separate from auditions)
+      if (p.dateWeek % 4 === 0) {
+        const radioMsgs = scheduleRadioInterview(p);
+        radioMsgs.forEach((m) => newInboxMessages.unshift({
+          ...m,
+          id: `msg_rad_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'MEDIA',
+          sender: signedAgent.name,
+          senderRole: signedAgent.agencyName,
+          senderAvatar: signedAgent.avatarUrl,
+        }));
       }
     }
 
@@ -2258,7 +2272,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       p.representation = { ...p.representation, manager: signedMgr };
     }
 
-    // 7e. TV INTERVIEW WEEKLY PROCESSING (countdown, ready notifications, station invites)
+    // 7e. TV + RADIO INTERVIEW WEEKLY PROCESSING (countdown, ready notifications)
     try {
       const tvMsgs = processTvOffersWeekly(p, newWeek, newYear);
       tvMsgs.forEach((m) => newInboxMessages.unshift({
@@ -2269,8 +2283,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         senderRole: 'Booking Coordinator',
         senderAvatar: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100',
       }));
+      const radioMsgs = processRadioOffersWeekly(p, newWeek, newYear);
+      radioMsgs.forEach((m) => newInboxMessages.unshift({
+        ...m,
+        id: `msg_rad_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        category: 'MEDIA',
+        sender: 'Radio Programming Desk',
+        senderRole: 'Booking Coordinator',
+        senderAvatar: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100',
+      }));
     } catch (e) {
-      console.error('TV interview weekly processing error:', e);
+      console.error('TV/Radio interview weekly processing error:', e);
     }
 
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)

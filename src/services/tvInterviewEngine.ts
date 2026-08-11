@@ -325,3 +325,98 @@ export function completeTvOffer(stationId: string) {
     saveTvOffers(offers);
   }
 }
+
+// ============================================================
+// RADIO INTERVIEW ENGINE (agent-handled, same show mechanics)
+// ============================================================
+const RADIO_OFFERS_KEY = 'HR_RADIO_OFFERS';
+
+export interface RadioOfferEntry {
+  stationId: string;
+  offer: any;
+}
+
+export function loadRadioOffers(): RadioOfferEntry[] {
+  try { return JSON.parse(localStorage.getItem(RADIO_OFFERS_KEY) || '[]'); } catch { return []; }
+}
+export function saveRadioOffers(offers: RadioOfferEntry[]) {
+  try { localStorage.setItem(RADIO_OFFERS_KEY, JSON.stringify(offers)); } catch {}
+}
+
+// AGENT books a radio interview (every 4 weeks) — scheduled in 3 weeks
+export function scheduleRadioInterview(player: any): { subject: string; body: string; date: string; read: boolean }[] {
+  const offers = loadRadioOffers();
+  const agent = player?.representation?.agent;
+  const stationId = `rad_${1 + ((player?.dateWeek || 0) % 4)}`;
+  const existing = offers.find((o) => o.stationId === stationId && o.offer.status !== 'DONE');
+  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
+  if (existing) return msgs;
+
+  const offer = {
+    id: `rad_int_${Date.now()}`,
+    stationId,
+    topic: 'Your career, latest film & what\'s next',
+    status: 'PENDING',
+    scheduledInWeeks: 3,
+    fameXpReward: 8,
+    cashReward: 1800,
+    fansReward: 3000,
+    source: 'AGENT',
+    bookedWeek: player?.dateWeek || 1,
+    bookedYear: player?.dateYear || 2026,
+  };
+  offers.push({ stationId, offer });
+  saveRadioOffers(offers);
+  msgs.push({
+    subject: '🎙️ RADIO INTERVIEW SCHEDULED BY YOUR AGENT — PREPARE!',
+    body: `Your agent ${agent?.name || ''} (${agent?.agencyName || ''}) booked you on a radio interview in 3 weeks.\\n\\nSame format as TV: up to 5 questions, 3 answers each — your answers affect fans, reputation and your appearance fee.`,
+    date: `Week ${player?.dateWeek}, ${player?.dateYear}`,
+    read: false,
+  });
+  return msgs;
+}
+
+// Weekly processing for radio offers (countdown -> READY)
+export function processRadioOffersWeekly(player: any, newWeek: number, newYear: number): { subject: string; body: string; date: string; read: boolean }[] {
+  const offers = loadRadioOffers();
+  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
+  let changed = false;
+  offers.forEach((entry) => {
+    const o = entry.offer;
+    if (!o || o.status !== 'PENDING') return;
+    o.scheduledInWeeks = (o.scheduledInWeeks || 1) - 1;
+    changed = true;
+    if (o.scheduledInWeeks <= 0) {
+      o.status = 'READY';
+      msgs.push({
+        subject: '🔴 RADIO INTERVIEW LIVE NOW!',
+        body: `Your radio interview is ready — open World → Radio Stations and GO LIVE. Up to 5 questions!`,
+        date: `Week ${newWeek}, ${newYear}`,
+        read: false,
+      });
+    } else if (o.scheduledInWeeks === 1) {
+      msgs.push({
+        subject: '⏰ RADIO INTERVIEW TOMORROW',
+        body: `Your radio interview airs next week. Be ready!`,
+        date: `Week ${newWeek}, ${newYear}`,
+        read: false,
+      });
+    }
+  });
+  if (changed) saveRadioOffers(offers);
+  return msgs;
+}
+
+export function mergeRadioOffersIntoStations(stations: any[]): any[] {
+  const offers = loadRadioOffers();
+  return stations.map((st) => {
+    const entry = offers.find((o) => o.stationId === st.id);
+    return entry ? { ...st, activeInterviewOffer: entry.offer } : { ...st, activeInterviewOffer: undefined };
+  });
+}
+
+export function completeRadioOffer(stationId: string) {
+  const offers = loadRadioOffers();
+  const entry = offers.find((o) => o.stationId === stationId);
+  if (entry && entry.offer) { entry.offer.status = 'DONE'; saveRadioOffers(offers); }
+}

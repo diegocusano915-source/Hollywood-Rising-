@@ -196,17 +196,29 @@ export interface TvInterviewResult {
   reactions: string[];
 }
 
+export type RadioStationType = 'HipHop' | 'Top40' | 'Talk' | 'News' | 'International' | 'Morning';
+
 export interface RadioStation {
   id: string;
   name: string;
-  host: string;
+  host: string; // original fictional host
+  stationType: RadioStationType;
   listeners: string;
+  listenerBase: number;
   imageUrl: string;
+  minFame: number;
+  minMovies: number;
   activeInterviewOffer?: {
     id: string;
     topic: string;
+    status: 'PENDING' | 'READY' | 'DONE' | 'MISSED';
+    scheduledInWeeks: number;
+    fameXpReward: number;
+    cashReward: number;
     fansReward: number;
-    expiresWeeks: number;
+    source: 'AGENT' | 'STATION';
+    bookedWeek: number;
+    bookedYear: number;
   };
 }
 
