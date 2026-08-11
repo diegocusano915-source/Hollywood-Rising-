@@ -138,20 +138,62 @@ export interface BankrollOpportunity {
   payoutAmount?: number;
 }
 
+export type TvStationType = 'Morning' | 'Entertainment' | 'Late Night' | 'News' | 'Sports' | 'International';
+
+export interface TvInterviewOffer {
+  id: string;
+  stationId: string;
+  topic: string;
+  status: 'PENDING' | 'READY' | 'DONE' | 'MISSED';
+  scheduledInWeeks: number; // countdown until the interview airs
+  fameXpReward: number;
+  cashReward: number;
+  fansReward: number;
+  source: 'MANAGER' | 'STATION';
+  bookedWeek: number;
+  bookedYear: number;
+}
+
 export interface TvStation {
   id: string;
   name: string;
   showName: string;
-  host: string;
+  host: string; // original fictional host (simulated, connected to the game)
+  stationType: TvStationType;
   viewerReach: string;
+  viewerBase: number; // numeric for fan math
   imageUrl: string;
-  activeInterviewOffer?: {
-    id: string;
-    topic: string;
-    fameXpReward: number;
-    cashReward: number;
-    expiresWeeks: number;
-  };
+  minFame: number;
+  minMovies: number;
+  activeInterviewOffer?: TvInterviewOffer;
+}
+
+export interface TvAnswerChoice {
+  text: string;
+  style: 'WITTY' | 'HUMBLE' | 'CONTROVERSIAL';
+  repChange: number; // reputation delta
+  fansMult: number; // fans multiplier (0.5 - 2)
+  scandalRisk: number; // 0-0.3 chance to spark a minor scandal
+  crowdReaction: string; // host reaction line
+}
+
+export interface TvQuestion {
+  id: string;
+  question: string;
+  context: 'movie' | 'boxoffice' | 'award' | 'scandal' | 'personal' | 'career' | 'fun';
+  answers: TvAnswerChoice[];
+}
+
+export interface TvInterviewResult {
+  stationName: string;
+  host: string;
+  questionsAsked: number;
+  cashEarned: number;
+  fansGained: number;
+  fameXpGained: number;
+  reputationChange: number;
+  scandalTriggered: boolean;
+  reactions: string[];
 }
 
 export interface RadioStation {

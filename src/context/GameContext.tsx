@@ -43,6 +43,7 @@ import { generateWeeklyCourses, ACTING_COURSES_POOL } from '../database/actingSc
 import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
+import { scheduleTvInterview, processTvOffersWeekly } from '../services/tvInterviewEngine';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
@@ -57,6 +58,7 @@ import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
 import { ActiveJob, TransactionRecord } from '../types/network';
+
 
 type MainTab = 'HOME' | 'TALENT' | 'WORLD' | 'NETWORK' | 'EMPIRE' | 'REPRESENTATION';
 
@@ -2207,8 +2209,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signedMgr.totalDealsSourced = (signedMgr.totalDealsSourced || 0) + 1;
       }
 
-      // TV/Radio interview booked every 6 weeks (visible, real rewards)
+      // TV/Radio interview booked every 6 weeks — now SCHEDULED via engine (countdown + inbox prep)
       if (p.dateWeek % 6 === 0) {
+        const tvMsgs = scheduleTvInterview(p);
+        tvMsgs.forEach((m) => newInboxMessages.unshift({
+          ...m,
+          id: `msg_tv_mgr_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'MEDIA',
+          sender: p.representation?.manager?.name || 'Your Manager',
+          senderRole: p.representation?.manager?.company || 'Management',
+          senderAvatar: p.representation?.manager?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+        }));
         const fee = Math.floor(2000 + (p.fameXp || 0) * 2);
         const fameGain = Math.floor(15 + (p.fameXp || 0) * 0.02);
         const fanGain = Math.floor(200 + (p.fans || 0) * 0.002);
@@ -2245,6 +2256,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signedMgr.activity = mgrActivity;
       signedMgr.totalCommissionEarned = signedMgr.totalCommissionEarned || 0;
       p.representation = { ...p.representation, manager: signedMgr };
+    }
+
+    // 7e. TV INTERVIEW WEEKLY PROCESSING (countdown, ready notifications, station invites)
+    try {
+      const tvMsgs = processTvOffersWeekly(p, newWeek, newYear);
+      tvMsgs.forEach((m) => newInboxMessages.unshift({
+        ...m,
+        id: `msg_tv_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        category: 'MEDIA',
+        sender: 'TV Programming Desk',
+        senderRole: 'Booking Coordinator',
+        senderAvatar: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100',
+      }));
+    } catch (e) {
+      console.error('TV interview weekly processing error:', e);
     }
 
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)
