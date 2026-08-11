@@ -23,6 +23,7 @@ import {
   GOVERNMENT_ACCOUNTS,
 } from '../../services/socialsService';
 import { RepresentationService } from '../../services/representationService';
+import { FanClubTierId } from '../../types/representation';
 import {
   MessageSquare,
   Repeat,
@@ -1490,47 +1491,111 @@ export const SocialsView: React.FC<SocialsViewProps> = ({ onBack }) => {
                       {repState.fanClub.isCreated ? repState.fanClub.name : 'Official Global Fan Society'}
                     </h2>
                     <p className="text-xs text-rose-300 font-bold">
-                      {repState.fanClub.membersCount} Official Members • ${repState.fanClub.weeklyDuesRevenue.toLocaleString()}/wk Dues Income
+                      {repState.fanClub.membersCount.toLocaleString()} Members • ${repState.fanClub.weeklyDuesRevenue.toLocaleString()}/wk Dues Income
                     </p>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowFanPostModal(true)}
-                  className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-xs flex items-center gap-2 shadow-xl cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>POST TO FAN CLUB</span>
-                </button>
+                {repState.fanClub.isCreated && (
+                  <button
+                    onClick={() => {
+                      const text = window.prompt('Post an update to your Fan Club feed (release dates, award wins, merch drops...):');
+                      if (text && text.trim()) {
+                        const res = RepresentationService.postFanClubFeed(text.trim(), player);
+                        if (res.success) setRepState({ ...RepresentationService.getState() });
+                        alert(res.message);
+                      }
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-xs flex items-center gap-2 shadow-xl cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>POST TO FAN CLUB</span>
+                  </button>
+                )}
               </div>
+              {!repState.fanClub.isCreated && (
+                <p className="text-xs text-rose-200/80 bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl">
+                  Create your official Fan Club in <strong>Representation → Fan Club</strong> to activate member feeds and tier income.
+                </p>
+              )}
             </div>
 
-            {/* Fan Feed */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider">Fan Community Feed</h3>
-              {socialsState.fanFeed.map((item) => (
-                <div key={item.id} className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <img src={item.authorAvatar} alt={item.authorName} className="w-8 h-8 rounded-full object-cover" />
-                      <div>
-                        <span className="text-xs font-black text-white block">{item.authorName}</span>
-                        <span className="text-[10px] text-rose-400 font-mono font-bold">{item.membershipTier} MEMBER</span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-gray-400">{item.timestamp}</span>
+            {/* 5-TIER SPLIT */}
+            {repState.fanClub.isCreated && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {([
+                  ['backstage', '🎟️', 'Backstage Pass', 100],
+                  ['frontRow', '🪑', 'Front Row', 350],
+                  ['redCarpet', '🎬', 'Red Carpet', 1000],
+                  ['directorSuite', '🌆', "Director's Suite", 5000],
+                  ['legendCircle', '👑', 'Legend Circle', 8000],
+                ] as [FanClubTierId, string, string, number][]).map(([id, icon, name, yearly]) => (
+                  <div key={id} className="p-3 rounded-2xl bg-black/50 border border-white/15 bg-black/40">
+                    <div className="text-xl">{icon}</div>
+                    <p className="text-[10px] font-black mt-1">{name}</p>
+                    <p className="text-[9px] text-gray-500 uppercase font-bold">
+                      {(repState.fanClub.tierCounts && repState.fanClub.tierCounts[id] ? repState.fanClub.tierCounts[id] : 0).toLocaleString()} members
+                    </p>
+                    <p className="text-[10px] text-emerald-400 font-bold">${yearly.toLocaleString()}/yr</p>
                   </div>
-                  <p className="text-xs text-gray-200">{item.text}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {/* Member Feed (new system) */}
+            {repState.fanClub.isCreated && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-black uppercase text-gray-400 tracking-wider">Member Community Feed</h3>
+                {(repState.fanClub.feed || []).length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center py-8">No feed posts yet. Your members are waiting!</p>
+                ) : (
+                  repState.fanClub.feed.slice(0, 30).map((item) => {
+                    const tierNames: Record<string, string> = {
+                      backstage: 'Backstage Pass',
+                      frontRow: 'Front Row',
+                      redCarpet: 'Red Carpet',
+                      directorSuite: "Director's Suite",
+                      legendCircle: 'Legend Circle',
+                      Staff: 'Club Staff',
+                    };
+                    const tierIcons: Record<string, string> = {
+                      backstage: '🎟️',
+                      frontRow: '🪑',
+                      redCarpet: '🎬',
+                      directorSuite: '🌆',
+                      legendCircle: '👑',
+                      Staff: '🎙️',
+                    };
+                    return (
+                      <div key={item.id} className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-sm">
+                              {item.isPlayer ? '⭐' : tierIcons[item.tier] || '❤️'}
+                            </div>
+                            <div>
+                              <span className="text-xs font-black text-white block">{item.author}</span>
+                              <span className="text-[10px] text-rose-400 font-mono font-bold">
+                                {item.isPlayer ? 'Club Owner' : (tierNames[item.tier] || 'Member') + ' MEMBER'}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-gray-400">W{item.week} {item.year}</span>
+                        </div>
+                        <p className="text-xs text-gray-200">{item.text}</p>
+                        <div className="flex items-center gap-1 text-[10px] text-gray-500 font-bold">
+                          <Heart className="w-3 h-3 text-rose-400" /> {item.likes.toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* 6. SPONSORSHIPS & BRAND DEALS TAB */}
-        {/* ============================================================ */}
-        {activeNavTab === 'SPONSORSHIPS' && (
+{activeNavTab === 'SPONSORSHIPS' && (
           <div className="space-y-6 max-w-4xl mx-auto">
             <h2 className="text-sm font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
               <Handshake className="w-5 h-5" />

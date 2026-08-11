@@ -45,7 +45,7 @@ const TIER_BADGES: Record<number, { label: string; cls: string }> = {
 };
 
 export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section, representationState, onRefresh, onBack }) => {
-  const { player, signAgentContract, hireManager, terminateRepresentation, settings } = useGame();
+  const { player, signAgentContract, hireManager, terminateRepresentation, settings, saveData } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const isAgents = section === 'agents';
@@ -73,10 +73,18 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section,
     onRefresh();
   };
 
+  // LIVE TRACKING: pool refreshes when the game week advances (not static)
+  const currentWeek = saveData?.player?.dateWeek || player.dateWeek || 0;
   useEffect(() => {
+    // force the weekly rotation to roll on this week's offers, then load them
+    try {
+      RepresentationService.rotateWeeklyOffers(currentWeek, player);
+    } catch (e) {
+      console.error('rotate offers:', e);
+    }
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section]);
+  }, [section, currentWeek]);
 
   const showFeedback = (msg: string) => {
     setFeedback(msg);
