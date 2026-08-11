@@ -90,6 +90,22 @@ class SoundService {
     }
   }
 
+  // Browsers block autoplay until the first user gesture. Attach a one-time
+  // global listener so the FIRST TAP anywhere starts the soundtrack.
+  private unlockAttached = false;
+  public ensureGlobalUnlock() {
+    if (this.unlockAttached) return;
+    this.unlockAttached = true;
+    const tryUnlock = () => {
+      this.unlockAudioContext();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pointerdown', tryUnlock, { once: true, passive: true });
+      window.addEventListener('touchstart', tryUnlock, { once: true, passive: true });
+      window.addEventListener('keydown', tryUnlock, { once: true, passive: true });
+    }
+  }
+
   public onTrackChange(cb: (track: SoundtrackTrackInfo) => void) {
     this.onTrackChangeCallbacks.push(cb);
   }
@@ -145,6 +161,7 @@ class SoundService {
     if (!this.musicEnabled) return;
     if (this.isMusicPlaying && this.audioPlayer && !this.audioPlayer.paused) return;
 
+    this.ensureGlobalUnlock();
     this.playTrackAtIndex(this.currentTrackIndex);
   }
 
@@ -177,7 +194,14 @@ class SoundService {
         });
       }
 
-      const audioSrc = `/audio/${track.filename}`;
+      // Embedded-audio support (offline single-file builds) falls back to /audio/ files
+      let audioSrc = `/audio/${track.filename}`;
+      try {
+        const embedded = (window as any).__HR_AUDIO__;
+        if (embedded && embedded[track.filename]) {
+          audioSrc = embedded[track.filename];
+        }
+      } catch {}
       this.audioPlayer.src = audioSrc;
       this.audioPlayer.volume = this.musicVolume;
       this.audioPlayer.currentTime = 0;
@@ -189,8 +213,9 @@ class SoundService {
             this.isMusicPlaying = true;
           })
           .catch(() => {
-            // Autoplay blocked prior to user gesture; will unlock on first tap
+            // Autoplay blocked prior to user gesture - retry on the first tap
             this.isMusicPlaying = false;
+            this.ensureGlobalUnlock();
           });
       }
     } catch {}
