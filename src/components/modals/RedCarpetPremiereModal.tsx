@@ -115,7 +115,7 @@ export const RedCarpetPremiereModal: React.FC<RedCarpetPremiereModalProps> = ({
     }
 
     if (addFameXp) {
-      addFameXp(200 + hypeBonus, `Red Carpet Premiere: ${project.movieTitle}`);
+      addFameXp(45 + Math.floor(hypeBonus / 4), `Red Carpet Premiere: ${project.movieTitle}`);
     }
 
     onCompletePremiere();

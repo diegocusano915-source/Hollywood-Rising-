@@ -532,8 +532,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updatedTimeline = [auditionEvent, ...(saveData.careerTimeline || [])];
 
-    // Award instant Fame XP for audition submission - balanced (halved from 15)
-    addFameXp(4, `Audition Tape Submitted: ${proj.title}`);
+
 
     updateSave({
       ...saveData,
@@ -630,7 +629,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       player: updatedPlayer,
     });
 
-    addFameXp(12, `Enrolled in ${course.name}`);
+
 
     return {
       success: true,
@@ -684,7 +683,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `Signed exclusive talent representation contract with ${agent.agencyName} (${agent.commissionPercent}% commission, ${(contractWeeks / 52).toFixed(1)} yr contract).`
     );
 
-    addFameXp(35, `Signed with Agent ${agent.name}`);
+    addFameXp(15, `Signed with Agent ${agent.name}`);
 
     updateSave({
       ...saveData,
@@ -753,7 +752,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `Signed personal management contract with ${manager.company} ($${yearly.toLocaleString()}/yr paid upfront, ${(contractWeeks / 52).toFixed(1)} yr term).`
     );
 
-    addFameXp(30, `Signed with Manager ${manager.name}`);
+    addFameXp(12, `Signed with Manager ${manager.name}`);
 
     updateSave({
       ...saveData,
@@ -1788,7 +1787,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
           const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
 
-          const releaseFame = book.roleType === 'Lead' ? 90 : book.roleType === 'Principal' ? 65 : 40;
+          const releaseFame = book.roleType === 'Lead' ? 45 : book.roleType === 'Principal' ? 32 : 20;
           fameGainedThisWeek += releaseFame;
 
           const currentPart = book.franchisePart || 1;
@@ -2647,7 +2646,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       careerTimeline: [sagTimelineEvent, ...(saveData.careerTimeline || [])],
     });
 
-    addFameXp(75, 'Joined SAG-AFTRA Union');
+    addFameXp(35, 'Joined SAG-AFTRA Union');
 
     return { success: true, message: 'SAG-AFTRA Membership unlocked successfully!' };
   };
@@ -2746,7 +2745,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedReleased = [newReleasedMovie, ...(saveData.releasedMovies || [])];
 
     // Award Fame XP - balanced (halved)
-    const releaseFame = proj.roleType === 'Lead' ? 75 : proj.roleType === 'Principal' ? 60 : 40;
+    const releaseFame = proj.roleType === 'Lead' ? 35 : proj.roleType === 'Principal' ? 28 : 18;
 
     // Timeline event & inbox message
     const dateInfo = formatCalendarDate(saveData.player.dateYear, saveData.player.dateWeek);
