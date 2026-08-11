@@ -62,31 +62,31 @@ export interface CeremonyCategoryDef {
 }
 
 export const CORE_CATEGORIES: CeremonyCategoryDef[] = [
-  { id: 'best_actor', label: 'Best Actor in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 1500 },
-  { id: 'best_actress', label: 'Best Actress in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 1500 },
-  { id: 'best_supporting', label: 'Best Supporting Performance', kind: 'supporting', prestige: 'Global', baseXp: 1100 },
-  { id: 'best_picture', label: 'Best Motion Picture', kind: 'picture', prestige: 'Legendary', baseXp: 2000 },
-  { id: 'best_director', label: 'Best Director', kind: 'director', prestige: 'Legendary', baseXp: 1200 },
-  { id: 'best_newcomer', label: 'Best Newcomer / Breakthrough Performance', kind: 'newcomer', prestige: 'National', baseXp: 800 },
-  { id: 'audience_choice', label: 'Audience Choice Award', kind: 'audience', prestige: 'Fan', baseXp: 1000 },
+  { id: 'best_actor', label: 'Best Actor in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 750 },
+  { id: 'best_actress', label: 'Best Actress in a Leading Role', kind: 'role', prestige: 'Legendary', baseXp: 750 },
+  { id: 'best_supporting', label: 'Best Supporting Performance', kind: 'supporting', prestige: 'Global', baseXp: 550 },
+  { id: 'best_picture', label: 'Best Motion Picture', kind: 'picture', prestige: 'Legendary', baseXp: 1000 },
+  { id: 'best_director', label: 'Best Director', kind: 'director', prestige: 'Legendary', baseXp: 600 },
+  { id: 'best_newcomer', label: 'Best Newcomer / Breakthrough Performance', kind: 'newcomer', prestige: 'National', baseXp: 400 },
+  { id: 'audience_choice', label: 'Audience Choice Award', kind: 'audience', prestige: 'Fan', baseXp: 500 },
 ];
 
 export const ROTATING_CATEGORIES: CeremonyCategoryDef[] = [
-  { id: 'best_comedy', label: 'Best Comedy Film', kind: 'genre', prestige: 'National', baseXp: 900 },
-  { id: 'best_action', label: 'Best Action Film', kind: 'genre', prestige: 'National', baseXp: 900 },
-  { id: 'best_scifi', label: 'Best Sci-Fi / Fantasy Film', kind: 'genre', prestige: 'Global', baseXp: 1000 },
-  { id: 'best_thriller', label: 'Best Thriller', kind: 'genre', prestige: 'National', baseXp: 900 },
-  { id: 'best_drama', label: 'Best Drama', kind: 'genre', prestige: 'Global', baseXp: 1000 },
-  { id: 'best_musical', label: 'Best Musical', kind: 'genre', prestige: 'National', baseXp: 850 },
-  { id: 'best_cinematography', label: 'Best Cinematography', kind: 'tech', prestige: 'National', baseXp: 700 },
-  { id: 'best_vfx', label: 'Best Visual Effects', kind: 'tech', prestige: 'National', baseXp: 700 },
-  { id: 'best_score', label: 'Best Original Score', kind: 'tech', prestige: 'National', baseXp: 700 },
-  { id: 'best_song', label: 'Best Original Song', kind: 'tech', prestige: 'National', baseXp: 700 },
-  { id: 'best_ensemble', label: 'Best Ensemble Cast', kind: 'picture', prestige: 'Global', baseXp: 950 },
-  { id: 'best_tv_drama', label: 'Best TV Drama Series', kind: 'tv', prestige: 'Global', baseXp: 900 },
-  { id: 'best_tv_comedy', label: 'Best TV Comedy Series', kind: 'tv', prestige: 'National', baseXp: 800 },
-  { id: 'best_tv_actor', label: 'Best Actor in a TV Series', kind: 'tv', prestige: 'Global', baseXp: 950 },
-  { id: 'box_office_achievement', label: 'Box Office Achievement Award', kind: 'audience', prestige: 'Fan', baseXp: 850 },
+  { id: 'best_comedy', label: 'Best Comedy Film', kind: 'genre', prestige: 'National', baseXp: 450 },
+  { id: 'best_action', label: 'Best Action Film', kind: 'genre', prestige: 'National', baseXp: 450 },
+  { id: 'best_scifi', label: 'Best Sci-Fi / Fantasy Film', kind: 'genre', prestige: 'Global', baseXp: 500 },
+  { id: 'best_thriller', label: 'Best Thriller', kind: 'genre', prestige: 'National', baseXp: 450 },
+  { id: 'best_drama', label: 'Best Drama', kind: 'genre', prestige: 'Global', baseXp: 500 },
+  { id: 'best_musical', label: 'Best Musical', kind: 'genre', prestige: 'National', baseXp: 425 },
+  { id: 'best_cinematography', label: 'Best Cinematography', kind: 'tech', prestige: 'National', baseXp: 350 },
+  { id: 'best_vfx', label: 'Best Visual Effects', kind: 'tech', prestige: 'National', baseXp: 350 },
+  { id: 'best_score', label: 'Best Original Score', kind: 'tech', prestige: 'National', baseXp: 350 },
+  { id: 'best_song', label: 'Best Original Song', kind: 'tech', prestige: 'National', baseXp: 350 },
+  { id: 'best_ensemble', label: 'Best Ensemble Cast', kind: 'picture', prestige: 'Global', baseXp: 475 },
+  { id: 'best_tv_drama', label: 'Best TV Drama Series', kind: 'tv', prestige: 'Global', baseXp: 450 },
+  { id: 'best_tv_comedy', label: 'Best TV Comedy Series', kind: 'tv', prestige: 'National', baseXp: 400 },
+  { id: 'best_tv_actor', label: 'Best Actor in a TV Series', kind: 'tv', prestige: 'Global', baseXp: 475 },
+  { id: 'box_office_achievement', label: 'Box Office Achievement Award', kind: 'audience', prestige: 'Fan', baseXp: 425 },
 ];
 
 const GENRE_ALIASES: Record<string, string[]> = {
