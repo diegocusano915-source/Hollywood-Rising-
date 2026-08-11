@@ -180,7 +180,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Lionsgate', 'Focus Features', 'Hulu Originals', 'Sony Pictures', 'Netflix'][Math.floor(Math.random() * 5)];
     category = isTvSeries ? 'TV Series' : 'Feature Film';
     description = `Studio mid-budget ${category.toLowerCase()} casting a co-lead principal actor with strong charisma.`;
-    roleType = Math.random() < 0.75 ? 'Principal' : 'Lead'; // PRINCIPAL-FIRST: 75% Principal
+    roleType = Math.random() < 0.35 ? 'Principal' : 'Lead'; // 35% Principal - leads carry the board
   } else if (tier === 'Established Star') {
     // Established Pay: $60,000 - $180,000
     salary = Math.floor(60000 + Math.random() * 120000);
@@ -188,7 +188,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     studio = ['Warner Bros.', 'Universal Pictures', 'Paramount Pictures', 'HBO Max'][Math.floor(Math.random() * 4)];
     category = 'Feature Film';
     description = `Major theatrical production seeking a recognized lead actor for global release.`;
-    roleType = Math.random() < 0.5 ? 'Principal' : 'Lead'; // Balanced 50/50 - keeps Principal pool strong
+    roleType = Math.random() < 0.25 ? 'Principal' : 'Lead'; // 25% Principal - stars mostly take Leads
   } else {
     // A-List Franchise Blockbuster: $400,000 - $1,500,000
     salary = Math.floor(400000 + Math.random() * 1100000);
@@ -338,12 +338,21 @@ export function validateAndEnforceCallboardRoster(
   let supportCount = roster.filter(p => p.roleType === 'Support' || p.roleType === 'Recurring').length;
   let minorCount = roster.filter(p => p.roleType === 'Cameo' || p.roleType === 'Guest Star' || p.roleType === 'Background').length;
 
-  // FAILSAFE 1: Enforce Minimum 3-5 Principal Roles (random 3-5)
-  const targetPrincipal = 3 + Math.floor(Math.random() * 3); // 3-5
+  // FAILSAFE 1: Enforce 3-4 Principal Roles per week (3-4, not more)
+  const targetPrincipal = 3 + Math.floor(Math.random() * 2); // 3-4
   while (principalCount < targetPrincipal) {
     const newPrincipal = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
-    roster.unshift(newPrincipal);
+    roster.unshift({ ...newPrincipal, roleType: 'Principal' });
     principalCount++;
+  }
+
+  // PRINCIPAL CAP: max 4 Principal roles per week - the rest are Leads & other roles
+  while (principalCount > 4) {
+    const pIdx = roster.findIndex(p => p.roleType === 'Principal');
+    if (pIdx === -1) break;
+    roster[pIdx] = { ...roster[pIdx], roleType: 'Lead', salary: Math.floor((roster[pIdx].salary || 0) * 1.15) };
+    principalCount--;
+    leadCount++;
   }
 
   // FAILSAFE 2: Enforce Minimum 2 Supporting Roles
@@ -353,30 +362,27 @@ export function validateAndEnforceCallboardRoster(
     supportCount++;
   }
 
-  // FAILSAFE 3: Enforce Minimum 1 Minor Role
-  while (minorCount < 1) {
+  // FAILSAFE 3: Enforce Minimum 2 Minor Roles
+  while (minorCount < 2) {
     const newMinor = generateSingleMinorRole(playerFameXp, roster.length + 1);
     roster.push(newMinor);
     minorCount++;
   }
 
-  // PRINCIPAL-FIRST RULE: Principal roles must OUTNUMBER Lead roles on every callboard
-  // Convert excess Leads into Principals so the board stays believable for a rising career.
-  while (leadCount > 0 && leadCount >= principalCount) {
-    const leadIdx = roster.findIndex(p => p.roleType === 'Lead');
-    if (leadIdx === -1) break;
-    roster[leadIdx] = { ...roster[leadIdx], roleType: 'Principal', salary: Math.floor((roster[leadIdx].salary || 0) * 0.85) };
-    leadCount--;
-    principalCount++;
+  // LEAD PRESENCE: guarantee at least 3 Lead roles so the board isn't all support/minor
+  while (leadCount < 3) {
+    const newLead = generateSinglePrincipalRole(playerFameXp, roster.length + 1);
+    roster.push({ ...newLead, roleType: 'Lead' });
+    leadCount++;
   }
 
   // ENSURE 10-25 total - endless pool, no fake simulation
   const targetTotal = 20 + Math.floor(Math.random() * 6); // 20-25 as requested
   while (roster.length < 10) {
     const r = Math.random();
-    if (r < 0.5) {
+    if (r < 0.3) {
       roster.push(generateSinglePrincipalRole(playerFameXp, roster.length + 1));
-    } else if (r < 0.8) {
+    } else if (r < 0.65) {
       roster.push(generateSingleSupportingRole(playerFameXp, roster.length + 1));
     } else {
       roster.push(generateSingleMinorRole(playerFameXp, roster.length + 1));
@@ -407,9 +413,9 @@ export function generateCallboardProjects(count: number = 20 + Math.floor(Math.r
 
   while (projects.length < count) {
     const r = Math.random();
-    if (r < 0.4) {
+    if (r < 0.25) {
       projects.push(generateSinglePrincipalRole(playerFameXp, projects.length + 1));
-    } else if (r < 0.75) {
+    } else if (r < 0.65) {
       projects.push(generateSingleSupportingRole(playerFameXp, projects.length + 1));
     } else {
       projects.push(generateSingleMinorRole(playerFameXp, projects.length + 1));

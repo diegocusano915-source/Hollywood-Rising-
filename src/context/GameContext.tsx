@@ -1589,9 +1589,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const tier = signedAgent.tier || 1;
         const pitchCount = tier >= 4 ? 3 : tier >= 3 ? 2 : 1;
         const dealCap = signedAgent.dealCap || 15000000;
-        const eligible = saveData.callboard
-          .filter((c) => (c.salary || 0) <= dealCap)
+        // AGENTS PITCH PRINCIPAL ROLES FIRST (agents specialize in principal bookings);
+        // fall back to any role within the agent's deal cap if principals are scarce.
+        const withinCap = saveData.callboard.filter((c) => (c.salary || 0) <= dealCap);
+        const principalRoles = withinCap
+          .filter((c) => c.roleType === 'Principal')
           .sort((a, b) => (b.salary || 0) - (a.salary || 0));
+        const eligible = principalRoles.length > 0 ? principalRoles : withinCap.sort((a, b) => (b.salary || 0) - (a.salary || 0));
         const picked = eligible.slice(0, pitchCount);
 
         picked.forEach((proj) => {
