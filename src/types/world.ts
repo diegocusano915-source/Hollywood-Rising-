@@ -205,6 +205,8 @@ export interface SocialPost {
   comments: number;
   retweets: number;
   shares: number;
+  views?: number;
+  badge?: 'NONE' | 'BLUE' | 'GOLD' | 'GRAY';
   timestamp: string;
   isPlayer: boolean;
   isNpc: boolean;

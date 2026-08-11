@@ -100,8 +100,14 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <span className="text-xs font-black text-white truncate">{post.authorName}</span>
+              {/* Verified ticks: player uses Premium tick; NPCs use their account's badge (top accounts are verified) */}
               {isPlayer && tick !== 'NONE' && (
                 <span className={`w-4 h-4 rounded-full flex items-center justify-center ${TICK_STYLE[tick]}`}>
+                  <BadgeCheck className="w-3 h-3 text-white" />
+                </span>
+              )}
+              {!isPlayer && post.badge && post.badge !== 'NONE' && (
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center ${TICK_STYLE[post.badge]}`}>
                   <BadgeCheck className="w-3 h-3 text-white" />
                 </span>
               )}
@@ -127,8 +133,27 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <button className="cursor-pointer hover:text-sky-400"><Share className="w-3.5 h-3.5" /></button>
         </div>
         {expandedPost === post.id && (
-          <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[10px] text-gray-400">
-            💬 Comments (real NPCs react to your posts based on your fame)
+          <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
+            <p className="text-[9px] font-black text-gray-400 uppercase">Comments</p>
+            {!isPlayer && (post.comments || 0) > 0 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎬</div>
+                  <p className="text-[10px] text-gray-300"><strong className="text-white">FilmFan400M</strong> · This is huge! 🍿🔥</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">⭐</div>
+                  <p className="text-[10px] text-gray-300"><strong className="text-white">Cinephile_LA</strong> · Insane numbers. The industry is watching.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎥</div>
+                  <p className="text-[10px] text-gray-300"><strong className="text-white">StudioGuru</strong> · Mark my words — this is the year's biggest story.</p>
+                </div>
+              </>
+            )}
+            {isPlayer && (post.comments || 0) > 0 && (
+              <p className="text-[10px] text-gray-400">{post.comments} comments from your fans — real reactions to your real posts.</p>
+            )}
           </div>
         )}
       </div>

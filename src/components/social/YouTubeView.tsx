@@ -21,9 +21,7 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const videos = state.youtubeVideos || [];
   const subs = state.youtubeSubscribers || 0;
 
-  const algorithmNote = algo.discovered
-    ? '🚀 Algorithm discovered your channel — videos are being pushed out!'
-    : `🔒 New channel: videos get 0-100 views. Keep posting — the algorithm notices consistent creators (${Math.min(algo.lifetimeVideos, 55)}/55 posts).`;
+  // Algorithm is INVISIBLE — never shown to the player.
 
   const publish = () => {
     if (!latest) return;
@@ -91,8 +89,16 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <button className="flex items-center gap-1 cursor-pointer"><Share className="w-3.5 h-3.5" /> Share</button>
           <MoreVertical className="w-4 h-4" />
         </div>
-        <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[10px] text-gray-400">
-          💬 Comments: {playing.comments || 0} — real NPC reactions
+        <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
+          <p className="text-[10px] font-black text-gray-300">💬 {playing.comments || 0} comments</p>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🍿</div>
+            <p className="text-[10px] text-gray-400"><strong className="text-white">MovieFanTV</strong> · This trailer is FIRE! Can't wait for opening night.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎥</div>
+            <p className="text-[10px] text-gray-400"><strong className="text-white">CineScope</strong> · The cinematography on this one looks incredible.</p>
+          </div>
         </div>
       </div>
     );
@@ -106,8 +112,7 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="flex items-center gap-2 text-gray-500"><Compass className="w-4 h-4" /><Clock className="w-4 h-4" /></div>
       </div>
 
-      {/* Algorithm status banner */}
-      <div className="p-3 rounded-2xl bg-black/50 border border-white/10 text-[10px] text-gray-300 leading-relaxed">{algorithmNote}</div>
+
 
       {tab === 'HOME' && (
         <div className="space-y-3">

@@ -23,6 +23,29 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const posts = state.instagramPosts || [];
   const stories = state.instagramStories || [];
 
+  // Varied NPC content pool (real events only) so the feed never shows the same picture on repeat
+  const npcContent = React.useMemo(() => {
+    const pool = [
+      { name: 'Paparazzi Daily', img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&auto=format&fit=crop', cap: latest ? `Spotted: ${player.firstName} ${player.lastName} on the '${latest.movieTitle}' set! 📸` : 'Red carpet looks from last night 📸', likes: 124000, time: '2h' },
+      { name: 'StudioOne Pictures', img: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&auto=format&fit=crop', cap: latest ? `'${latest.movieTitle}' crossing $${((latest.worldwideGross || 0) / 1000000).toFixed(0)}M worldwide! 🎬` : 'Coming soon to theaters 🎬', likes: 89000, time: '4h' },
+      { name: 'RedCarpetWeekly', img: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400&auto=format&fit=crop', cap: 'Hollywood premieres are back in full force ✨', likes: 56000, time: '6h' },
+      { name: 'FilmFansUnited', img: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&auto=format&fit=crop', cap: "The fans have spoken — this year's releases are incredible 🍿", likes: 43000, time: '8h' },
+      { name: 'CelebStyle', img: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&auto=format&fit=crop', cap: 'Best dressed at the premiere 🔥', likes: 67000, time: '10h' },
+      { name: 'BoxOfficeBuz', img: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&auto=format&fit=crop', cap: "Numbers don't lie — check this week's charts 📊", likes: 38000, time: '12h' },
+    ];
+    return pool.map((n, i) => ({
+      id: `npc_ig_${i}`,
+      imageUrl: n.img,
+      caption: n.cap,
+      likes: n.likes,
+      comments: Math.floor(n.likes * 0.01),
+      username: n.name,
+      timestamp: n.time,
+      isPlayer: false,
+      isNpc: true,
+    }));
+  }, [latest, player.firstName, player.lastName]);
+
   const hashtags = (title: string) => {
     const base = title.replace(/[^a-zA-Z0-9 ]/g, '').split(' ').slice(0, 2).map((w) => `#${w}`).join(' ');
     return `${base} #HollywoodRising #ActorLife #RedCarpet #BoxOffice #MovieNight #BehindTheScenes #Film #Cinema #Star #Premiere`.trim();
@@ -96,10 +119,10 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ))}
           </div>
 
-          {/* Feed */}
+          {/* Feed (player posts + NPC posts with varied images) */}
           <div className="space-y-4">
-            {posts.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No posts yet. Create your first post!</p>}
-            {posts.slice(0, 20).map((p: any) => (
+            {posts.length === 0 && npcContent.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No posts yet. Create your first post!</p>}
+            {[...posts.slice(0, 8), ...npcContent].map((p: any) => (
               <div key={p.id} className="rounded-2xl bg-black/50 border border-white/10 overflow-hidden">
                 <div className="flex items-center gap-2 p-2.5">
                   <img src={p.username ? player.avatarUrl : p.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-white/20" />
@@ -115,6 +138,12 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </div>
                   <p className="text-[11px] font-black">{p.likes || 0} likes</p>
                   <p className="text-[11px] text-gray-300 whitespace-pre-line">{p.caption}</p>
+                  {!p.isPlayer && (
+                    <p className="text-[10px] text-gray-500 border-t border-white/5 pt-1.5">
+                      <strong className="text-gray-300">fan4life_88</strong> · This is amazing! 🔥
+                      <span className="ml-2"><strong className="text-gray-300">hollywoodwatcher</strong> · Legendary content 🎬</span>
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
