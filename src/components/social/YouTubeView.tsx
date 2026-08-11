@@ -25,8 +25,31 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // Algorithm is INVISIBLE — never shown to the player.
 
+  const PUBLISH_COUNT = state.youtubeVideos?.length || 0;
+  const TITLE_POOL = latest
+    ? [
+        `'${latest.movieTitle}' — Official Trailer`,
+        `'${latest.movieTitle}' — Behind The Scenes`,
+        `'${latest.movieTitle}' — First Look`,
+        `'${latest.movieTitle}' — Interview with ${player.firstName} ${player.lastName}`,
+        `'${latest.movieTitle}' — Box Office Reaction`,
+        `'${latest.movieTitle}' — Fan Q&A`,
+        `'${latest.movieTitle}' — Red Carpet Premiere`,
+        `'${latest.movieTitle}' — Bloopers & Outtakes`,
+      ]
+    : [
+        'Day in the Life of a Hollywood Actor',
+        'My Morning Routine in LA',
+        '5 Things I Learned in Acting Class',
+        'Training for My Next Role',
+        'Behind My Latest Headshot Shoot',
+        'Answering Fan Questions',
+        'A Week in My Career',
+        'Inside My Gym Session',
+      ];
   const publish = () => {
-    const title = videoTitle.trim() || (latest ? `'${latest.movieTitle}' — Official Trailer & Behind the Scenes` : `My New Video #${(state.youtubeVideos?.length || 0) + 1}`);
+    const fallbackTitle = TITLE_POOL[PUBLISH_COUNT % TITLE_POOL.length];
+    const title = videoTitle.trim() || fallbackTitle;
     const views = youtubeAlgorithmViews(algo.lifetimeVideos, player.fameXp || 0, algo.discovered);
     state.youtubeVideos = state.youtubeVideos || [];
     state.youtubeVideos.unshift({

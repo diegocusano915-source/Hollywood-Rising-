@@ -67,16 +67,54 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const memories = (careerTimeline || []).slice(0, 5);
   const groups = [
+    // Fan groups (10) — scale with the player's real fans
     { name: `${player.lastName || 'Star'} Superfans`, members: Math.max(50, Math.floor((player.fans || 0) * 0.3)), verified: true },
+    { name: `${player.firstName} ${player.lastName} Official Fan Club`, members: Math.max(30, Math.floor((player.fans || 0) * 0.15)), verified: true },
+    { name: `${player.lastName} Filmography Watch`, members: Math.max(20, Math.floor((player.fans || 0) * 0.1)), verified: false },
+    { name: `${player.firstName} Edit & Fan Art`, members: Math.max(15, Math.floor((player.fans || 0) * 0.08)), verified: false },
+    { name: 'Rising Star Supporters', members: Math.max(25, Math.floor((player.fans || 0) * 0.12)), verified: false },
+    { name: 'Premiere Night Crew', members: Math.max(18, Math.floor((player.fans || 0) * 0.06)), verified: false },
+    { name: 'Behind The Scenes Lovers', members: Math.max(22, Math.floor((player.fans || 0) * 0.09)), verified: false },
+    { name: `${player.lastName} Merch Collectors`, members: Math.max(12, Math.floor((player.fans || 0) * 0.05)), verified: false },
+    { name: 'Fan Q&A Hangout', members: Math.max(16, Math.floor((player.fans || 0) * 0.07)), verified: false },
+    { name: 'Movie Marathon Society', members: Math.max(20, Math.floor((player.fans || 0) * 0.1)), verified: false },
+    // Industry groups (10) — verified
     { name: 'Hollywood Rising Official', members: 50000, verified: true },
     { name: 'Box Office Analysts', members: 12000, verified: true },
     { name: 'Awards Season Watch', members: 8000, verified: true },
+    { name: 'Studio Executives Lounge', members: 3200, verified: true },
+    { name: 'Casting Directors Network', members: 4500, verified: true },
+    { name: 'Film Critics Circle', members: 11000, verified: true },
+    { name: 'Talent Agencies Hub', members: 2700, verified: true },
+    { name: 'Production Guild', members: 6400, verified: true },
+    { name: 'Streaming Execs Room', members: 1900, verified: true },
+    { name: 'SAG-AFTRA Members Group', members: 23000, verified: true },
+    // Niche/community groups (10+) — verified mix
     { name: 'Indie Film Lovers', members: 6500, verified: false },
     { name: 'Action Movie Fans', members: 24000, verified: false },
     { name: 'Red Carpet Fashion', members: 15000, verified: true },
     { name: 'Casting Call Central', members: 9000, verified: false },
-    { name: 'Studio Executives Lounge', members: 3200, verified: true },
     { name: 'Cinema Critics Circle', members: 11000, verified: false },
+    { name: 'Sci-Fi Cinema Club', members: 13000, verified: false },
+    { name: 'Thriller Nights', members: 7800, verified: false },
+    { name: 'RomCom Reviewers', members: 5400, verified: false },
+    { name: 'Documentary Fans', members: 3200, verified: false },
+    { name: 'Horror Movie Lovers', members: 9800, verified: false },
+    { name: 'Movie Soundtracks', members: 6100, verified: false },
+    { name: 'Film Festival Circuit', members: 4100, verified: true },
+    { name: 'Cinematography Club', members: 3600, verified: false },
+    { name: 'Stunt Performers Guild', members: 2800, verified: true },
+    { name: 'Screenwriters Circle', members: 5200, verified: false },
+    { name: 'VFX Artists United', members: 4400, verified: false },
+    { name: 'Animated Films Fanbase', members: 8600, verified: false },
+    { name: 'Westerns Forever', members: 3100, verified: false },
+    { name: 'Musical Movie Fans', members: 4700, verified: false },
+    { name: 'IMDb Top 250 Club', members: 7200, verified: false },
+    { name: 'Streaming Wars Discussion', members: 5900, verified: false },
+    { name: 'Hollywood History Buffs', members: 3800, verified: true },
+    { name: 'Box Office Predictions', members: 2900, verified: false },
+    { name: 'Golden Age Cinema', members: 2100, verified: false },
+    { name: 'Film Noir Society', members: 2600, verified: false },
   ];
 
   const BottomNav = (
@@ -152,7 +190,7 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {tab === 'GROUPS' && (
         <div className="space-y-2">
-          <h3 className="text-xs font-black uppercase text-gray-300">Groups ({groups.length}+)</h3>
+          <h3 className="text-xs font-black uppercase text-gray-300">Groups ({groups.length})</h3>
           {groups.map((g) => (
             <div key={g.name} className="p-3 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between">
               <div>

@@ -92,12 +92,32 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return `${base} #HollywoodRising #ActorLife #RedCarpet #BoxOffice #MovieNight #BehindTheScenes #Film #Cinema #Star #Premiere`.trim();
   };
 
+  const POST_COUNT = posts.length;
+  const CAPTION_POOL = latest
+    ? [
+        `'${latest.movieTitle}' 🎬 Opening weekend!`,
+        `So proud of this one 🎬 '${latest.movieTitle}'`,
+        `Behind the scenes of '${latest.movieTitle}' 🎥`,
+        `Set life on '${latest.movieTitle}' was unreal ✨`,
+        `Meet the cast of '${latest.movieTitle}' 🎭`,
+        `'${latest.movieTitle}' — thank you for the love! ❤️`,
+      ]
+    : [
+        'Another day in Hollywood ☀️',
+        'Studio visit today 🎬',
+        'Working on something special... 👀',
+        'Gym session before auditions 💪',
+        'Coffee and scripts ☕',
+        'Los Angeles energy ✨',
+      ];
   const createPost = () => {
+    // Auto-advance the generated image so every post is unique
+    if (imageChoice !== 'upload' && !generatedImage) handleGenerate();
     const img =
       imageChoice === 'upload' && uploadedImage ? uploadedImage :
-      imageChoice === 'generate' && generatedImage ? generatedImage :
+      generatedImage ? generatedImage :
       (latest?.posterUrl || player.avatarUrl);
-    const cap = caption.trim() || (latest ? `'${latest.movieTitle}' 🎬` : 'New post!');
+    const cap = caption.trim() || CAPTION_POOL[POST_COUNT % CAPTION_POOL.length];
     state.instagramPosts = state.instagramPosts || [];
     state.instagramPosts.unshift({
       id: `ig_${Date.now()}`,
