@@ -3,7 +3,7 @@
  * Create post, 6 reactions, friends (auto from movies), 50+ groups (verified),
  * Marketplace (real merch), Memories (real career timeline), Events, Premium.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { RepresentationService } from '../../services/representationService';
@@ -33,35 +33,42 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       else next.add(name);
       return next;
     });
-    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}! Posts from this group now appear in your feed.`);
+    const wasJoined = joinedGroups.has(name);
+    setFb(wasJoined ? `Left ${name}` : `Joined ${name}! Posts from this group now appear in your feed.`);
     setTimeout(() => setFb(null), 2500);
   };
 
-  // Joined groups post to the feed (real, varied content + comments)
-  const groupFeed = Array.from(joinedGroups).slice(0, 6).map((gname, i) => ({
-    id: `grp_${Date.now()}_${i}`,
-    authorName: gname,
-    authorHandle: '',
-    authorAvatar: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=100&auto=format&fit=crop',
-    platform: 'Facebook',
-    tab: 'PLAYER_FEED',
-    text: latest
-      ? `[Group post] Members are discussing '${latest.movieTitle}' — ${["the box office run is incredible!", "who's seen it? Drop your review!", "the director's cut is even better 🎬"][i % 3]}`
-      : `[Group post] New member discussion thread — introduce yourself!`,
-    likes: Math.floor(500 + Math.random() * 5000),
-    comments: Math.floor(50 + Math.random() * 400),
-    retweets: 0,
-    shares: Math.floor(20 + Math.random() * 200),
-    timestamp: `${i + 1}h`,
-    isPlayer: false,
-    isNpc: true,
-    sentiment: 'Positive',
-  }));
+  const latest = releasedMovies[0];
+
+  // STABLE joined-group feed: generated ONCE per session with fixed keys (no re-render crashes)
+  const [groupFeed, setGroupFeed] = useState<any[]>(() => []);
+  useEffect(() => {
+    // (Re)build the group feed whenever the joined set changes — STABLE ids (gname-based, not Date.now)
+    const feed = Array.from(joinedGroups).slice(0, 6).map((gname, i) => ({
+      id: `grp_${gname.replace(/[^a-zA-Z0-9]/g, '')}_${i}`,
+      authorName: gname,
+      authorHandle: '',
+      authorAvatar: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=100&auto=format&fit=crop',
+      platform: 'Facebook',
+      tab: 'PLAYER_FEED',
+      text: latest
+        ? `[Group post] Members are discussing '${latest.movieTitle}' — ${["the box office run is incredible!", "who's seen it? Drop your review!", "the director's cut is even better 🎬"][i % 3]}`
+        : `[Group post] New member discussion thread — introduce yourself!`,
+      likes: Math.floor(500 + Math.random() * 5000),
+      comments: Math.floor(50 + Math.random() * 400),
+      retweets: 0,
+      shares: Math.floor(20 + Math.random() * 200),
+      timestamp: `${i + 1}h`,
+      isPlayer: false,
+      isNpc: true,
+      sentiment: 'Positive',
+    }));
+    setGroupFeed(feed);
+  }, [joinedGroups, latest?.movieTitle]);
 
   const premium = state.premium || { tier: 'none' as const };
   const tick = PremiumService.tickName(state);
   const friends = state.facebookFriends || 0;
-  const latest = releasedMovies[0];
   const posts = state.facebookPosts || [];
 
   const publish = () => {

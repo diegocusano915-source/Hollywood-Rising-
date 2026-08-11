@@ -111,6 +111,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     { name: 'Musical Theatre Fans', members: 3500000, online: 55000 },
   ];
 
+  // Joined groups -> live chats (stable keys, no re-render crash)
   const joinedGroupChats = Array.from(joinedGroups).slice(0, 4).map((gname, i) => ({
     name: gname,
     members: groups.find((g) => g.name === gname)?.members || 1000000,

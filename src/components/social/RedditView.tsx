@@ -3,7 +3,7 @@
  * 50+ subreddits, upvotes/downvotes, karma (real), nested threads, AMA (fame-gated),
  * Gold premium (award coins, exclusive sub, ad-free).
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, ArrowUp, ArrowDown, MessageCircle, Award, Search, Home, Compass, Crown, Share2 } from 'lucide-react';
@@ -98,9 +98,9 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const posts = state.redditPosts || [];
   const canAMA = (player.fameXp || 0) >= 1500;
 
-  // Joined subreddits contribute real posts to the home feed (varied + comments)
+  // Joined subreddits contribute real posts to the home feed - STABLE ids (no re-render crash)
   const joinedSubPosts = Array.from(joinedSubs).slice(0, 5).map((sub, i) => ({
-    id: `jsub_${Date.now()}_${i}`,
+    id: `jsub_${sub.replace(/[^a-zA-Z0-9]/g, '')}_${i}`,
     subreddit: sub,
     author: `u/${['cinephile_la', 'moviebuff88', 'hollywoodwatcher', 'screenfanatic', 'reelcritic'][i % 5]}`,
     title: latest
@@ -116,6 +116,14 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     week: player.dateWeek || 1,
     year: player.dateYear || 2026,
   }));
+
+  // WEEKLY ROTATION: when the game week advances, joined-sub posts regenerate (new titles, upvotes)
+  const currentWeek = player.dateWeek || 1;
+  const weekKey = `${currentWeek}-${player.dateYear || 2026}-${joinedSubs.size}`;
+  const [joinedFeedVersion, setJoinedFeedVersion] = useState(weekKey);
+  useEffect(() => {
+    if (joinedFeedVersion !== weekKey) setJoinedFeedVersion(weekKey);
+  }, [weekKey, joinedFeedVersion]);
 
   const sorted = [...joinedSubPosts, ...posts].sort((a, b) =>
     sort === 'hot' ? b.upvotes - a.upvotes : sort === 'top' ? b.upvotes - a.upvotes : (b.week || 0) - (a.week || 0)
