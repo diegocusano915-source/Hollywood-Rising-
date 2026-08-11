@@ -25,6 +25,17 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [tab, setTab] = useState<'HOME' | 'GROUPS' | 'MARKET' | 'MEMORIES' | 'PREMIUM'>('HOME');
   const [draft, setDraft] = useState('');
   const [fb, setFb] = useState<string | null>(null);
+  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
+  const toggleJoin = (name: string) => {
+    setJoinedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}!`);
+    setTimeout(() => setFb(null), 2500);
+  };
 
   const premium = state.premium || { tier: 'none' as const };
   const tick = PremiumService.tickName(state);
@@ -79,42 +90,42 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     { name: 'Fan Q&A Hangout', members: Math.max(16, Math.floor((player.fans || 0) * 0.07)), verified: false },
     { name: 'Movie Marathon Society', members: Math.max(20, Math.floor((player.fans || 0) * 0.1)), verified: false },
     // Industry groups (10) — verified
-    { name: 'Hollywood Rising Official', members: 50000, verified: true },
-    { name: 'Box Office Analysts', members: 12000, verified: true },
-    { name: 'Awards Season Watch', members: 8000, verified: true },
-    { name: 'Studio Executives Lounge', members: 3200, verified: true },
-    { name: 'Casting Directors Network', members: 4500, verified: true },
-    { name: 'Film Critics Circle', members: 11000, verified: true },
-    { name: 'Talent Agencies Hub', members: 2700, verified: true },
-    { name: 'Production Guild', members: 6400, verified: true },
-    { name: 'Streaming Execs Room', members: 1900, verified: true },
-    { name: 'SAG-AFTRA Members Group', members: 23000, verified: true },
+    { name: 'Hollywood Rising Official', members: 100000000, verified: true },
+    { name: 'Box Office Analysts', members: 15000000, verified: true },
+    { name: 'Awards Season Watch', members: 9000000, verified: true },
+    { name: 'Studio Executives Lounge', members: 1200000, verified: true },
+    { name: 'Casting Directors Network', members: 3500000, verified: true },
+    { name: 'Film Critics Circle', members: 25000000, verified: true },
+    { name: 'Talent Agencies Hub', members: 800000, verified: true },
+    { name: 'Production Guild', members: 5200000, verified: true },
+    { name: 'Streaming Execs Room', members: 600000, verified: true },
+    { name: 'SAG-AFTRA Members Group', members: 40000000, verified: true },
     // Niche/community groups (10+) — verified mix
-    { name: 'Indie Film Lovers', members: 6500, verified: false },
-    { name: 'Action Movie Fans', members: 24000, verified: false },
-    { name: 'Red Carpet Fashion', members: 15000, verified: true },
-    { name: 'Casting Call Central', members: 9000, verified: false },
-    { name: 'Cinema Critics Circle', members: 11000, verified: false },
-    { name: 'Sci-Fi Cinema Club', members: 13000, verified: false },
-    { name: 'Thriller Nights', members: 7800, verified: false },
-    { name: 'RomCom Reviewers', members: 5400, verified: false },
-    { name: 'Documentary Fans', members: 3200, verified: false },
-    { name: 'Horror Movie Lovers', members: 9800, verified: false },
-    { name: 'Movie Soundtracks', members: 6100, verified: false },
-    { name: 'Film Festival Circuit', members: 4100, verified: true },
-    { name: 'Cinematography Club', members: 3600, verified: false },
-    { name: 'Stunt Performers Guild', members: 2800, verified: true },
-    { name: 'Screenwriters Circle', members: 5200, verified: false },
-    { name: 'VFX Artists United', members: 4400, verified: false },
-    { name: 'Animated Films Fanbase', members: 8600, verified: false },
-    { name: 'Westerns Forever', members: 3100, verified: false },
-    { name: 'Musical Movie Fans', members: 4700, verified: false },
-    { name: 'IMDb Top 250 Club', members: 7200, verified: false },
-    { name: 'Streaming Wars Discussion', members: 5900, verified: false },
-    { name: 'Hollywood History Buffs', members: 3800, verified: true },
-    { name: 'Box Office Predictions', members: 2900, verified: false },
-    { name: 'Golden Age Cinema', members: 2100, verified: false },
-    { name: 'Film Noir Society', members: 2600, verified: false },
+    { name: 'Indie Film Lovers', members: 8500000, verified: false },
+    { name: 'Action Movie Fans', members: 60000000, verified: false },
+    { name: 'Red Carpet Fashion', members: 22000000, verified: true },
+    { name: 'Casting Call Central', members: 14000000, verified: false },
+    { name: 'Cinema Critics Circle', members: 30000000, verified: false },
+    { name: 'Sci-Fi Cinema Club', members: 45000000, verified: false },
+    { name: 'Thriller Nights', members: 12000000, verified: false },
+    { name: 'RomCom Reviewers', members: 9500000, verified: false },
+    { name: 'Documentary Fans', members: 8000000, verified: false },
+    { name: 'Horror Movie Lovers', members: 33000000, verified: false },
+    { name: 'Movie Soundtracks', members: 11000000, verified: false },
+    { name: 'Film Festival Circuit', members: 7000000, verified: true },
+    { name: 'Cinematography Club', members: 6500000, verified: false },
+    { name: 'Stunt Performers Guild', members: 4800000, verified: true },
+    { name: 'Screenwriters Circle', members: 9800000, verified: false },
+    { name: 'VFX Artists United', members: 8400000, verified: false },
+    { name: 'Animated Films Fanbase', members: 28000000, verified: false },
+    { name: 'Westerns Forever', members: 5400000, verified: false },
+    { name: 'Musical Movie Fans', members: 8700000, verified: false },
+    { name: 'IMDb Top 250 Club', members: 13000000, verified: false },
+    { name: 'Streaming Wars Discussion', members: 10500000, verified: false },
+    { name: 'Hollywood History Buffs', members: 6800000, verified: true },
+    { name: 'Box Office Predictions', members: 5100000, verified: false },
+    { name: 'Golden Age Cinema', members: 3900000, verified: false },
+    { name: 'Film Noir Society', members: 4600000, verified: false },
   ];
 
   const BottomNav = (
@@ -197,7 +208,16 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <p className="text-xs font-black flex items-center gap-1.5">{g.name} {g.verified && <span className="text-[9px] text-sky-400 font-black">✓ Verified</span>}</p>
                 <p className="text-[9px] text-gray-500">{g.members.toLocaleString()} members · NPCs discuss your real news here</p>
               </div>
-              <button className="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-[10px] font-black cursor-pointer">Join</button>
+              <button
+                onClick={() => toggleJoin(g.name)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black cursor-pointer transition-all ${
+                  joinedGroups.has(g.name)
+                    ? 'bg-white/10 text-gray-300 border border-white/20'
+                    : 'bg-sky-600 text-white'
+                }`}
+              >
+                {joinedGroups.has(g.name) ? '✓ Joined' : 'Join'}
+              </button>
             </div>
           ))}
           {premium.tier !== 'none' && (

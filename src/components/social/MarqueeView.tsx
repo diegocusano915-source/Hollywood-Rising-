@@ -19,7 +19,10 @@ export const MarqueeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const premium = state.premium || { tier: 'none' as const };
   const connections = state.marqueeConnections || 0;
   const posts = state.marqueePosts || [];
-  const jobs: MarqueeJob[] = (state.marqueeJobs || []).length > 0 ? state.marqueeJobs : buildJobs();
+  // NO JOBS for new players — the system learns your profile after 2-4 movies, then pitches jobs
+  const movieCount = player.moviesCompleted || 0;
+  const jobsUnlocked = movieCount >= 2;
+  const jobs: MarqueeJob[] = jobsUnlocked && (state.marqueeJobs || []).length > 0 ? state.marqueeJobs : jobsUnlocked ? buildJobs() : [];
   const movies = releasedMovies || [];
 
   // Real job scaling: newcomers small gigs -> A-list $100M+ (ceiling $100B)
@@ -130,6 +133,15 @@ export const MarqueeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h3 className="text-xs font-black uppercase text-gray-300">Casting Calls & Offers</h3>
             <span className="text-[9px] text-gray-500">Pay scales with your career</span>
           </div>
+          {!jobsUnlocked && (
+            <div className="p-4 rounded-2xl bg-black/40 border border-white/10 text-center space-y-1">
+              <p className="text-xs font-black text-white">🔒 Jobs locked</p>
+              <p className="text-[10px] text-gray-400">
+                Casting calls unlock after <strong className="text-amber-300">2-4 movies released</strong>.
+                Right now the industry doesn't know you yet ({movieCount} movie{movieCount === 1 ? '' : 's'}). Keep acting!
+              </p>
+            </div>
+          )}
           {jobs.map((job) => {
             const locked = (player.moviesCompleted || 0) < job.requiredMovies;
             return (
@@ -148,7 +160,7 @@ export const MarqueeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             );
           })}
-          <p className="text-[9px] text-gray-500">Newcomers get small gigs. A-Listers get the $100M+ tentpoles (ceiling $100B). Applying routes into your real audition system.</p>
+          {jobsUnlocked && <p className="text-[9px] text-gray-500">Newcomers get small gigs. A-Listers get the $100M+ tentpoles (ceiling $100B). Applying routes into your real audition system.</p>}
         </div>
       )}
 
