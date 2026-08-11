@@ -25,16 +25,19 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [tab, setTab] = useState<'HOME' | 'GROUPS' | 'MARKET' | 'MEMORIES' | 'PREMIUM'>('HOME');
   const [draft, setDraft] = useState('');
   const [fb, setFb] = useState<string | null>(null);
-  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
+  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(
+    () => new Set((state as any).joinedGroups || [])
+  );
   const toggleJoin = (name: string) => {
     setJoinedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
+      (state as any).joinedGroups = Array.from(next);
+      SocialsService.saveState(state);
+      setFb(next.has(name) ? `Joined ${name}! Posts will appear in your feed.` : `Left ${name}.`);
       return next;
     });
-    const wasJoined = joinedGroups.has(name);
-    setFb(wasJoined ? `Left ${name}` : `Joined ${name}! Posts from this group now appear in your feed.`);
     setTimeout(() => setFb(null), 2500);
   };
 

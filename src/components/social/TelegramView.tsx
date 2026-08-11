@@ -15,6 +15,8 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [tab, setTab] = useState<'CHATS' | 'CHANNEL' | 'STORIES' | 'PREMIUM'>('CHATS');
   const [channelDraft, setChannelDraft] = useState('');
   const [storyDraft, setStoryDraft] = useState('');
+  const [openChat, setOpenChat] = useState<any>(null);
+  const [chatMsg, setChatMsg] = useState('');
   const [fb, setFb] = useState<string | null>(null);
 
   const premium = state.premium || { tier: 'none' as const };
@@ -69,15 +71,22 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     { name: 'Fan Club HQ', avatar: '', msg: `Members are asking about your next release! 💛` },
   ];
 
-  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
+  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(
+    () => new Set((state as any).joinedGroups || [])
+  );
+  const persistJoined = (next: Set<string>) => {
+    (state as any).joinedGroups = Array.from(next);
+    SocialsService.saveState(state);
+  };
   const toggleJoinGroup = (name: string) => {
     setJoinedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
+      persistJoined(next);
+      setFb(next.has(name) ? `Joined ${name}! Group activity now appears in your chats.` : `Left ${name}.`);
       return next;
     });
-    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}! Group activity now appears in your chats.`);
     setTimeout(() => setFb(null), 3000);
   };
 
@@ -136,6 +145,44 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     <div className="space-y-4 text-white select-none pb-14">
       {fb && <div className="p-2.5 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-[11px] font-bold">{fb}</div>}
 
+      {openChat && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-white/10">
+            <button onClick={() => setOpenChat(null)} className="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer">← Back</button>
+            <span className="text-xs font-black">{openChat.name}</span>
+            <span className="text-[9px] text-emerald-400 font-bold">{openChat.members?.toLocaleString()} members</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="max-w-[80%] bg-sky-600/20 border border-sky-500/30 rounded-2xl rounded-tl-sm p-3 text-xs text-gray-200 self-start">
+              <p className="text-[9px] text-sky-300 font-bold mb-1">JaneDoe_99</p>
+              {latest ? `Did everyone see '${latest.movieTitle}'?? The box office numbers are unreal 🍿` : 'Welcome to the group!'}
+            </div>
+            <div className="max-w-[80%] bg-sky-600/20 border border-sky-500/30 rounded-2xl rounded-tl-sm p-3 text-xs text-gray-200 self-start">
+              <p className="text-[9px] text-sky-300 font-bold mb-1">CineLover88</p>
+              {latest ? `That opening scene though... 🔥 Absolute cinema.` : 'Glad to be here!'}
+            </div>
+            <div className="max-w-[80%] bg-sky-600/20 border border-sky-500/30 rounded-2xl rounded-tl-sm p-3 text-xs text-gray-200 self-start">
+              <p className="text-[9px] text-sky-300 font-bold mb-1">MovieBuff</p>
+              {latest ? `I've seen it 3 times already. Worth every dollar.` : 'The community is growing fast!'}
+            </div>
+          </div>
+          <div className="flex gap-2 p-3 border-t border-white/10">
+            <input
+              value={chatMsg}
+              onChange={(e) => setChatMsg(e.target.value)}
+              placeholder="Message the group..."
+              className="flex-1 bg-black/50 border border-white/10 rounded-2xl px-3 py-2.5 text-xs outline-none"
+            />
+            <button
+              onClick={() => { if (chatMsg.trim()) { setChatMsg(''); setFb('Message sent to the group!'); setTimeout(() => setFb(null), 2500); } }}
+              className="px-4 py-2 rounded-2xl bg-sky-600 text-white text-[10px] font-black cursor-pointer"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">✈️ Telegram</span>
@@ -167,7 +214,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <p className="text-xs font-black">{g.name} <span className="text-[9px] text-sky-300 font-bold">● live</span></p>
                     <p className="text-[10px] text-gray-400">{g.members.toLocaleString()} members · {g.online.toLocaleString()} online · {g.msg}</p>
                   </div>
-                  <button className="px-2.5 py-1.5 rounded-lg bg-sky-600 text-white text-[9px] font-black cursor-pointer">Open</button>
+                  <button onClick={() => setOpenChat(g)} className="px-2.5 py-1.5 rounded-lg bg-sky-600 text-white text-[9px] font-black cursor-pointer">Open</button>
                 </div>
               ))}
             </div>
@@ -180,14 +227,17 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <p className="text-xs font-black">{g.name}</p>
                 <p className="text-[10px] text-gray-400">{g.members.toLocaleString()} members · {g.online.toLocaleString()} online</p>
               </div>
-              <button
-                onClick={() => toggleJoinGroup(g.name)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black cursor-pointer transition-all ${
-                  joinedGroups.has(g.name) ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'bg-sky-600 text-white'
-                }`}
-              >
-                {joinedGroups.has(g.name) ? '✓ Joined' : 'Join'}
-              </button>
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => toggleJoinGroup(g.name)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black cursor-pointer transition-all ${
+                    joinedGroups.has(g.name) ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'bg-sky-600 text-white'
+                  }`}
+                >
+                  {joinedGroups.has(g.name) ? '✓ Joined' : 'Join'}
+                </button>
+                <button onClick={() => setOpenChat(g)} className="px-2.5 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-black cursor-pointer">Open</button>
+              </div>
             </div>
           ))}
           <p className="text-[9px] text-gray-500">DMs are real-event based — NPCs message you about actual things that happen.</p>

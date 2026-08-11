@@ -80,15 +80,22 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [postDraft, setPostDraft] = useState('');
   const [titleDraft, setTitleDraft] = useState('');
   const [fb, setFb] = useState<string | null>(null);
-  const [joinedSubs, setJoinedSubs] = useState<Set<string>>(new Set());
+  const [joinedSubs, setJoinedSubs] = useState<Set<string>>(
+    () => new Set((state as any).joinedSubreddits || [])
+  );
+  const persistJoined = (next: Set<string>) => {
+    (state as any).joinedSubreddits = Array.from(next);
+    SocialsService.saveState(state);
+  };
   const toggleJoinSub = (name: string) => {
     setJoinedSubs((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
+      persistJoined(next);
+      setFb(next.has(name) ? `Joined ${name}! Posts will appear in your feed.` : `Left ${name}.`);
       return next;
     });
-    setFb(joinedSubs.has(name) ? `Left ${name}` : `Joined ${name}! Posts from this sub now appear in your feed.`);
     setTimeout(() => setFb(null), 3000);
   };
 
@@ -228,8 +235,31 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <span className="ml-auto text-[9px] text-gray-500 font-bold">⬆️ {karma.toLocaleString()} karma</span>
           </div>
           <p className="text-[9px] text-gray-500 text-center">Hot = trending · New = latest · Top = most upvoted · AMA threads appear when you host one</p>
+          {joinedSubPosts.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-[10px] font-black uppercase text-gray-400 flex items-center gap-1.5">
+                <ArrowUp className="w-3 h-3 text-orange-400" /> From your joined subreddits
+              </h4>
+              {joinedSubPosts.map((p) => (
+                <div key={p.id} className="p-3 rounded-2xl bg-orange-500/5 border border-orange-500/20 flex gap-2">
+                  <div className="flex flex-col items-center text-[10px] text-gray-400 shrink-0">
+                    <ArrowUp className="w-4 h-4 text-orange-400" />
+                    <span className="font-black text-orange-300">{p.upvotes.toLocaleString()}</span>
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] text-gray-500">{p.subreddit} · Posted by {p.author}</p>
+                    <p className="text-xs font-black leading-snug mt-0.5">{p.title} <span className="text-[8px] px-1 py-0.5 rounded bg-orange-500/20 text-orange-300 font-black">{p.flair}</span></p>
+                    <p className="text-[10px] text-gray-400 mt-1">{p.text}</p>
+                    <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {p.commentCount.toLocaleString()} comments</p>
+                    <p className="text-[9px] text-gray-600 mt-1 border-t border-white/5 pt-1">💬 <strong className="text-gray-400">top comment</strong> · {p.subreddit} members are loving this thread</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="space-y-2">
-            {sorted.length === 0 && <p className="text-center text-xs text-gray-500 py-6">No posts yet — join the conversation!</p>}
+            {sorted.length === 0 && joinedSubPosts.length === 0 && <p className="text-center text-xs text-gray-500 py-6">No posts yet — join the conversation!</p>}
             {sorted.slice(0, 25).map((p) => (
               <div key={p.id} className="p-3 rounded-2xl bg-black/50 border border-white/10 flex gap-2">
                 <div className="flex flex-col items-center text-[10px] text-gray-400 shrink-0">
