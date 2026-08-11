@@ -91,14 +91,15 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
         <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
           <p className="text-[10px] font-black text-gray-300">💬 {playing.comments || 0} comments</p>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🍿</div>
-            <p className="text-[10px] text-gray-400"><strong className="text-white">MovieFanTV</strong> · This trailer is FIRE! Can't wait for opening night.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎥</div>
-            <p className="text-[10px] text-gray-400"><strong className="text-white">CineScope</strong> · The cinematography on this one looks incredible.</p>
-          </div>
+          {(() => {
+            const n = Math.min(10, Math.max(4, Math.floor((playing.comments || 30) / 5)));
+            return SocialsService.generateNpcCommentsForPost(playing.id, playing.title || 'This video', n, player).map((c, ci) => (
+              <div key={ci} className="flex items-start gap-2">
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px] shrink-0">{c.authorName ? c.authorName[0] : '👤'}</div>
+                <p className="text-[10px] text-gray-400"><strong className="text-white">{c.authorName}</strong> · {c.text}</p>
+              </div>
+            ));
+          })()}
         </div>
       </div>
     );

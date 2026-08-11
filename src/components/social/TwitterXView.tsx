@@ -134,26 +134,18 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
         {expandedPost === post.id && (
           <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
-            <p className="text-[9px] font-black text-gray-400 uppercase">Comments</p>
-            {!isPlayer && (post.comments || 0) > 0 && (
-              <>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎬</div>
-                  <p className="text-[10px] text-gray-300"><strong className="text-white">FilmFan400M</strong> · This is huge! 🍿🔥</p>
+            <p className="text-[9px] font-black text-gray-400 uppercase">{post.comments || 0} Comments</p>
+            {(() => {
+              const n = Math.min(8, Math.max(3, Math.floor((post.comments || 30) / 5)));
+              return SocialsService.generateNpcCommentsForPost(post.id, post.text, n, player).map((c, ci) => (
+                <div key={ci} className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px] shrink-0">{c.authorName ? c.authorName[0] : '👤'}</div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400"><strong className="text-white">{c.authorName}</strong> · {c.text}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">⭐</div>
-                  <p className="text-[10px] text-gray-300"><strong className="text-white">Cinephile_LA</strong> · Insane numbers. The industry is watching.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px]">🎥</div>
-                  <p className="text-[10px] text-gray-300"><strong className="text-white">StudioGuru</strong> · Mark my words — this is the year's biggest story.</p>
-                </div>
-              </>
-            )}
-            {isPlayer && (post.comments || 0) > 0 && (
-              <p className="text-[10px] text-gray-400">{post.comments} comments from your fans — real reactions to your real posts.</p>
-            )}
+              ));
+            })()}
           </div>
         )}
       </div>

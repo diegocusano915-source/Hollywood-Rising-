@@ -138,12 +138,18 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </div>
                   <p className="text-[11px] font-black">{p.likes || 0} likes</p>
                   <p className="text-[11px] text-gray-300 whitespace-pre-line">{p.caption}</p>
-                  {!p.isPlayer && (
-                    <p className="text-[10px] text-gray-500 border-t border-white/5 pt-1.5">
-                      <strong className="text-gray-300">fan4life_88</strong> · This is amazing! 🔥
-                      <span className="ml-2"><strong className="text-gray-300">hollywoodwatcher</strong> · Legendary content 🎬</span>
-                    </p>
-                  )}
+                  {!p.isPlayer && (() => {
+                    const n = Math.min(4, Math.max(2, Math.floor((p.comments || 30) / 8)));
+                    return (
+                      <div className="border-t border-white/5 pt-1.5 space-y-1">
+                        {SocialsService.generateNpcCommentsForPost(p.id, p.caption || 'New post', n, player).map((c, ci) => (
+                          <p key={ci} className="text-[10px] text-gray-500">
+                            <strong className="text-gray-300">{c.authorName}</strong> · {c.text}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
