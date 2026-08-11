@@ -143,6 +143,18 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setTimeout(() => setFb(null), 3500);
   };
 
+  const deletePost = (id: string) => {
+    state.instagramPosts = (state.instagramPosts || []).filter((p) => p.id !== id);
+    SocialsService.saveState(state);
+    setState({ ...state });
+  };
+  const clearAllPosts = () => {
+    if (!window.confirm('Delete ALL your Instagram posts?')) return;
+    state.instagramPosts = (state.instagramPosts || []).filter((p: any) => !(p as any).isPlayer);
+    SocialsService.saveState(state);
+    setState({ ...state });
+  };
+
   const like = (id: string) => {
     state.instagramPosts = (state.instagramPosts || []).map((p) => (p.id === id ? { ...p, likes: (p.likes || 0) + 1 } : p));
     SocialsService.saveState(state);
@@ -198,8 +210,11 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <div className="flex items-center gap-2 p-2.5">
                   <img src={p.username ? player.avatarUrl : p.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-white/20" />
                   <span className="text-xs font-black">{p.username || 'NPC Fan'}</span>
-                  {p.isPlayer && tick !== 'NONE' && <span className="text-[9px] text-sky-400 font-black">✓</span>}
+                  {(p as any).isPlayer && tick !== 'NONE' && <span className="text-[9px] text-sky-400 font-black">✓</span>}
                   <span className="ml-auto text-[9px] text-gray-500">{p.timestamp}</span>
+                  {(p as any).isPlayer && (
+                    <button onClick={() => deletePost(p.id)} className="text-[10px] text-gray-500 hover:text-rose-400 font-black cursor-pointer" title="Delete post">✕</button>
+                  )}
                 </div>
                 <img src={p.imageUrl} alt="" className="w-full h-56 object-cover" />
                 <div className="p-2.5 space-y-1.5">
@@ -263,7 +278,12 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {imageChoice === 'upload' && uploadedImage && <p className="text-[9px] text-emerald-400 font-bold text-center">📷 Your device photo ready to post</p>}
           {imageChoice === 'generate' && generatedImage && <p className="text-[9px] text-purple-400 font-bold text-center">✨ Generated image ready — tap Generate again for a new one</p>}
           <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} placeholder="Write a caption... hashtags auto-added from your real events" className="w-full bg-black/50 border border-white/10 rounded-2xl p-3 text-xs outline-none resize-none" />
-          <button onClick={createPost} className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-500 text-white text-xs font-black cursor-pointer">Share Post</button>
+          <div className="flex gap-2">
+            <button onClick={createPost} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-500 text-white text-xs font-black cursor-pointer">Share Post</button>
+            {posts.filter((p: any) => (p as any).isPlayer).length > 0 && (
+              <button onClick={clearAllPosts} className="px-4 py-3 rounded-2xl bg-black/40 border border-white/10 text-gray-400 text-[10px] font-black cursor-pointer hover:text-rose-400">🗑 Clear</button>
+            )}
+          </div>
         </div>
       )}
 

@@ -86,6 +86,18 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setTimeout(() => setFb(null), 3000);
   };
 
+  const deleteVideo = (id: string) => {
+    state.youtubeVideos = (state.youtubeVideos || []).filter((v) => v.id !== id);
+    SocialsService.saveState(state);
+    setState({ ...state });
+  };
+  const clearAllVideos = () => {
+    if (!window.confirm('Delete ALL your YouTube videos?')) return;
+    state.youtubeVideos = [];
+    SocialsService.saveState(state);
+    setState({ ...state });
+  };
+
   const VideoCard: React.FC<{ v: any }> = ({ v }) => (
     <div className="rounded-2xl bg-black/50 border border-white/10 overflow-hidden cursor-pointer" onClick={() => setPlaying(v)}>
       <div className="relative">
@@ -95,10 +107,19 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
       <div className="p-2.5 flex gap-2">
         <img src={player.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black line-clamp-2">{v.title}</p>
           <p className="text-[9px] text-gray-500">{v.channelName} · {v.views?.toLocaleString()} views</p>
         </div>
+        {v.isPlayer && (
+          <button
+            onClick={(e) => { e.stopPropagation(); deleteVideo(v.id); }}
+            className="text-[9px] text-gray-500 hover:text-rose-400 font-black shrink-0 cursor-pointer"
+            title="Delete video"
+          >
+            ✕
+          </button>
+        )}
       </div>
     </div>
   );
@@ -167,6 +188,9 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               className="flex-1 bg-black/50 border border-white/10 rounded-2xl px-3 py-2.5 text-xs outline-none"
             />
             <button onClick={publish} className="px-4 py-2 rounded-2xl bg-red-600 text-white text-[10px] font-black cursor-pointer">Upload</button>
+            {videos.length > 0 && (
+              <button onClick={clearAllVideos} className="px-3 py-2 rounded-2xl bg-black/40 border border-white/10 text-gray-400 text-[10px] font-black cursor-pointer hover:text-rose-400">🗑 Clear</button>
+            )}
           </div>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase text-gray-300">Recommended for you</h3>
