@@ -17,6 +17,8 @@
  */
 
 export type RepresentationFeatureId =
+  | 'TALENT_AGENTS'
+  | 'PERSONAL_MANAGERS'
   | 'HOLLYWOOD_INSIDER'
   | 'PUBLIC_RELATIONS'
   | 'LAW_FIRM'

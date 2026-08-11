@@ -25,6 +25,7 @@ import { MediaGalleryView } from '../representation/MediaGalleryView';
 import { CharityCausesView } from '../representation/CharityCausesView';
 
 import { HollywoodInsiderView } from '../representation/HollywoodInsiderView';
+import { AgentsManagersView } from '../representation/AgentsManagersView';
 import { HollywoodInsiderService } from '../../services/hollywoodInsiderService';
 
 import {
@@ -41,6 +42,7 @@ import {
   Camera,
   HeartHandshake,
   Briefcase,
+  UserRound,
   ChevronRight,
   Sparkles,
   Flame,
@@ -53,10 +55,40 @@ interface RepresentationCardConfig {
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
-  badgeText?: (state: RepresentationFullState) => string | undefined;
+  badgeText?: (state: RepresentationFullState, player: any) => string | undefined;
 }
 
 const REPRESENTATION_CARDS: RepresentationCardConfig[] = [
+  // FEATURED TOP ROW: TALENT AGENTS & PERSONAL MANAGERS (separate sections, always visible)
+  {
+    id: 'TALENT_AGENTS',
+    title: 'Talent Agents',
+    subtitle: 'Auditions, Commissions & Contracts',
+    icon: Star,
+    color: 'text-amber-400 border-amber-500/50 bg-gradient-to-br from-amber-500/20 via-yellow-950/40 to-black hover:border-amber-400',
+    badgeText: (_s, p) => {
+      if (p?.representation?.agent?.signed) return 'YOUR AGENT';
+      const principal = p?.principalRolesCount || 0;
+      const movies = p?.moviesCompleted || 0;
+      return principal + movies >= 4 ? 'UNLOCKED' : `Locked ${Math.min(principal + movies, 4)}/4`;
+    },
+  },
+  {
+    id: 'PERSONAL_MANAGERS',
+    title: 'Personal Managers',
+    subtitle: 'Franchises, Sponsorships & Money',
+    icon: UserRound,
+    color: 'text-purple-400 border-purple-500/50 bg-gradient-to-br from-purple-500/20 via-purple-950/40 to-black hover:border-purple-400',
+    badgeText: (_s, p) => {
+      if (p?.representation?.manager?.signed) return 'YOUR MANAGER';
+      const lead = p?.leadRolesCount || 0;
+      const movies = p?.moviesCompleted || 0;
+      const fame = p?.fameXp || 0;
+      const met = lead + movies >= 8 && fame >= 3000;
+      return met ? 'UNLOCKED' : `Locked ${Math.min(lead + movies, 8)}/8`;
+    },
+  },
+
   // FEATURED TOP ROW: HOLLYWOOD INSIDER
   {
     id: 'HOLLYWOOD_INSIDER',
@@ -210,6 +242,10 @@ export const RepresentationScreen: React.FC = () => {
   // SUB-VIEW ROUTER
   if (selectedFeature) {
     switch (selectedFeature) {
+      case 'TALENT_AGENTS':
+        return <AgentsManagersView representationState={repState} onRefresh={refreshState} onBack={() => setSelectedFeature(null)} />;
+      case 'PERSONAL_MANAGERS':
+        return <AgentsManagersView representationState={repState} onRefresh={refreshState} onBack={() => setSelectedFeature(null)} />;
       case 'HOLLYWOOD_INSIDER':
         return <HollywoodInsiderView onBack={() => setSelectedFeature(null)} />;
       case 'PUBLIC_RELATIONS':
@@ -273,7 +309,7 @@ export const RepresentationScreen: React.FC = () => {
       <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
         {REPRESENTATION_CARDS.map((card) => {
           const Icon = card.icon;
-          const badge = card.badgeText ? card.badgeText(repState) : undefined;
+          const badge = card.badgeText ? card.badgeText(repState, player) : undefined;
 
           return (
             <button
