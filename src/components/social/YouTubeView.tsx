@@ -26,6 +26,19 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Algorithm is INVISIBLE — never shown to the player.
 
   const PUBLISH_COUNT = state.youtubeVideos?.length || 0;
+  // UNIQUE THUMBNAILS: rotate through distinct backdrops so no two video cards look alike
+  const THUMB_POOL = [
+    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1524985069026-dd967a102f22?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&auto=format&fit=crop',
+  ];
   const TITLE_POOL = latest
     ? [
         `'${latest.movieTitle}' — Official Trailer`,
@@ -58,9 +71,9 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       views,
       likes: Math.floor(views * 0.04),
       comments: Math.floor(views * 0.005),
-      thumbnailUrl: latest?.posterUrl || player.avatarUrl,
+      thumbnailUrl: THUMB_POOL[PUBLISH_COUNT % THUMB_POOL.length],
       channelName: `${player.firstName} ${player.lastName}`,
-      duration: '2:15',
+      duration: `${2 + (PUBLISH_COUNT % 6)}:${String(5 + ((PUBLISH_COUNT * 7) % 50)).padStart(2, '0')}`,
       isPlayer: true,
       isLive: false,
     } as any);

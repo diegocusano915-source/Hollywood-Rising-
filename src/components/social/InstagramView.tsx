@@ -111,10 +111,17 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         'Los Angeles energy ✨',
       ];
   const createPost = () => {
-    // Auto-advance the generated image so every post is unique
-    if (imageChoice !== 'upload' && !generatedImage) handleGenerate();
+    // DETERMINISTIC image: rotate by post count so EVERY post is guaranteed unique,
+    // no async state race (handleGenerate would not be visible to this call).
+    const genIdx = POST_COUNT % GEN_POOL.length;
+    const nextGen = GEN_POOL[genIdx];
+    if (imageChoice === 'generate' || (imageChoice !== 'upload' && !uploadedImage)) {
+      setGeneratedImage(nextGen);
+      setGenCount((c) => c + 1);
+    }
     const img =
       imageChoice === 'upload' && uploadedImage ? uploadedImage :
+      imageChoice === 'generate' ? nextGen :
       generatedImage ? generatedImage :
       (latest?.posterUrl || player.avatarUrl);
     const cap = caption.trim() || CAPTION_POOL[POST_COUNT % CAPTION_POOL.length];
