@@ -9,16 +9,67 @@ import { SocialsService, SocialsState, PremiumService } from '../../services/soc
 import { ArrowLeft, ArrowUp, ArrowDown, MessageCircle, Award, Search, Home, Compass, Crown, Share2 } from 'lucide-react';
 import { PremiumPanel } from './HubPanels';
 
-const SUBREDDITS = [
-  'r/HollywoodRising', 'r/BoxOffice', 'r/MovieCritics', 'r/CelebrityGossip', 'r/AwardsWatch', 'r/CastingCalls',
-  'r/ActionFilms', 'r/SciFiCinema', 'r/DramaMasters', 'r/ComedyFilms', 'r/IndieFilm', 'r/RedCarpet',
-  'r/FilmIndustry', 'r/StudioNews', 'r/ActorLife', 'r/MovieMemes', 'r/FanTheories', 'r/OscarBuzz',
-  'r/StreamingWars', 'r/FilmFestivals', 'r/Screenwriting', 'r/DirectorsCut', 'r/Cinematography', 'r/VFXArt',
-  'r/TrailerPark', 'r/BoxOfficePredictions', 'r/MovieLeaks', 'r/FilmTrivia', 'r/CultCinema', 'r/MovieSoundtracks',
-  'r/HorrorFilms', 'r/RomComs', 'r/ThrillerNights', 'r/Westerns', 'r/AnimatedFilms', 'r/Documentaries',
-  'r/BehindTheScenes', 'r/StuntWork', 'r/CastingDirector', 'r/ActingCoach', 'r/StarFans', 'r/FanArt',
-  'r/MovieMerch', 'r/PremiereNight', 'r/FilmCriticsCircle', 'r/AudienceScores', 'r/IMDbRating', 'r/FameWatch',
-  'r/NewHollywood', 'r/TalentAgencies', 'r/ProducersLounge', 'r/StudioExecs',
+const SUBREDDITS: { name: string; members: number; verified: boolean }[] = [
+  { name: 'r/HollywoodRising', members: 100000000, verified: true },
+  { name: 'r/BoxOffice', members: 45000000, verified: true },
+  { name: 'r/MovieCritics', members: 28000000, verified: true },
+  { name: 'r/CelebrityGossip', members: 35000000, verified: true },
+  { name: 'r/AwardsWatch', members: 12000000, verified: true },
+  { name: 'r/CastingCalls', members: 9000000, verified: true },
+  { name: 'r/ActionFilms', members: 60000000, verified: false },
+  { name: 'r/SciFiCinema', members: 55000000, verified: false },
+  { name: 'r/DramaMasters', members: 18000000, verified: false },
+  { name: 'r/ComedyFilms', members: 25000000, verified: false },
+  { name: 'r/IndieFilm', members: 14000000, verified: false },
+  { name: 'r/RedCarpet', members: 16000000, verified: true },
+  { name: 'r/FilmIndustry', members: 8000000, verified: true },
+  { name: 'r/StudioNews', members: 7000000, verified: true },
+  { name: 'r/ActorLife', members: 11000000, verified: false },
+  { name: 'r/MovieMemes', members: 30000000, verified: false },
+  { name: 'r/FanTheories', members: 22000000, verified: false },
+  { name: 'r/OscarBuzz', members: 9500000, verified: false },
+  { name: 'r/StreamingWars', members: 13000000, verified: false },
+  { name: 'r/FilmFestivals', members: 6000000, verified: true },
+  { name: 'r/Screenwriting', members: 10000000, verified: false },
+  { name: 'r/DirectorsCut', members: 7500000, verified: false },
+  { name: 'r/Cinematography', members: 8500000, verified: false },
+  { name: 'r/VFXArt', members: 6800000, verified: false },
+  { name: 'r/TrailerPark', members: 17000000, verified: false },
+  { name: 'r/BoxOfficePredictions', members: 5200000, verified: false },
+  { name: 'r/MovieLeaks', members: 9000000, verified: false },
+  { name: 'r/FilmTrivia', members: 7200000, verified: false },
+  { name: 'r/CultCinema', members: 4800000, verified: false },
+  { name: 'r/MovieSoundtracks', members: 6600000, verified: false },
+  { name: 'r/HorrorFilms', members: 42000000, verified: false },
+  { name: 'r/RomComs', members: 20000000, verified: false },
+  { name: 'r/ThrillerNights', members: 15000000, verified: false },
+  { name: 'r/Westerns', members: 5800000, verified: false },
+  { name: 'r/AnimatedFilms', members: 26000000, verified: false },
+  { name: 'r/Documentaries', members: 11000000, verified: false },
+  { name: 'r/BehindTheScenes', members: 9800000, verified: false },
+  { name: 'r/StuntWork', members: 3600000, verified: true },
+  { name: 'r/CastingDirector', members: 3100000, verified: true },
+  { name: 'r/ActingCoach', members: 4300000, verified: false },
+  { name: 'r/StarFans', members: 19000000, verified: false },
+  { name: 'r/FanArt', members: 23000000, verified: false },
+  { name: 'r/MovieMerch', members: 5400000, verified: false },
+  { name: 'r/PremiereNight', members: 8200000, verified: false },
+  { name: 'r/FilmCriticsCircle', members: 8900000, verified: true },
+  { name: 'r/AudienceScores', members: 12000000, verified: false },
+  { name: 'r/IMDbRating', members: 14000000, verified: false },
+  { name: 'r/FameWatch', members: 6500000, verified: false },
+  { name: 'r/NewHollywood', members: 7700000, verified: false },
+  { name: 'r/TalentAgencies', members: 2900000, verified: true },
+  { name: 'r/ProducersLounge', members: 3300000, verified: true },
+  { name: 'r/StudioExecs', members: 2400000, verified: true },
+  { name: 'r/FilmNerds', members: 16000000, verified: false },
+  { name: 'r/MovieNight', members: 13000000, verified: false },
+  { name: 'r/HollywoodHistory', members: 7000000, verified: true },
+  { name: 'r/BoxOfficeBets', members: 4100000, verified: false },
+  { name: 'r/FilmSpeedruns', members: 2800000, verified: false },
+  { name: 'r/ClassicCinema', members: 6000000, verified: false },
+  { name: 'r/ForeignFilms', members: 5000000, verified: false },
+  { name: 'r/MovieProps', members: 3400000, verified: false },
 ];
 
 export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -29,6 +80,17 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [postDraft, setPostDraft] = useState('');
   const [titleDraft, setTitleDraft] = useState('');
   const [fb, setFb] = useState<string | null>(null);
+  const [joinedSubs, setJoinedSubs] = useState<Set<string>>(new Set());
+  const toggleJoinSub = (name: string) => {
+    setJoinedSubs((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    setFb(joinedSubs.has(name) ? `Left ${name}` : `Joined ${name}! Posts from this sub now appear in your feed.`);
+    setTimeout(() => setFb(null), 3000);
+  };
 
   const premium = state.premium || { tier: 'none' as const };
   const karma = state.redditKarma || 0;
@@ -36,7 +98,26 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const posts = state.redditPosts || [];
   const canAMA = (player.fameXp || 0) >= 1500;
 
-  const sorted = [...posts].sort((a, b) =>
+  // Joined subreddits contribute real posts to the home feed (varied + comments)
+  const joinedSubPosts = Array.from(joinedSubs).slice(0, 5).map((sub, i) => ({
+    id: `jsub_${Date.now()}_${i}`,
+    subreddit: sub,
+    author: `u/${['cinephile_la', 'moviebuff88', 'hollywoodwatcher', 'screenfanatic', 'reelcritic'][i % 5]}`,
+    title: latest
+      ? `${['The box office numbers for ', 'Why everyone is talking about ', 'Unpopular opinion: ', 'Discussion thread: '][i % 4]}'${latest.movieTitle}'`
+      : `${['What are we watching this week?', 'Best performances of the year so far?', 'Hot take: the industry is changing'][i % 3]}`,
+    text: 'Members are discussing this — join the thread!',
+    upvotes: Math.floor(2000 + Math.random() * 50000),
+    commentCount: Math.floor(100 + Math.random() * 3000),
+    isPlayer: false,
+    isNpc: true,
+    flair: ['Discussion', 'News', 'Hot Take', 'Review'][i % 4],
+    timeText: `${i + 1}h`,
+    week: player.dateWeek || 1,
+    year: player.dateYear || 2026,
+  }));
+
+  const sorted = [...joinedSubPosts, ...posts].sort((a, b) =>
     sort === 'hot' ? b.upvotes - a.upvotes : sort === 'top' ? b.upvotes - a.upvotes : (b.week || 0) - (a.week || 0)
   );
 
@@ -135,8 +216,10 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             {(['hot', 'new', 'top'] as const).map((s) => (
               <button key={s} onClick={() => setSort(s)} className={`px-3 py-1 rounded-full text-[10px] font-black cursor-pointer ${sort === s ? 'bg-orange-500 text-white' : 'bg-black/40 text-gray-400 border border-white/10'}`}>{s.toUpperCase()}</button>
             ))}
+            <button onClick={() => setFb('New = newest posts · Top = highest upvotes · AMA = Q&A threads with celebs')} className="px-3 py-1 rounded-full bg-black/40 text-gray-400 border border-white/10 text-[10px] font-black cursor-pointer">❓</button>
             <span className="ml-auto text-[9px] text-gray-500 font-bold">⬆️ {karma.toLocaleString()} karma</span>
           </div>
+          <p className="text-[9px] text-gray-500 text-center">Hot = trending · New = latest · Top = most upvoted · AMA threads appear when you host one</p>
           <div className="space-y-2">
             {sorted.length === 0 && <p className="text-center text-xs text-gray-500 py-6">No posts yet — join the conversation!</p>}
             {sorted.slice(0, 25).map((p) => (
@@ -151,6 +234,9 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   <p className="text-xs font-black leading-snug mt-0.5">{p.title} {p.flair && <span className="text-[8px] px-1 py-0.5 rounded bg-orange-500/20 text-orange-300 font-black">{p.flair}</span>}</p>
                   {p.text && <p className="text-[10px] text-gray-400 mt-1 line-clamp-2">{p.text}</p>}
                   <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {p.commentCount} comments <Share2 className="w-3 h-3 ml-2" /></p>
+                  <p className="text-[9px] text-gray-600 mt-1 border-t border-white/5 pt-1">
+                    💬 <strong className="text-gray-400">top comment</strong> · {p.subreddit} members are loving this thread
+                  </p>
                 </div>
               </div>
             ))}
@@ -163,10 +249,17 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <h3 className="text-xs font-black uppercase text-gray-300">Subreddits ({SUBREDDITS.length})</h3>
           <div className="grid grid-cols-2 gap-2">
             {SUBREDDITS.map((sub) => (
-              <div key={sub} className="p-2.5 rounded-2xl bg-black/40 border border-white/10">
-                <p className="text-[11px] font-black text-orange-300">{sub}</p>
-                <p className="text-[9px] text-gray-500">{Math.floor(1000 + (player.fameXp || 0) * 0.5 + Math.random() * 2000).toLocaleString()} members</p>
-                <button className="mt-1 px-2.5 py-1 rounded-lg bg-white/10 text-[9px] font-black cursor-pointer">Join</button>
+              <div key={sub.name} className="p-2.5 rounded-2xl bg-black/40 border border-white/10">
+                <p className="text-[11px] font-black text-orange-300">{sub.name} {sub.verified && <span className="text-[9px] text-sky-400 font-black">✓</span>}</p>
+                <p className="text-[9px] text-gray-500">{sub.members.toLocaleString()} members</p>
+                <button
+                  onClick={() => toggleJoinSub(sub.name)}
+                  className={`mt-1 px-2.5 py-1 rounded-lg text-[9px] font-black cursor-pointer transition-all ${
+                    joinedSubs.has(sub.name) ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  {joinedSubs.has(sub.name) ? '✓ Joined' : 'Join'}
+                </button>
               </div>
             ))}
           </div>

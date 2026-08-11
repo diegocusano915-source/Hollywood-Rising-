@@ -69,12 +69,56 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     { name: 'Fan Club HQ', avatar: '', msg: `Members are asking about your next release! 💛` },
   ];
 
+  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
+  const toggleJoinGroup = (name: string) => {
+    setJoinedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}! Group activity now appears in your chats.`);
+    setTimeout(() => setFb(null), 3000);
+  };
+
   const groups = [
-    { name: `${player.lastName || 'Star'} Fan Group`, members: Math.max(20, Math.floor((player.fans || 0) * 0.1)), online: Math.floor(Math.random() * 40) + 5 },
-    { name: 'Cast & Crew — Latest Film', members: 48, online: 12 },
-    { name: 'Hollywood Rising Community', members: 5000, online: 340 },
-    { name: 'Awards Watch Party', members: 1200, online: 87 },
+    // Fan groups (8) — distinct from FB/Reddit
+    { name: `${player.lastName || 'Star'} Fan Group`, members: Math.max(200000, Math.floor((player.fans || 0) * 0.05) + 200000), online: 12000 },
+    { name: `${player.firstName}'s VIP Circle`, members: Math.max(50000, Math.floor((player.fans || 0) * 0.01) + 50000), online: 3400 },
+    { name: `${player.lastName} Merch Squad`, members: Math.max(30000, Math.floor((player.fans || 0) * 0.008) + 30000), online: 2100 },
+    { name: 'Movie Night Community', members: 15000000, online: 450000 },
+    { name: 'Hollywood Rising Community', members: 25000000, online: 800000 },
+    { name: 'Cast & Crew — Latest Film', members: 500000, online: 18000 },
+    { name: 'Awards Watch Party', members: 8000000, online: 240000 },
+    { name: 'Premiere Livestream Chat', members: 3000000, online: 90000 },
+    // Industry groups (8)
+    { name: 'Directors & Actors Exchange', members: 1200000, online: 15000 },
+    { name: 'Studio Insider Group', members: 4500000, online: 60000 },
+    { name: 'Casting Network', members: 3800000, online: 45000 },
+    { name: 'Film Producers Circle', members: 900000, online: 8000 },
+    { name: 'Cinema Critics Chat', members: 6000000, online: 70000 },
+    { name: 'Screenwriters Room', members: 1500000, online: 20000 },
+    { name: 'Stunt & Action Crew', members: 700000, online: 6000 },
+    { name: 'Film Festival Organizers', members: 400000, online: 3500 },
+    // Interest groups (8)
+    { name: 'Sci-Fi & Fantasy Fans', members: 20000000, online: 600000 },
+    { name: 'Horror Movie Lovers', members: 18000000, online: 500000 },
+    { name: 'Comedy Central Chat', members: 12000000, online: 350000 },
+    { name: 'Thriller & Mystery Fans', members: 9500000, online: 280000 },
+    { name: 'Documentary Discussion', members: 4200000, online: 90000 },
+    { name: 'Anime & Animation Hub', members: 16000000, online: 450000 },
+    { name: 'Westerns Appreciation', members: 2500000, online: 40000 },
+    { name: 'Musical Theatre Fans', members: 3500000, online: 55000 },
   ];
+
+  const joinedGroupChats = Array.from(joinedGroups).slice(0, 4).map((gname, i) => ({
+    name: gname,
+    members: groups.find((g) => g.name === gname)?.members || 1000000,
+    online: Math.floor(Math.random() * 50000) + 500,
+    msg: latest
+      ? `${['The group is discussing', 'Someone shared the trailer for', 'Live discussion happening about'][i % 3]} '${latest.movieTitle}' — join in!`
+      : 'New messages from the group!',
+  }));
 
   const BottomNav = (
     <div className="grid grid-cols-4 gap-1 pt-2 border-t border-white/10">
@@ -112,15 +156,37 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <span className="text-[9px] text-gray-500">Now</span>
             </div>
           ))}
+          {joinedGroupChats.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-black uppercase text-gray-300 pt-1">Joined groups</h3>
+              {joinedGroupChats.map((g) => (
+                <div key={g.name} className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-xs font-black shrink-0"><Users className="w-4 h-4 text-sky-300" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black">{g.name} <span className="text-[9px] text-sky-300 font-bold">● live</span></p>
+                    <p className="text-[10px] text-gray-400">{g.members.toLocaleString()} members · {g.online.toLocaleString()} online · {g.msg}</p>
+                  </div>
+                  <button className="px-2.5 py-1.5 rounded-lg bg-sky-600 text-white text-[9px] font-black cursor-pointer">Open</button>
+                </div>
+              ))}
+            </div>
+          )}
           <h3 className="text-xs font-black uppercase text-gray-300 pt-2">Groups</h3>
           {groups.map((g) => (
             <div key={g.name} className="p-3 rounded-2xl bg-black/50 border border-white/10 flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-xs font-black shrink-0"><Users className="w-4 h-4 text-purple-300" /></div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black">{g.name}</p>
-                <p className="text-[10px] text-gray-400">{g.members.toLocaleString()} members · {g.online} online</p>
+                <p className="text-[10px] text-gray-400">{g.members.toLocaleString()} members · {g.online.toLocaleString()} online</p>
               </div>
-              <button className="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-[10px] font-black cursor-pointer">Open</button>
+              <button
+                onClick={() => toggleJoinGroup(g.name)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black cursor-pointer transition-all ${
+                  joinedGroups.has(g.name) ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'bg-sky-600 text-white'
+                }`}
+              >
+                {joinedGroups.has(g.name) ? '✓ Joined' : 'Join'}
+              </button>
             </div>
           ))}
           <p className="text-[9px] text-gray-500">DMs are real-event based — NPCs message you about actual things that happen.</p>

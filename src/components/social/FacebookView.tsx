@@ -33,9 +33,30 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       else next.add(name);
       return next;
     });
-    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}!`);
+    setFb(joinedGroups.has(name) ? `Left ${name}` : `Joined ${name}! Posts from this group now appear in your feed.`);
     setTimeout(() => setFb(null), 2500);
   };
+
+  // Joined groups post to the feed (real, varied content + comments)
+  const groupFeed = Array.from(joinedGroups).slice(0, 6).map((gname, i) => ({
+    id: `grp_${Date.now()}_${i}`,
+    authorName: gname,
+    authorHandle: '',
+    authorAvatar: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=100&auto=format&fit=crop',
+    platform: 'Facebook',
+    tab: 'PLAYER_FEED',
+    text: latest
+      ? `[Group post] Members are discussing '${latest.movieTitle}' — ${["the box office run is incredible!", "who's seen it? Drop your review!", "the director's cut is even better 🎬"][i % 3]}`
+      : `[Group post] New member discussion thread — introduce yourself!`,
+    likes: Math.floor(500 + Math.random() * 5000),
+    comments: Math.floor(50 + Math.random() * 400),
+    retweets: 0,
+    shares: Math.floor(20 + Math.random() * 200),
+    timestamp: `${i + 1}h`,
+    isPlayer: false,
+    isNpc: true,
+    sentiment: 'Positive',
+  }));
 
   const premium = state.premium || { tier: 'none' as const };
   const tick = PremiumService.tickName(state);
@@ -171,9 +192,37 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <Users className="w-4 h-4 text-sky-400" />
           </div>
 
+          {/* Joined-group posts */}
+          {groupFeed.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-gray-400">From groups you joined</h4>
+              {groupFeed.map((gp: any) => (
+                <div key={gp.id} className="rounded-2xl bg-black/50 border border-sky-500/20 overflow-hidden">
+                  <div className="flex items-center gap-2 p-2.5">
+                    <div className="w-8 h-8 rounded-full bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-xs">👥</div>
+                    <div>
+                      <p className="text-xs font-black">{gp.authorName}</p>
+                      <p className="text-[9px] text-gray-500">Group · {gp.timestamp}</p>
+                    </div>
+                  </div>
+                  <p className="px-3 pb-2 text-xs text-gray-200">{gp.text}</p>
+                  <div className="flex items-center justify-between px-3 py-2 border-t border-white/5 text-[10px] text-gray-500">
+                    <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" /> {gp.likes.toLocaleString()}</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {gp.comments.toLocaleString()}</span>
+                    <span className="flex items-center gap-1"><Share className="w-3.5 h-3.5" /> {gp.shares.toLocaleString()}</span>
+                  </div>
+                  <div className="px-3 pb-2 space-y-1 border-t border-white/5">
+                    <p className="text-[10px] text-gray-500"><strong className="text-gray-300">MikeReviews</strong> · Couldn't agree more — the group's buzzing about this! 🔥</p>
+                    <p className="text-[10px] text-gray-500"><strong className="text-gray-300">FilmFan201</strong> · Count me in for the watch party! 🍿</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Feed */}
           <div className="space-y-3">
-            {posts.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No posts yet. Share something!</p>}
+            {posts.length === 0 && groupFeed.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No posts yet. Share something!</p>}
             {posts.slice(0, 20).map((p: any) => (
               <div key={p.id} className="rounded-2xl bg-black/50 border border-white/10 overflow-hidden">
                 <div className="flex items-center gap-2 p-2.5">
