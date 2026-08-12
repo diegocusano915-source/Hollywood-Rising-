@@ -21,7 +21,8 @@ export interface PlatformState {
     upfront: number;
     royaltyRate: number;
     exclusive: boolean;
-    status: 'PENDING' | 'ACCEPTED' | 'COUNTERED' | 'REJECTED';
+    weeksLeft: number; // real offer window: 3 weeks to answer
+    status: 'PENDING' | 'ACCEPTED' | 'COUNTERED' | 'REJECTED' | 'EXPIRED';
   }[];
 }
 
@@ -40,7 +41,10 @@ export function loadStreamingState(): PlatformState {
       const def = defaultState();
       return {
         platforms: parsed.platforms?.length ? parsed.platforms : def.platforms,
-        pendingBids: parsed.pendingBids || [],
+        pendingBids: (parsed.pendingBids || []).map((b: any) => ({
+          ...b,
+          weeksLeft: b.weeksLeft ?? (b.status === 'PENDING' ? 3 : 0),
+        })),
       };
     }
   } catch {}
@@ -112,6 +116,7 @@ export function submitPitch(
     upfront: bid.upfront,
     royaltyRate: bid.royaltyRate,
     exclusive,
+    weeksLeft: 3, // platforms hold their offer for 3 weeks
     status: 'PENDING',
   });
   saveStreamingState(state);
@@ -171,6 +176,39 @@ export function counterBid(state: PlatformState, bidId: string, extraPct: number
 export function rejectBid(state: PlatformState, bidId: string) {
   const bid = state.pendingBids.find((b) => b.id === bidId && b.status === 'PENDING');
   if (bid) { bid.status = 'REJECTED'; saveStreamingState(state); }
+}
+
+// WEEKLY BID WINDOWS: platforms hold their offer for 3 weeks, then withdraw it.
+// Returns real inbox messages (expiry warning + withdrawn).
+export function processBidsWeekly(
+  state: PlatformState,
+  week: number,
+  year: number
+): { messages: { subject: string; body: string; date: string; read: boolean }[] } {
+  const messages: { subject: string; body: string; date: string; read: boolean }[] = [];
+  state.pendingBids.forEach((b) => {
+    if (b.status !== 'PENDING') return;
+    const platform = state.platforms.find((p) => p.id === b.platformId);
+    b.weeksLeft = (b.weeksLeft ?? 3) - 1;
+    if (b.weeksLeft <= 0) {
+      b.status = 'EXPIRED';
+      messages.push({
+        subject: `❌ ${platform?.name || 'A platform'} withdrew their bid`,
+        body: `You didn't answer in time, so ${platform?.name || 'the platform'} pulled their ${'$' + b.upfront.toLocaleString()} offer for "${b.projectTitle}". The offer window is gone.`,
+        date: `Week ${week}, ${year}`,
+        read: false,
+      });
+    } else if (b.weeksLeft === 1) {
+      messages.push({
+        subject: `⏳ ${platform?.name || 'A platform'} bid expires NEXT WEEK`,
+        body: `Their ${'$' + b.upfront.toLocaleString()} offer for "${b.projectTitle}" is in its final week. Accept, counter or let it go.`,
+        date: `Week ${week}, ${year}`,
+        read: false,
+      });
+    }
+  });
+  saveStreamingState(state);
+  return { messages };
 }
 
 // WEEKLY ROYALTIES: real viewership-based, recorded into studio financials

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ThemeOption } from '../../types/game';
 import { THEMES } from '../../theme/colors';
+import { notificationService } from '../../services/notificationService';
 
 const SUPPORT_EMAIL = 'propredict.support@gmail.com';
 
@@ -207,6 +208,49 @@ export const SettingsModal: React.FC = () => {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Offline Notifications (real events only) */}
+          <div className="space-y-2.5 p-3 rounded-xl bg-black/40 border border-amber-500/15">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-white font-semibold flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-amber-400" />
+                  Offline Notifications
+                </p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                  Real alerts on your phone when you're away 2+ hours — bids, offers, deadlines. Nothing simulated.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.offlineNotifications !== false}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  updateSettings({ offlineNotifications: on });
+                  if (on) {
+                    notificationService.requestPermissions();
+                  } else {
+                    notificationService.cancelPendingNotifications();
+                  }
+                }}
+                className="w-4 h-4 rounded accent-amber-400 cursor-pointer shrink-0"
+              />
+            </div>
+            <button
+              onClick={async () => {
+                const granted = await notificationService.requestPermissions();
+                const sent = await notificationService.sendTestNotification();
+                if (sent) alert('Test notification sent — check your phone in a few seconds.');
+                else if (!granted && !notificationService.isNativeAvailable())
+                  alert('Phone notifications run on your Android build (Android Studio). This web preview shows the Notification Center only.');
+                else alert('Notification permission is off in your phone settings — enable it to receive alerts.');
+              }}
+              className="w-full py-2 rounded-xl text-[11px] font-black uppercase tracking-wide transition cursor-pointer"
+              style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}
+            >
+              <Zap className="w-3.5 h-3.5 inline mr-1" /> Send Test Notification
+            </button>
           </div>
 
           {/* Graphics & Animation Speed */}

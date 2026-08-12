@@ -45,7 +45,7 @@ import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
-import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek } from '../services/streamingEngine';
+import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
@@ -59,6 +59,7 @@ import { AwardCeremonyResult } from '../types/game';
 import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
+import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
 import { ActiveJob, TransactionRecord } from '../types/network';
 
 
@@ -100,7 +101,8 @@ type ModalType =
   | 'photo_mode'
   | 'notification_history'
   | 'retainer_management'
-  | 'award_ceremony';
+  | 'award_ceremony'
+  | 'notification_center';
 
 interface GameContextType {
   // Navigation & Main Tabs
@@ -112,6 +114,7 @@ interface GameContextType {
   // Active Modal & Processing
   activeModal: ModalType;
   setActiveModal: (modal: ModalType) => void;
+  openNotificationCenter: () => void;
   isProcessingWeek: boolean;
   lastWeeklyRecap: WeeklyRecapData | null;
 
@@ -393,12 +396,69 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // Update sound & music settings and schedule re-engagement notifications
+  // Update sound & music settings and keep the offline-notification service
+  // fed with the latest save (scheduling itself happens when the app hides)
   useEffect(() => {
     soundService.setSoundEnabled(saveData.settings.soundEnabled !== false);
     soundService.setMusicEnabled(saveData.settings.musicEnabled !== false);
-    notificationService.scheduleAwayNotifications(saveData.player);
-  }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData.player]);
+    notificationService.refreshContext(saveData);
+  }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData]);
+
+  // OFFLINE DIGEST: if the player was away 2+ hours, build a "While you were
+  // away" digest from REAL pending items (offers, bids, deadlines). Runs once.
+  const digestInitRef = React.useRef(false);
+  useEffect(() => {
+    if (digestInitRef.current) return;
+    digestInitRef.current = true;
+    const bump = () => {
+      try { localStorage.setItem('HR_LAST_ACTIVE_TS', String(Date.now())); } catch {}
+    };
+    try {
+      const now = Date.now();
+      const lastActive = Number(localStorage.getItem('HR_LAST_ACTIVE_TS') || 0);
+      localStorage.setItem('HR_LAST_ACTIVE_TS', String(now));
+      if (lastActive > 0 && now - lastActive >= 2 * 3600 * 1000) {
+        setSaveData((prev) => {
+          const digest = collectDigestItems(prev).slice(0, 6);
+          const nc = prev.notificationCenter || { digest: [], seenTags: [] };
+          const merged = [...digest, ...nc.digest.filter((d) => !digest.some((i) => i.tag === d.tag))].slice(0, 30);
+          const next = { ...prev, notificationCenter: { ...nc, digest: merged, lastDigestAt: now } };
+          StorageService.saveGameData(next, next.slotNumber || 1);
+          return next;
+        });
+      }
+    } catch {}
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') bump();
+    });
+    window.addEventListener('beforeunload', bump);
+    return () => {
+      document.removeEventListener('visibilitychange', bump);
+      window.removeEventListener('beforeunload', bump);
+    };
+  }, []);
+
+  // Open the Notification Center and mark everything as seen
+  const openNotificationCenter = useCallback(() => {
+    setActiveModal('notification_center');
+    try {
+      setSaveData((prev) => {
+        const tags = collectNotificationItems(prev).map((i) => i.tag);
+        const nc = prev.notificationCenter || { digest: [], seenTags: [] };
+        const next = {
+          ...prev,
+          notificationCenter: {
+            ...nc,
+            seenTags: Array.from(new Set([...nc.seenTags, ...tags])),
+            digest: (nc.digest || []).map((d) => ({ ...d, read: true })),
+            lastSeenAt: Date.now(),
+          },
+        };
+        StorageService.saveGameData(next, next.slotNumber || 1);
+        return next;
+      });
+    } catch {}
+  }, []);
 
   useEffect(() => {
     // MUSIC IS CONTINUOUS: the soundtrack plays on without restarting when the
@@ -2304,7 +2364,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('TV/Radio interview weekly processing error:', e);
     }
 
-    // 7f2. STREAMING PLATFORM WEEKLY ROYALTIES (real viewership-based)
+    // 7f2. STREAMING PLATFORM WEEKLY ROYALTIES (real viewership-based) + BID WINDOWS
     try {
       const streamState = loadStreamingState();
       const studioFin = loadStudioState();
@@ -2313,6 +2373,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         p.money = (p.money || 0) + royaltyResult.moneyDelta;
         socialReputation.push(...royaltyResult.messages);
       }
+      // Real offer windows: platforms hold bids 3 weeks, then withdraw them
+      const bidResult = processBidsWeekly(streamState, newWeek, newYear);
+      bidResult.messages.forEach((m) => {
+        newInboxMessages.unshift({
+          ...m,
+          id: `msg_bid_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'MEDIA',
+          sender: 'Streaming Rights Desk',
+          senderRole: 'Licensing Coordinator',
+          senderAvatar: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100',
+        });
+      });
       saveStreamingState(streamState);
       saveStudioState(studioFin);
     } catch (e) {
@@ -3201,6 +3273,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveMainTab,
         activeModal,
         setActiveModal,
+        openNotificationCenter,
         isProcessingWeek,
         lastWeeklyRecap,
         selectedNpcId,

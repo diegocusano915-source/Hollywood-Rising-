@@ -1,131 +1,32 @@
 /**
- * HOLLYWOOD RISING - Local Notification & Player Re-Engagement Service
- * Automatically schedules 10-15 engaging Hollywood industry notifications
- * when the player is away from the game for too long (2h, 6h, 12h, 24h, 48h, 3d, 5d, 7d).
- * Supports both Capacitor Native Android LocalNotifications and Web Notification API.
+ * HOLLYWOOD RISING - Offline Phone Notification Service (REAL EVENTS ONLY)
+ * Schedules phone notifications from real game state when the player closes
+ * the app:
+ *   - One "come online" nudge 2-5 hours after leaving (randomized)
+ *   - Real deadline alerts staggered over the first 36h away
+ *   - A daily repeating reminder (cancelled the moment they return)
+ * Every notification references a real offer, bid, deadline or stat.
+ * Capacitor Local Notifications on Android; graceful no-op on web.
  */
 
-import { Player } from '../types/game';
+import { SaveData } from '../types/game';
+import { collectNotificationItems, buildNudge, buildRepeatSummary } from './notificationEngine';
 
-export interface HollywoodNotification {
+const SCHEDULED_IDS = [100, 101, 102, 103, 104, 105, 110];
+
+interface PhoneNotificationInput {
   id: number;
   title: string;
   body: string;
-  delayHours: number;
-  iconName: string;
+  schedule: { at: Date } | { on: { hour: number; minute: number }; repeats: boolean };
+  extra?: Record<string, unknown>;
 }
 
-export const HOLLYWOOD_RE_ENGAGEMENT_NOTIFICATIONS: HollywoodNotification[] = [
-  {
-    id: 101,
-    title: '🎬 Urgent Casting Callback!',
-    body: "Christopher Nolan's casting director just sent an urgent callback script! Check your Hollywood Inbox before submissions close.",
-    delayHours: 2,
-    iconName: 'clapperboard',
-  },
-  {
-    id: 102,
-    title: '⚡ Energy Fully Recharged!',
-    body: 'Your actor energy is back at 100/100! Your next feature film scene is ready to shoot on the studio lot.',
-    delayHours: 4,
-    iconName: 'zap',
-  },
-  {
-    id: 103,
-    title: '💰 Box Office Royalty Deposit!',
-    body: 'Your theatrical release crossed $45,000,000! Collect your box office royalties, salary residuals and backend payouts.',
-    delayHours: 8,
-    iconName: 'dollar',
-  },
-  {
-    id: 104,
-    title: '📰 Hollywood Insider Front-Page Story!',
-    body: 'Variety & Hollywood Insider just published a breaking trade story about your character! Check what film critics are saying.',
-    delayHours: 12,
-    iconName: 'newspaper',
-  },
-  {
-    id: 105,
-    title: '🌟 Academy Awards Campaign Notice!',
-    body: 'Oscar voting opens in 48 hours! Launch your For Your Consideration (FYC) trade advertising blitz now.',
-    delayHours: 24,
-    iconName: 'award',
-  },
-  {
-    id: 106,
-    title: '🤝 Luxury Brand Deal Proposal!',
-    body: 'Balenciaga and Rolex sent multi-million dollar endorsement contracts to your Hollywood Inbox!',
-    delayHours: 36,
-    iconName: 'handshake',
-  },
-  {
-    id: 107,
-    title: '👑 Conglomerate Dividend Payouts!',
-    body: 'Your commercial real estate, film lots and business ventures generated weekly profits. Collect your mogul dividend cash!',
-    delayHours: 48,
-    iconName: 'crown',
-  },
-  {
-    id: 108,
-    title: '⚔️ Hollywood Rivalry Alert!',
-    body: 'Your Hollywood rival just challenged your opening weekend box office numbers in a viral Variety magazine interview!',
-    delayHours: 60,
-    iconName: 'swords',
-  },
-  {
-    id: 109,
-    title: '💌 Romance & Dating Update!',
-    body: 'Your partner sent a surprise luxury anniversary gift and invited you to a private dinner at Chateau Marmont tonight!',
-    delayHours: 72,
-    iconName: 'heart',
-  },
-  {
-    id: 110,
-    title: '🏛️ SAG-AFTRA Guild Notice!',
-    body: 'You have pending guild pension contributions and health plan benefits ready for review at the union headquarters.',
-    delayHours: 96,
-    iconName: 'shield',
-  },
-  {
-    id: 111,
-    title: '📈 Web3 Crypto & Stock Bull Market!',
-    body: 'HollywoodCoin and entertainment stocks entered a massive Bull Market cycle! Audit your portfolio valuations.',
-    delayHours: 120,
-    iconName: 'trending-up',
-  },
-  {
-    id: 112,
-    title: '🎟️ Red Carpet World Premiere!',
-    body: 'The paparazzi and luxury limousine are waiting outside your Bel-Air estate for tonight\'s world premiere screening!',
-    delayHours: 144,
-    iconName: 'sparkles',
-  },
-  {
-    id: 113,
-    title: '🎓 Acting Academy Masterclass Open!',
-    body: 'Conservatory enrollment for masterclasses in Method Acting and Stage Stunts is now open for this semester.',
-    delayHours: 168,
-    iconName: 'graduation-cap',
-  },
-  {
-    id: 114,
-    title: '📣 Paparazzi PR Crisis Alert!',
-    body: 'Behind-the-scenes footage leaked on Sunset Boulevard! Work with your PR agency to issue an official press statement.',
-    delayHours: 192,
-    iconName: 'megaphone',
-  },
-  {
-    id: 115,
-    title: '🏆 Hollywood Mogul Opportunity!',
-    body: 'A commercial production studio lot is up for private acquisition. Expand your Hollywood empire today!',
-    delayHours: 216,
-    iconName: 'building',
-  },
-];
-
 class NotificationService {
-  private hasRequestedPermission: boolean = false;
+  private latestSave: SaveData | null = null;
   private isCapacitorAvailable: boolean = false;
+  private listenersAttached: boolean = false;
+  private scheduledCount: number = 0;
 
   constructor() {
     this.init();
@@ -133,18 +34,17 @@ class NotificationService {
 
   private async init() {
     if (typeof window === 'undefined') return;
-
-    // Check Capacitor native plugin availability
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
-      if (LocalNotifications) {
-        this.isCapacitorAvailable = true;
-      }
+      if (LocalNotifications) this.isCapacitorAvailable = true;
     } catch {
       this.isCapacitorAvailable = false;
     }
 
-    // Attach visibility listener to automatically schedule re-engagement notifications when player leaves
+    if (this.listenersAttached) return;
+    this.listenersAttached = true;
+
+    // Player closes / backgrounds the app -> schedule real notifications
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         this.scheduleAwayNotifications();
@@ -152,104 +52,137 @@ class NotificationService {
         this.cancelPendingNotifications();
       }
     });
-
     window.addEventListener('beforeunload', () => {
       this.scheduleAwayNotifications();
     });
   }
 
-  /** Request notification permissions from user on first launch */
+  /** GameContext pushes the latest save so scheduling always uses current state. */
+  public refreshContext(save: SaveData | null) {
+    this.latestSave = save;
+  }
+
   public async requestPermissions(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
-    this.hasRequestedPermission = true;
-
-    // Try Capacitor Native
     if (this.isCapacitorAvailable) {
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         const perm = await LocalNotifications.requestPermissions();
-        if (perm.display === 'granted') return true;
-      } catch {}
+        return perm.display === 'granted';
+      } catch {
+        return false;
+      }
     }
-
-    // Try Web Notification API
     if ('Notification' in window) {
       try {
-        const perm = await Notification.requestPermission();
-        return perm === 'granted';
-      } catch {}
+        return (await Notification.requestPermission()) === 'granted';
+      } catch {
+        return false;
+      }
     }
-
     return false;
   }
 
-  /** Schedules the 15 engaging notifications when player backgrounds the game */
-  public async scheduleAwayNotifications(player?: Player) {
-    const actorName = player?.firstName ? `${player.firstName} ${player.lastName}` : 'Hollywood Star';
-
-    // 1. Try Native Capacitor LocalNotifications
-    if (this.isCapacitorAvailable) {
-      try {
-        const { LocalNotifications } = await import('@capacitor/local-notifications');
-        
-        // Cancel existing pending notifications
-        await LocalNotifications.cancel({
-          notifications: HOLLYWOOD_RE_ENGAGEMENT_NOTIFICATIONS.map((n) => ({ id: n.id })),
-        });
-
-        // Schedule 15 staggered notifications
-        const notificationsToSchedule = HOLLYWOOD_RE_ENGAGEMENT_NOTIFICATIONS.map((n) => {
-          const scheduleDate = new Date(Date.now() + n.delayHours * 3600 * 1000);
-          return {
-            id: n.id,
-            title: n.title,
-            body: n.body.replace('your character', actorName),
-            schedule: { at: scheduleDate },
+  /** Fires one test notification ~2 seconds from now (for settings preview). */
+  public async sendTestNotification(): Promise<boolean> {
+    if (!this.isCapacitorAvailable) return false;
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: 999,
+            title: '📬 Notifications are live',
+            body: 'This is a test — from now on you\u2019ll get real alerts (bids, offers, deadlines) when you\u2019re away from the game.',
+            schedule: { at: new Date(Date.now() + 2000) },
             sound: 'default',
             smallIcon: 'ic_launcher',
-            actionTypeId: 'OPEN_GAME',
-            extra: { playerName: actorName },
-          };
-        });
-
-        await LocalNotifications.schedule({ notifications: notificationsToSchedule });
-        return;
-      } catch (e) {
-        console.warn('Capacitor LocalNotifications schedule failed, falling back to Web API', e);
-      }
-    }
-
-    // 2. Web Notification fallback
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        // Schedule in-browser timeouts for current active session
-        HOLLYWOOD_RE_ENGAGEMENT_NOTIFICATIONS.slice(0, 3).forEach((n) => {
-          const delayMs = n.delayHours * 3600 * 1000;
-          if (delayMs <= 86400000) { // Within 24h
-            setTimeout(() => {
-              try {
-                new Notification(n.title, {
-                  body: n.body.replace('your character', actorName),
-                  icon: '/icon.png',
-                });
-              } catch {}
-            }, delayMs);
-          }
-        });
-      } catch {}
+          },
+        ],
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  /** Clears notifications when player returns online */
-  public async cancelPendingNotifications() {
+  /** Schedule real-event phone notifications when the player leaves the app. */
+  public async scheduleAwayNotifications() {
+    const save = this.latestSave;
+    if (!save?.player) return;
+
+    // Player turned phone notifications off
+    if (save.settings?.offlineNotifications === false) {
+      await this.cancelPendingNotifications();
+      return;
+    }
+
+    // 1. Native Capacitor scheduling (real Android builds)
     if (this.isCapacitorAvailable) {
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
-        await LocalNotifications.cancel({
-          notifications: HOLLYWOOD_RE_ENGAGEMENT_NOTIFICATIONS.map((n) => ({ id: n.id })),
+        await LocalNotifications.cancel({ notifications: SCHEDULED_IDS.map((id) => ({ id })) });
+
+        const items = collectNotificationItems(save);
+        const nudge = buildNudge(save);
+        const list: PhoneNotificationInput[] = [];
+
+        // 2-5 hour "come online" nudge referencing real pending items
+        const nudgeHours = 2 + Math.floor(Math.random() * 3); // 2, 3 or 4 h
+        list.push({
+          id: 100,
+          title: nudge.title,
+          body: nudge.body,
+          schedule: { at: new Date(Date.now() + nudgeHours * 3600 * 1000) },
         });
-      } catch {}
+
+        // Real deadline alerts staggered through the first 36h away
+        const realItems = items
+          .filter((i) => i.kind === 'DEADLINE' || i.kind === 'STATUS')
+          .slice(0, 4);
+        const delays = [6, 12, 24, 36];
+        realItems.forEach((item, idx) => {
+          list.push({
+            id: 101 + idx,
+            title: `📬 ${item.icon} ${item.title}`,
+            body: `Come online — ${item.body}`,
+            schedule: { at: new Date(Date.now() + delays[idx] * 3600 * 1000) },
+          });
+        });
+
+        // Daily repeating reminder (cancelled the moment they return)
+        list.push({
+          id: 110,
+          title: '📬 Still waiting for you',
+          body: buildRepeatSummary(save),
+          schedule: { on: { hour: new Date().getHours(), minute: new Date().getMinutes() }, repeats: true },
+        });
+
+        await LocalNotifications.schedule({ notifications: list });
+        this.scheduledCount = list.length;
+        return;
+      } catch (e) {
+        console.warn('Capacitor LocalNotifications schedule failed', e);
+      }
     }
+
+    // 2. Web fallback: nothing reliable to schedule in-browser across sessions — no-op.
+    this.scheduledCount = 0;
+  }
+
+  /** Clear all pending phone notifications (player is back online). */
+  public async cancelPendingNotifications() {
+    if (!this.isCapacitorAvailable) return;
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      await LocalNotifications.cancel({ notifications: SCHEDULED_IDS.map((id) => ({ id })) });
+      await LocalNotifications.cancel({ notifications: [{ id: 999 }] });
+      this.scheduledCount = 0;
+    } catch {}
+  }
+
+  public isNativeAvailable(): boolean {
+    return this.isCapacitorAvailable;
   }
 }
 

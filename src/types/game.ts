@@ -606,6 +606,30 @@ export interface GameSettings {
   theme: ThemeOption;
   hasSeenTutorial: boolean;
   deviceFrameMode?: 'phone' | 'tablet' | 'foldable' | 'responsive';
+  offlineNotifications?: boolean; // phone push notifications when away
+}
+
+// ============ OFFLINE NOTIFICATIONS (REAL EVENTS ONLY) ============
+export type HrNotificationKind = 'DEADLINE' | 'STATUS' | 'PROGRESS' | 'DIGEST';
+
+export interface HrNotificationItem {
+  id: string;
+  tag: string; // dedupe key — same tag = same real event
+  kind: HrNotificationKind;
+  icon: string; // emoji
+  title: string;
+  body: string;
+  urgency: 'high' | 'medium' | 'low';
+  refWeek?: number; // game week this refers to
+  read?: boolean;
+  ts?: number; // wall-clock ms (digest entries)
+}
+
+export interface NotificationCenterState {
+  digest: HrNotificationItem[]; // "while you were away" entries (persisted)
+  seenTags: string[]; // live-alert tags the player already viewed
+  lastSeenAt?: number;
+  lastDigestAt?: number;
 }
 
 export interface WeeklyRecapData {
@@ -723,6 +747,7 @@ export interface SaveData {
   trophies?: TrophyItem[];
   awardHistory?: AwardRecord[];
   careerTimeline?: TimelineEvent[];
+  notificationCenter?: NotificationCenterState;
 }
 
 

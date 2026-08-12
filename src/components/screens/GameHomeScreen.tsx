@@ -5,7 +5,7 @@
  * Persistent Bottom Navigation Bar across all scenes.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useGame } from '../../context/GameContext';
 import {
   Film,
@@ -23,9 +23,11 @@ import {
   Sparkles,
   Award,
   History,
+  Bell,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 import { FameService } from '../../services/fameService';
+import { collectNotificationItems } from '../../services/notificationEngine';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { TalentScreen } from './TalentScreen';
 import { WorldScreen } from './WorldScreen';
@@ -45,9 +47,23 @@ export const GameHomeScreen: React.FC = () => {
     bookedProjects,
     relationships,
     settings,
+    saveData,
+    openNotificationCenter,
   } = useGame();
 
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
+
+  // Notification Center badge: unread "while you were away" + unseen live alerts
+  const notificationBadge = useMemo(() => {
+    try {
+      const nc = saveData.notificationCenter;
+      const unseenLive = collectNotificationItems(saveData).filter((i) => !nc?.seenTags?.includes(i.tag)).length;
+      const unreadDigest = (nc?.digest || []).filter((d) => !d.read).length;
+      return unseenLive + unreadDigest;
+    } catch {
+      return 0;
+    }
+  }, [saveData]);
 
   const unreadInboxCount = inbox.filter((m) => !m.read).length;
   const activeBookingsCount = bookedProjects.length;
@@ -413,6 +429,27 @@ export const GameHomeScreen: React.FC = () => {
 
   return (
     <div className="h-full min-h-screen w-full flex flex-col justify-between overflow-hidden" style={{ backgroundColor: theme.background }}>
+      {/* Notification Center Bell (fixed, all tabs) */}
+      <button
+        onClick={openNotificationCenter}
+        className="fixed top-3 right-3 z-40 p-2.5 rounded-2xl shadow-xl border transition-all active:scale-90 cursor-pointer"
+        style={{
+          backgroundColor: theme.headers,
+          borderColor: theme.borderDark,
+        }}
+        aria-label="Notification Center"
+      >
+        <Bell className="w-5 h-5 text-amber-400" />
+        {notificationBadge > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-black text-black flex items-center justify-center"
+            style={{ backgroundColor: '#f59e0b' }}
+          >
+            {notificationBadge > 9 ? '9+' : notificationBadge}
+          </span>
+        )}
+      </button>
+
       {/* Active Tab Screen Content */}
       <div className="flex-1 w-full overflow-y-auto min-h-0">
         {renderActiveScreen()}
