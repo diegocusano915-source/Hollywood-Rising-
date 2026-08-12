@@ -38,7 +38,7 @@ import { TalentCategory, ActingCourse, ActiveCourse, CompletedCourseRecord } fro
 import { ACTING_COURSES_POOL } from '../../database/actingSchoolDatabase';
 
 export const TalentScreen: React.FC = () => {
-  const { player, enrollInCourse, advanceWeek, settings } = useGame();
+  const { player, enrollInCourse, advanceWeek, settings, setActiveMainTab } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   // Navigation State inside Talent Screen
@@ -169,13 +169,22 @@ export const TalentScreen: React.FC = () => {
       >
         {/* Back Button & Header */}
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => setSelectedTalentCategory(null)}
-            className="px-3.5 py-2 rounded-xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-amber-400" />
-            <span>Back to All Talents</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedTalentCategory(null)}
+              className="px-3 py-2 rounded-xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 text-amber-400" />
+              <span>Talents</span>
+            </button>
+            <button
+              onClick={() => setActiveMainTab('HOME')}
+              className="px-3 py-2 rounded-xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 text-sky-400" />
+              <span>Home</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <div className="px-3 py-1.5 rounded-xl bg-black/60 border border-emerald-500/30 flex items-center gap-1.5 text-xs font-bold text-emerald-400">
@@ -344,31 +353,27 @@ export const TalentScreen: React.FC = () => {
             Courses That Improve {config.name} (Tap Course to View Details)
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {talentCoursesPool.map((course) => (
               <div
                 key={course.id}
                 onClick={() => setSelectedCourseModal(course)}
-                className="p-4 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 hover:border-amber-400/50 transition-all cursor-pointer space-y-2 group shadow-lg"
+                className="p-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-black/60 hover:border-amber-400/50 transition-all cursor-pointer space-y-1.5 group shadow-lg flex flex-col"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
-                      {course.difficulty}
-                    </span>
-                    <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors mt-1">
-                      {course.name}
-                    </h3>
-                    <p className="text-[10px] text-gray-400">Instructor: {course.teacher}</p>
-                  </div>
-
-                  <span className="text-xs font-black text-emerald-400 shrink-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                    {course.difficulty}
+                  </span>
+                  <span className="text-[10px] font-black text-emerald-400 shrink-0">
                     ${course.cost.toLocaleString()}
                   </span>
                 </div>
-
-                <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-white/5">
-                  <span>{course.durationWeeks} Wks • -{course.weeklyEnergyCost} Energy/Wk</span>
+                <h3 className="text-[11px] font-black text-white group-hover:text-amber-300 transition-colors leading-tight">
+                  {course.name}
+                </h3>
+                <p className="text-[8px] text-gray-400 truncate">Instructor: {course.teacher}</p>
+                <div className="flex items-center justify-between text-[8px] text-gray-400 pt-1 border-t border-white/5 mt-auto">
+                  <span>{course.durationWeeks}w · -{course.weeklyEnergyCost}⚡</span>
                   <span className="font-extrabold text-emerald-400">
                     +{course.talentReward.amount} {course.talentReward.talent.substring(0, 3).toUpperCase()}
                   </span>
@@ -400,6 +405,15 @@ export const TalentScreen: React.FC = () => {
       className="w-full min-h-full flex flex-col p-4 select-none pb-12"
       style={{ backgroundColor: theme.background }}
     >
+      {/* Back to Game Home */}
+      <button
+        onClick={() => setActiveMainTab('HOME')}
+        className="mb-3 px-3.5 py-2 rounded-xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer w-fit"
+      >
+        <ArrowLeft className="w-4 h-4 text-amber-400" />
+        Back to Home
+      </button>
+
       {/* Top Header Card */}
       <div
         className="rounded-2xl p-4 border flex flex-wrap items-center justify-between gap-3 shadow-xl mb-5"
@@ -466,7 +480,7 @@ export const TalentScreen: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2.5">
           {talentConfigs.map((t) => {
             const Icon = t.icon;
             const rank = getRankBadge(t.val);
@@ -475,30 +489,29 @@ export const TalentScreen: React.FC = () => {
               <div
                 key={t.id}
                 onClick={() => setSelectedTalentCategory(t.id)}
-                className={`p-4 rounded-2xl border ${t.border} bg-black/40 hover:bg-black/70 hover:border-amber-400/60 backdrop-blur-md space-y-3 shadow-lg relative overflow-hidden transition-all cursor-pointer group hover:scale-[1.01]`}
+                className={`p-2.5 rounded-xl border ${t.border} bg-black/40 hover:bg-black/70 hover:border-amber-400/60 backdrop-blur-md shadow-lg relative overflow-hidden transition-all cursor-pointer group hover:scale-[1.02] flex flex-col gap-1.5`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${t.bg}`}>
-                      <Icon className={`w-5 h-5 ${t.color} group-hover:scale-110 transition-transform`} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
-                        {t.name}
-                      </h3>
-                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded ${rank.bg}`}>
-                        {rank.label}
-                      </span>
-                    </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={`p-1.5 rounded-lg ${t.bg} shrink-0`}>
+                    <Icon className={`w-4 h-4 ${t.color} group-hover:scale-110 transition-transform`} />
                   </div>
-                  <div className="text-right">
-                    <span className="text-xl font-black text-white">{t.val}</span>
-                    <span className="text-[10px] text-gray-500 font-bold block">/ 100</span>
+                  <div className="min-w-0">
+                    <h3 className="text-[11px] font-black text-white group-hover:text-amber-300 transition-colors leading-tight truncate">
+                      {t.name}
+                    </h3>
+                    <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded ${rank.bg}`}>
+                      {rank.label}
+                    </span>
                   </div>
                 </div>
 
+                <div className="flex items-end justify-between gap-1">
+                  <span className="text-base font-black text-white leading-none">{t.val}</span>
+                  <span className="text-[8px] text-gray-500 font-bold leading-none">/100</span>
+                </div>
+
                 {/* Progress Bar */}
-                <div className="w-full bg-black/60 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/10">
+                <div className="w-full bg-black/60 rounded-full h-1.5 overflow-hidden border border-white/10">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
@@ -506,14 +519,6 @@ export const TalentScreen: React.FC = () => {
                       backgroundColor: theme.primary,
                     }}
                   />
-                </div>
-
-                <p className="text-[10px] text-gray-400 leading-relaxed line-clamp-2">
-                  {t.desc}
-                </p>
-
-                <div className="text-[10px] text-amber-400 font-extrabold text-right flex items-center justify-end gap-1">
-                  <span>Manage Talent & History →</span>
                 </div>
               </div>
             );
@@ -542,7 +547,7 @@ export const TalentScreen: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {activeCourses.map((c) => {
               const progressPct = Math.round((c.weeksCompleted / c.totalWeeks) * 100);
               const weeksRemaining = c.totalWeeks - c.weeksCompleted;
@@ -550,66 +555,46 @@ export const TalentScreen: React.FC = () => {
               return (
                 <div
                   key={c.id}
-                  className={`p-4 rounded-2xl border ${
+                  className={`p-2.5 rounded-xl border ${
                     c.isPaused ? 'border-rose-500/50 bg-rose-950/20' : 'border-sky-500/40 bg-black/50'
-                  } space-y-3 shadow-xl relative`}
+                  } shadow-lg relative flex flex-col gap-1.5`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                        {c.category.toUpperCase()}
-                      </span>
-                      <h3 className="text-sm font-black text-white mt-1">{c.name}</h3>
-                      <p className="text-[10px] text-gray-400">Instructor: {c.teacher}</p>
-                    </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 truncate">
+                      {c.category.toUpperCase()}
+                    </span>
 
                     {c.isPaused ? (
-                      <span className="text-[9px] font-black text-rose-300 bg-rose-500/30 px-2 py-1 rounded border border-rose-500/50 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
+                      <span className="text-[8px] font-black text-rose-300 bg-rose-500/30 px-1.5 py-0.5 rounded border border-rose-500/50 flex items-center gap-0.5 shrink-0">
+                        <AlertCircle className="w-2.5 h-2.5" />
                         PAUSED
                       </span>
                     ) : (
-                      <span className="text-[9px] font-black text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded border border-emerald-500/30">
-                        IN PROGRESS
+                      <span className="text-[8px] font-black text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0">
+                        ACTIVE
                       </span>
                     )}
                   </div>
 
-                  {/* Course Details Grid */}
-                  <div className="grid grid-cols-3 gap-2 p-2 rounded-xl bg-black/60 border border-white/5 text-[10px]">
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Weeks Left</span>
-                      <span className="font-bold text-amber-300">{weeksRemaining} Wks</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Weekly Cost</span>
-                      <span className="font-bold text-amber-300">-{c.weeklyEnergyCost} Energy</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Reward</span>
-                      <span className="font-extrabold text-emerald-400">+{c.talentReward.amount} {c.talentReward.talent.toUpperCase()}</span>
-                    </div>
+                  <h3 className="text-[11px] font-black text-white leading-tight">{c.name}</h3>
+                  <p className="text-[8px] text-gray-400 truncate">Instructor: {c.teacher}</p>
+
+                  <div className="text-[8px] text-gray-300 flex items-center justify-between">
+                    <span>Wk {c.weeksCompleted}/{c.totalWeeks} · -{c.weeklyEnergyCost}⚡</span>
+                    <span className="font-extrabold text-emerald-400">
+                      +{c.talentReward.amount} {c.talentReward.talent.substring(0, 3).toUpperCase()}
+                    </span>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold">
-                      <span className="text-gray-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        Week {c.weeksCompleted} of {c.totalWeeks}
-                      </span>
-                      <span className="text-amber-300">{progressPct}%</span>
-                    </div>
-
-                    <div className="w-full bg-black/70 rounded-full h-2 overflow-hidden border border-white/10">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${progressPct}%`,
-                          backgroundColor: theme.primary,
-                        }}
-                      />
-                    </div>
+                  <div className="w-full bg-black/70 rounded-full h-1.5 overflow-hidden border border-white/10">
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${progressPct}%`,
+                        backgroundColor: theme.primary,
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -630,25 +615,22 @@ export const TalentScreen: React.FC = () => {
             No completed courses yet. As you graduate from Acting School courses, completed certificates will be stored here!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {completedRecords.map((cr) => (
               <div
                 key={cr.id}
-                className="p-3.5 rounded-2xl border border-emerald-500/30 bg-black/40 flex items-center justify-between gap-3 shadow"
+                className="p-2.5 rounded-xl border border-emerald-500/30 bg-black/40 shadow flex flex-col gap-1"
               >
-                <div>
-                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {cr.category.toUpperCase()}
+                <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 w-fit">
+                  {cr.category.toUpperCase()}
+                </span>
+                <h3 className="text-[11px] font-bold text-white leading-tight">{cr.name}</h3>
+                <p className="text-[8px] text-gray-400 truncate">Teacher: {cr.teacher}</p>
+                <div className="flex items-center justify-between gap-1 mt-auto">
+                  <span className="text-[8px] text-amber-300 font-semibold">
+                    Wk {cr.completionWeek}, {cr.completionYear}
                   </span>
-                  <h3 className="text-xs font-bold text-white mt-1">{cr.name}</h3>
-                  <p className="text-[10px] text-gray-400">Teacher: {cr.teacher}</p>
-                  <p className="text-[9px] text-amber-300 font-semibold mt-0.5">
-                    Completed: Week {cr.completionWeek}, Year {cr.completionYear}
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 block">
+                  <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
                     +{cr.talentReward.amount} {cr.talentReward.talent.substring(0, 3).toUpperCase()}
                   </span>
                 </div>
@@ -699,83 +681,49 @@ export const TalentScreen: React.FC = () => {
         </div>
 
         {/* Available Course Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2.5">
           {filteredCatalogue.map((course) => {
-            const isUnionLocked = course.requiresUnionMember && !player.isUnionMember;
-            const cannotAfford = player.money < course.cost;
-            const maxActiveReached = activeCourses.length >= 2;
-            const isAlreadyEnrolled = activeCourses.some(a => a.courseId === course.id);
-
             return (
               <div
                 key={course.id}
                 onClick={() => setSelectedCourseModal(course)}
-                className="p-4 rounded-2xl border border-white/10 bg-black/40 hover:bg-black/70 hover:border-amber-400/50 transition-all space-y-3 shadow-xl cursor-pointer flex flex-col justify-between group"
+                className="p-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-black/70 hover:border-amber-400/50 transition-all shadow-lg cursor-pointer flex flex-col gap-1.5 group"
               >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          {course.category.toUpperCase()}
-                        </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">
-                          {course.difficulty}
-                        </span>
-                        {course.requiresUnionMember && (
-                          <span className="text-[9px] font-extrabold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
-                            <Lock className="w-2.5 h-2.5" />
-                            SAG Required
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors mt-1.5">
-                        {course.name}
-                      </h3>
-                      <p className="text-[10px] text-amber-300 font-semibold">Teacher: {course.teacher}</p>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-base font-black text-emerald-400 block">
-                        ${course.cost.toLocaleString()}
-                      </span>
-                      <span className="text-[9px] text-gray-400 font-semibold">Tuition</span>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-gray-300 leading-relaxed line-clamp-2">
-                    {course.description}
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-2 p-2 rounded-xl bg-black/50 border border-white/5 text-[10px]">
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Duration</span>
-                      <span className="font-bold text-white flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        {course.durationWeeks} Wks
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Weekly Cost</span>
-                      <span className="font-bold text-amber-300 flex items-center gap-1">
-                        <Zap className="w-3 h-3 fill-current" />
-                        {course.weeklyEnergyCost} Energy
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-gray-500 block font-semibold text-[9px]">Reward</span>
-                      <span className="font-extrabold text-emerald-400">
-                        +{course.talentReward.amount} {course.talentReward.talent.substring(0, 3).toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 truncate">
+                    {course.category.toUpperCase()}
+                  </span>
+                  {course.requiresUnionMember && !player.isUnionMember ? (
+                    <Lock className="w-3 h-3 text-purple-400 shrink-0" />
+                  ) : (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 shrink-0">
+                      {course.difficulty}
+                    </span>
+                  )}
                 </div>
 
-                <div className="pt-2 border-t border-white/10 text-[10px] text-amber-400 font-bold flex items-center justify-between">
-                  <span>Tap to inspect course details</span>
-                  <span>View Details →</span>
+                <h3 className="text-[11px] font-black text-white group-hover:text-amber-300 transition-colors leading-tight">
+                  {course.name}
+                </h3>
+                <p className="text-[8px] text-amber-300 font-semibold truncate">Teacher: {course.teacher}</p>
+
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-black text-emerald-400">${course.cost.toLocaleString()}</span>
+                  <span className="text-[8px] text-gray-400 font-semibold">Tuition</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1 text-[8px] text-center bg-black/50 border border-white/5 rounded-lg p-1">
+                  <span className="text-gray-400 font-semibold flex items-center justify-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5 text-amber-400" />
+                    {course.durationWeeks}w
+                  </span>
+                  <span className="text-gray-400 font-semibold flex items-center justify-center gap-0.5">
+                    <Zap className="w-2.5 h-2.5 text-amber-300 fill-current" />
+                    {course.weeklyEnergyCost}
+                  </span>
+                  <span className="font-extrabold text-emerald-400">
+                    +{course.talentReward.amount}
+                  </span>
                 </div>
               </div>
             );
