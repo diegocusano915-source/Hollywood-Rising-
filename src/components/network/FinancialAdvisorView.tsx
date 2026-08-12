@@ -101,7 +101,7 @@ export const FinancialAdvisorView: React.FC<FinancialAdvisorViewProps> = ({
             </div>
             <div>
               <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
-                WEALTH & TAX OPTIMIZATION
+                WEALTH MANAGEMENT
               </span>
               <h1 className="text-xl sm:text-2xl font-black text-white">FINANCIAL ADVISOR</h1>
             </div>
@@ -140,8 +140,8 @@ export const FinancialAdvisorView: React.FC<FinancialAdvisorViewProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs font-extrabold bg-black/60 p-3 rounded-2xl border border-white/10">
-            <div className="text-emerald-400 font-black">-{currentAdvisor.taxReductionPct}% Tax Expense Cut</div>
             <div className="text-amber-300 font-black">-{currentAdvisor.loanDiscountPct}% Loan Rate Discount</div>
+            <div className="text-sky-300 font-black">Wealth strategy & weekly reports</div>
           </div>
 
           <button
@@ -186,8 +186,8 @@ export const FinancialAdvisorView: React.FC<FinancialAdvisorViewProps> = ({
                   <p className="text-xs text-gray-300 leading-relaxed">{adv.description}</p>
 
                   <div className="flex justify-between text-[10px] font-extrabold text-gray-300 bg-black/60 p-2 rounded-xl border border-white/5">
-                    <span className="text-emerald-400">Tax Cut: -{adv.taxReductionPct}%</span>
                     <span className="text-amber-300">Loan Discount: -{adv.loanDiscountPct}%</span>
+                    <span className="text-sky-300">Wealth Reports</span>
                   </div>
                 </div>
 

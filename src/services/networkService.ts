@@ -2110,17 +2110,17 @@ export const NetworkService = {
       const adv = FINANCIAL_ADVISORS.find((a) => a.id === nextState.hiredAdvisorId);
       if (adv) {
         cashDelta -= adv.weeklyRetainer;
-        const taxSaved = Math.round(adv.weeklyRetainer * (adv.taxReductionPct / 10));
+        const taxSaved = 0;
         nextState.advisorReports.unshift({
           week: (player.dateWeek || 1) + 1,
           summary: `Weekly Wealth Analysis by ${adv.name} (${adv.firm})`,
           recommendations: [
-            `Tax optimization saved an estimated $${taxSaved.toLocaleString()} this week.`,
+            `Wealth strategy review complete (tax handled by your Empire Tax system).`,
             'Recommend allocating excess liquidity into high-yield real estate or blue-chip entertainment equities.',
           ],
-          taxSaved,
+          taxSaved: 0,
         });
-        logs.push(`📈 Financial Advisor ${adv.name} optimized taxes & saved $${taxSaved.toLocaleString()}.`);
+        logs.push(`📈 Financial Advisor ${adv.name} completed weekly wealth strategy review.`);
       }
     }
 

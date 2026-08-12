@@ -23,7 +23,6 @@ import { GlobalExpansionView } from '../empire/GlobalExpansionView';
 import { FoundationView } from '../empire/FoundationView';
 import { EmpireDashboardView } from '../empire/EmpireDashboardView';
 import { InvestmentsView } from '../empire/InvestmentsView';
-import { SecurityView } from '../empire/SecurityView';
 import { ReportsView } from '../empire/ReportsView';
 
 import {
@@ -102,13 +101,6 @@ const EMPIRE_FEATURE_CARDS: FeatureCardConfig[] = [
   },
 
   // Row 3
-  {
-    id: 'SECURITY',
-    title: 'Security & Protection',
-    subtitle: 'Bodyguards & Cyber Security',
-    icon: Shield,
-    color: 'text-blue-400 border-blue-500/30 bg-blue-500/10 hover:border-blue-400',
-  },
   {
     id: 'ELITE_CLUB',
     title: 'Elite Club',
@@ -301,14 +293,6 @@ export const EmpireScreen: React.FC = () => {
             onBack={() => setActiveFeature(null)}
           />
         );
-      case 'SECURITY':
-        return (
-          <SecurityView
-            empireState={empireState}
-            onUpdateState={handleUpdateState}
-            onBack={() => setActiveFeature(null)}
-          />
-        );
       case 'REPORTS':
         return (
           <ReportsView
@@ -369,10 +353,6 @@ export const EmpireScreen: React.FC = () => {
         return `${(empireState?.boardSeats || []).length} Seats`;
       case 'GLOBAL_EXPANSION':
         return `${(empireState?.globalHubs || []).length} Offices`;
-      case 'SECURITY':
-        return empireState?.security && (empireState.security.activePackages || []).length > 0
-          ? `${empireState.security.activePackages.length} Active`
-          : 'Standard';
       case 'REPORTS':
         return businessesList.length > 0 || realEstateList.length > 0 ? 'Audits Ready' : 'No Statements';
       case 'EMPIRE_DASHBOARD':
