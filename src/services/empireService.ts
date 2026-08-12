@@ -599,6 +599,18 @@ export const createInitialEmpireState = (player: Player): EmpireFullState => {
       taxSaved: 0,
       auditRiskPercent: 5,
       auditHistory: [],
+      // REAL TAX ENGINE (v2)
+      ytdTaxableIncome: 0,
+      ytdBusinessIncome: 0,
+      ytdWithheld: 0,
+      ytdDeductions: 0,
+      ytdCharityDonations: 0,
+      ytdStudioExpenses: 0,
+      ytdBusinessLosses: 0,
+      ytdRetainers: 0,
+      lastCharityTotal: 0,
+      lastStudioExpensesTotal: 0,
+      weeklyWithheldHistory: [],
     },
 
     achievements: INITIAL_ACHIEVEMENTS,
@@ -954,41 +966,10 @@ export class EmpireService {
       });
     }
 
-    // 4. TAX CALCULATION & AUDIT
-    const grossIncome = totalBusinessRevenue + totalRentalIncome + (player.money > 100000 ? 5000 : 0);
-    let taxDiscountPercent = 0;
-    if (state.taxState.accountantTier === 'Standard CPA') taxDiscountPercent = 0.15;
-    if (state.taxState.accountantTier === 'Boutique Firm') taxDiscountPercent = 0.35;
-    if (state.taxState.accountantTier === 'Elite Offshore Tax Attorneys') taxDiscountPercent = 0.60;
-
-    const baseTax = Math.floor(grossIncome * 0.22);
-    const taxSaved = Math.floor(baseTax * taxDiscountPercent);
-    const finalTaxDue = Math.max(0, baseTax - taxSaved);
-
-    state.taxState.incomeTax = Math.floor(grossIncome * 0.12);
-    state.taxState.corporateTax = Math.floor(totalBusinessRevenue * 0.08);
-    state.taxState.propertyTax = Math.floor(totalRentalIncome * 0.05);
-    state.taxState.totalTaxDue = finalTaxDue;
-    state.taxState.taxSaved = taxSaved;
-
-    // Random Tax Audit check
-    if (Math.random() * 100 < state.taxState.auditRiskPercent && finalTaxDue > 20000) {
-      const passed = Math.random() > (state.taxState.accountantTier === 'None' ? 0.6 : 0.2);
-      const penalty = passed ? 0 : Math.floor(finalTaxDue * 0.5);
-      state.taxState.auditHistory.unshift({
-        week,
-        year,
-        passed,
-        penaltyOrSavings: penalty,
-        note: passed ? 'IRS Audit cleared successfully with zero fines.' : `IRS Audit failure! Penalty fine of $${penalty.toLocaleString()} assessed.`,
-      });
-      if (!passed) {
-        netWeeklyCashYield -= penalty;
-        logMessages.push(`🏛️ IRS TAX AUDIT: Non-compliance penalty of $${penalty.toLocaleString()} deducted.`);
-      } else {
-        logMessages.push(`🏛️ IRS TAX AUDIT: Audit passed cleanly by your accounting team.`);
-      }
-    }
+    // 4. TAX — REMOVED FAKE CALCULATION (was computing from invented income and
+    // never touching player money). The REAL tax engine lives in GameContext:
+    // weekly withholding from actual income + Week 52 filing + real-trigger audits.
+    // taxState is preserved here untouched so GameContext can read/write it.
 
     // 5. HOLDING COMPANY VALUATION UPDATE
     if (state.holdingCompany.isFormed) {
@@ -1096,7 +1077,7 @@ export class EmpireService {
         case 'ach_m_7': if (netWorth >= 500000000) shouldUnlock = true; break;
         case 'ach_m_8': if (liquidCash >= 10000000) shouldUnlock = true; break;
         case 'ach_m_9': if (state.taxState.taxSaved >= 250000) shouldUnlock = true; break;
-        case 'ach_m_10': if (grossIncome >= 500000) shouldUnlock = true; break;
+        case 'ach_m_10': if ((state.taxState.ytdTaxableIncome || 0) >= 500000) shouldUnlock = true; break;
 
         // Secret
         case 'ach_h_1': if ((state.rivalries || []).some((r) => r?.relationshipLevel === 'Arch Rival' || r?.relationshipLevel === 'Legendary Rival')) shouldUnlock = true; break;

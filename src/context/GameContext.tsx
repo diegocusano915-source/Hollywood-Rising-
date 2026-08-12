@@ -2562,6 +2562,186 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (achievementRewardCash > 0) p.money = (p.money || 0) + achievementRewardCash;
     if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + achievementRewardXp;
 
+    // ===== 8. REAL TAX ENGINE — weekly withholding from REAL income =====
+    // Taxes come from this week's real earnings and are actually deducted from
+    // cash. Progressive brackets: 10% / 22% / 35% / 37%. Deductions = accountant
+    // tier % x real charity + studio + business losses + retainers. Holding
+    // Company = incorporation: business income at 21% corporate. Week 52 =
+    // year-end filing (refund or balance due) then YTD resets. Audits only
+    // trigger from a real underpaid filing.
+    let weeklyWithheld = 0;
+    let taxFilingLine: string | null = null;
+    let filingIncome = 0;
+    let filingWithheld = 0;
+    let filingDue = 0;
+    let filingDiff = 0;
+    try {
+      const empireStateNow = empireResult.updatedState;
+      const tax = empireStateNow.taxState;
+      const isCorp = !!(empireStateNow.holdingCompany && empireStateNow.holdingCompany.isFormed);
+      const tierPct =
+        tax.accountantTier === 'Standard CPA' ? 0.15 :
+        tax.accountantTier === 'Boutique Firm' ? 0.35 :
+        tax.accountantTier === 'Elite Offshore Tax Attorneys' ? 0.60 : 0;
+      const progressiveTax = (taxable: number) => {
+        const t = Math.max(0, taxable);
+        if (t <= 100000) return Math.floor(t * 0.10);
+        if (t <= 1000000) return Math.floor(100000 * 0.10 + (t - 100000) * 0.22);
+        if (t <= 10000000) return Math.floor(100000 * 0.10 + 900000 * 0.22 + (t - 1000000) * 0.35);
+        return Math.floor(100000 * 0.10 + 900000 * 0.22 + 9000000 * 0.35 + (t - 10000000) * 0.37);
+      };
+      const finalTaxOn = (income: number, biz: number, ded: number) =>
+        isCorp
+          ? progressiveTax(Math.max(0, income - biz - ded)) + Math.floor(biz * 0.21)
+          : progressiveTax(Math.max(0, income - ded));
+
+      // REAL deduction pools — delta tracking keeps numbers real across years
+      const charityTotal = (RepresentationService.getState()?.charities || []).reduce(
+        (a: number, c: any) => a + (c.totalDonated || 0), 0
+      );
+      const charityDelta = Math.max(0, charityTotal - (tax.lastCharityTotal || 0));
+      const studioTotal = (loadStudioState().financials || [])
+        .filter((f) => f.type === 'COST')
+        .reduce((a, f) => a + (f.amount || 0), 0);
+      const studioDelta = Math.max(0, studioTotal - (tax.lastStudioExpensesTotal || 0));
+
+      tax.ytdCharityDonations = (tax.ytdCharityDonations || 0) + charityDelta;
+      tax.ytdStudioExpenses = (tax.ytdStudioExpenses || 0) + studioDelta;
+      tax.ytdBusinessLosses = (tax.ytdBusinessLosses || 0) + (negBusinessLoss || 0);
+      tax.ytdRetainers = (tax.ytdRetainers || 0) + (prRetainerExpensesThisWeek || 0) + (legalRetainerExpensesThisWeek || 0);
+      tax.lastCharityTotal = charityTotal;
+      tax.lastStudioExpensesTotal = studioTotal;
+
+      // Weekly withholding on the real week's income (marginal increase)
+      const incomeThisWeek = totalWeeklyIncome || 0;
+      const bizIncomeThisWeek = isCorp ? (posBusinessIncome || 0) : 0;
+      if (incomeThisWeek > 0) {
+        const prevIncome = tax.ytdTaxableIncome || 0;
+        const prevBiz = tax.ytdBusinessIncome || 0;
+        const prevDed = tax.ytdDeductions || 0;
+        const prevTax = finalTaxOn(prevIncome, prevBiz, prevDed);
+        const newIncome = prevIncome + incomeThisWeek;
+        const newBiz = prevBiz + bizIncomeThisWeek;
+        const newDed = (tax.ytdCharityDonations + tax.ytdStudioExpenses + tax.ytdBusinessLosses + tax.ytdRetainers) * tierPct;
+        const newTax = finalTaxOn(newIncome, newBiz, newDed);
+        weeklyWithheld = Math.max(0, Math.floor(newTax - prevTax));
+        tax.ytdTaxableIncome = newIncome;
+        tax.ytdBusinessIncome = newBiz;
+        tax.ytdDeductions = Math.floor(newDed);
+        tax.ytdWithheld = (tax.ytdWithheld || 0) + weeklyWithheld;
+        tax.weeklyWithheldHistory = [
+          { week: newWeek, year: newYear, income: incomeThisWeek, withheld: weeklyWithheld },
+          ...(tax.weeklyWithheldHistory || []),
+        ].slice(0, 104);
+        if (weeklyWithheld > 0) {
+          p.money = Math.max(0, (p.money || 0) - weeklyWithheld);
+          empireBusinesses.push(`🏛️ Income tax withheld: -$${weeklyWithheld.toLocaleString()}`);
+        }
+      }
+
+      // REAL-TRIGGER AUDIT: only after an underpaid filing (auditPending set at filing)
+      if (tax.auditPending) {
+        if ((tax.auditPendingWeeks || 0) >= 3) {
+          const base = tax.auditPenaltyBase || 0;
+          const hasLawyer = (RepresentationService.getState()?.lawFirm?.hiredFirmTier || 'None') !== 'None';
+          const cleared = hasLawyer ? Math.random() < 0.65 : Math.random() < 0.5;
+          const penalty = cleared ? 0 : Math.floor(base * 0.3);
+          tax.auditHistory.unshift({
+            week: newWeek,
+            year: newYear,
+            passed: cleared,
+            penaltyOrSavings: penalty,
+            note: cleared
+              ? 'IRS audit cleared by your legal team with zero fines.'
+              : `IRS audit failure — $${penalty.toLocaleString()} penalty assessed on your underpaid filing.`,
+          });
+          if (!cleared && penalty > 0) {
+            p.money = Math.max(0, (p.money || 0) - penalty);
+            empireBusinesses.push(`🏛️ IRS AUDIT PENALTY: -$${penalty.toLocaleString()}`);
+          }
+          tax.auditPending = false;
+          tax.auditPenaltyBase = 0;
+          tax.auditPendingWeeks = 0;
+        } else {
+          tax.auditPendingWeeks = (tax.auditPendingWeeks || 0) + 1;
+        }
+      }
+
+      // YEAR-END FILING at Week 52 — refund or balance due (real cash)
+      if (newWeek === 52) {
+        const taxFinal = finalTaxOn(tax.ytdTaxableIncome || 0, tax.ytdBusinessIncome || 0, tax.ytdDeductions || 0);
+        const diff = (tax.ytdWithheld || 0) - taxFinal; // positive = refund
+        filingIncome = tax.ytdTaxableIncome || 0;
+        filingWithheld = tax.ytdWithheld || 0;
+        filingDiff = diff;
+        tax.totalTaxDue = taxFinal;
+        tax.incomeTax = Math.floor(taxFinal * (isCorp && (tax.ytdBusinessIncome || 0) > 0 ? 0.7 : 1));
+        tax.corporateTax = Math.floor((tax.ytdBusinessIncome || 0) * (isCorp ? 0.21 : 0));
+        tax.taxSaved = tax.ytdDeductions || 0;
+        tax.lastFilingYear = p.dateYear;
+        if (diff > 0) {
+          p.money = (p.money || 0) + diff;
+          tax.lastFilingResult = 'REFUND';
+          tax.lastFilingAmount = diff;
+          taxFilingLine = `💰 TAX REFUND: +$${diff.toLocaleString()} (over-withheld)`;
+        } else if (diff < 0) {
+          const due = Math.min(p.money || 0, -diff);
+          p.money = Math.max(0, (p.money || 0) + diff);
+          filingDue = -diff;
+          tax.lastFilingResult = 'BALANCE_DUE';
+          tax.lastFilingAmount = -diff;
+          tax.auditPending = true;
+          tax.auditPendingWeeks = 0;
+          tax.auditPenaltyBase = -diff;
+          taxFilingLine = `⚠️ TAX BALANCE DUE: -$${due.toLocaleString()} paid`;
+        } else {
+          tax.lastFilingResult = 'NONE';
+          tax.lastFilingAmount = 0;
+          taxFilingLine = '📄 Tax filing complete — you broke even.';
+        }
+        // Reset YTD counters for the new tax year
+        tax.ytdTaxableIncome = 0;
+        tax.ytdBusinessIncome = 0;
+        tax.ytdWithheld = 0;
+        tax.ytdDeductions = 0;
+        tax.ytdCharityDonations = 0;
+        tax.ytdStudioExpenses = 0;
+        tax.ytdBusinessLosses = 0;
+        tax.ytdRetainers = 0;
+        tax.lastCharityTotal = charityTotal;
+        tax.lastStudioExpensesTotal = studioTotal;
+      }
+
+      EmpireService.saveState(empireStateNow);
+
+      if (taxFilingLine) {
+        empireBusinesses.push(`🏛️ ${taxFilingLine}`);
+        newInboxMessages.unshift({
+          id: `msg_tax_filing_${Date.now()}`,
+          category: 'FINANCE',
+          sender: 'IRS — Internal Revenue Service',
+          senderRole: 'Tax Filing & Compliance',
+          senderAvatar: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=100',
+          subject:
+            tax.lastFilingResult === 'REFUND'
+              ? `💰 TAX REFUND DEPOSITED: $${(tax.lastFilingAmount || 0).toLocaleString()}`
+              : tax.lastFilingResult === 'BALANCE_DUE'
+                ? `⚠️ TAX BALANCE DUE PAID: $${(tax.lastFilingAmount || 0).toLocaleString()}`
+                : '📄 TAX FILING COMPLETE',
+          body:
+            tax.lastFilingResult === 'REFUND'
+              ? `Year ${p.dateYear} filing complete.\n\n• YTD Taxable Income: $${filingIncome.toLocaleString()}\n• Total Withheld: $${filingWithheld.toLocaleString()}\n• Final Tax Due: $${tax.totalTaxDue.toLocaleString()}\n• OVER-WITHHELD: $${filingDiff.toLocaleString()} — refunded to your account.\n\nYour accountant kept the IRS happy and your money is back.`
+              : tax.lastFilingResult === 'BALANCE_DUE'
+                ? `Year ${p.dateYear} filing complete.\n\n• YTD Taxable Income: $${filingIncome.toLocaleString()}\n• Total Withheld: $${filingWithheld.toLocaleString()}\n• Final Tax Due: $${tax.totalTaxDue.toLocaleString()}\n• BALANCE DUE: $${filingDue.toLocaleString()} — paid from your cash.\n\nUnderpayment can trigger an IRS audit. A retained law firm helps you fight it.`
+                : `Year ${p.dateYear} filing complete.\n\n• YTD Taxable Income: $${filingIncome.toLocaleString()}\n• Total Withheld: $${filingWithheld.toLocaleString()}\n• Final Tax Due: $${tax.totalTaxDue.toLocaleString()}\n\nYou broke even — exactly what was withheld was owed.`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+      }
+    } catch (e) {
+      console.error('Real tax engine error:', e);
+    }
+
     // Synchronize Network Banking & Record Itemized Bank Transactions
     if (!networkState.bankAccount) {
       networkState.bankAccount = {
@@ -2658,7 +2838,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         propertyIncome: propertyIncomeThisWeek,
         boxOfficeWeeklyGross: boxOfficeWeeklyGrossThisWeek,
         endorsementIncome: endorsementIncomeThisWeek + sponsorshipIncomeThisWeek,
-        taxes: 0,
+        taxes: weeklyWithheld,
         netWeeklyChange,
       },
       social: {
