@@ -1411,9 +1411,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (RepresentationService.hasActiveCriticalScandal()) score -= 25; // Active CRITICAL scandal hurts casting
 
         let requiredScore = 15;
-        if (aud.roleType === 'Lead') requiredScore = 40;
-        else if (aud.roleType === 'Principal') requiredScore = 28;
-        else if (aud.roleType === 'Support') requiredScore = 20;
+        // SMALL TOUCH: new players can actually book Principal/Support roles.
+        // Leads stay aspirational (34) but a strong early career reaches them.
+        if (aud.roleType === 'Lead') requiredScore = 34;
+        else if (aud.roleType === 'Principal') requiredScore = 22;
+        else if (aud.roleType === 'Support') requiredScore = 16;
 
         const isAccepted = (score + Math.random() * 20) >= requiredScore;
         const studioName = aud.studio || 'Paramount Pictures';
