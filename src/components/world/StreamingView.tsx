@@ -1,27 +1,36 @@
 /**
- * HOLLYWOOD RISING - Streaming Platforms View (World Ecosystem)
- * 13 Real Streaming Platforms, Exclusive Deals, Pitching Projects & Licensing.
- * Requires Personal Production Studio in Empire to pitch projects.
+ * HOLLYWOOD RISING - STREAMING PLATFORMS (REWIRED)
+ * Real platforms with logos (Netflix, Prime, Disney+...), personality tiers,
+ * pitch -> bid -> accept/counter/reject negotiation, exclusive/non-exclusive,
+ * weekly royalties, social promotion for the winning platform.
  */
-
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { StreamingPlatform } from '../../types/world';
-import { INITIAL_STREAMING_PLATFORMS } from '../../database/worldDatabase';
 import {
-  Video,
-  Tv,
+  StreamingPlatform,
+} from '../../types/world';
+import {
+  loadStreamingState,
+  saveStreamingState,
+  submitPitch,
+  acceptBid,
+  counterBid,
+  rejectBid,
+  platformPersonality,
+} from '../../services/streamingEngine';
+import { loadStudioState, saveStudioState } from '../../services/personalStudioEngine';
+import {
   ArrowLeft,
-  Sparkles,
-  DollarSign,
-  CheckCircle2,
-  Lock,
-  Film,
-  Send,
-  X,
-  Award,
-  Globe,
+  Video,
   Building2,
+  Handshake,
+  X,
+  Check,
+  Send,
+  TrendingUp,
+  Crown,
+  Film,
+  Tv,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 
@@ -29,267 +38,162 @@ interface StreamingViewProps {
   onBack: () => void;
 }
 
+const TIER_STYLE: Record<string, string> = {
+  Mega: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  Major: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  Mid: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+  Indie: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
+};
+
 export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
-  const { player, settings, releasedMovies, updatePlayer } = useGame();
+  const { player, settings, releasedMovies, updateSave, saveData, updateSave: updateSaveData } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
-
-  const [platforms, setPlatforms] = useState<StreamingPlatform[]>(INITIAL_STREAMING_PLATFORMS);
+  const [state, setState] = useState(() => loadStreamingState());
   const [selectedPlatform, setSelectedPlatform] = useState<StreamingPlatform | null>(null);
-  const [pitchTitle, setPitchTitle] = useState('');
-  const [pitchType, setPitchType] = useState<'Movie' | 'Series'>('Movie');
-  const [pitchFeedback, setPitchFeedback] = useState<string | null>(null);
+  const [pitchProject, setPitchProject] = useState<any>(null);
+  const [exclusive, setExclusive] = useState(false);
+  const [counterPct, setCounterPct] = useState(10);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const hasStudio = !!player.empire?.indieStudioOwned;
+  const showFb = (m: string) => { setFeedback(m); setTimeout(() => setFeedback(null), 5000); };
+  const refresh = () => setState({ ...loadStreamingState() });
 
-  const handlePitchProject = (platformId: string) => {
-    if (!pitchTitle.trim()) {
-      setPitchFeedback('Please enter a project title to pitch.');
-      return;
-    }
+  const studio = loadStudioState();
+  const studioProjects = studio.projects.filter((p) => p.status === 'ACTIVE' || p.status === 'COMPLETED');
+  const pickable = [...(releasedMovies || []).slice(0, 5), ...studioProjects];
 
-    // REALISTIC PAYOUT: based on your real career stats, not a random roll
-    const latestMovie = releasedMovies && releasedMovies.length > 0 ? releasedMovies[0] : null;
-    const trackRecord = Math.floor((player.fameXp || 0) * 220 + (player.fans || 0) * 0.4 + (player.moviesCompleted || 0) * 60000);
-    const lastHit = latestMovie && latestMovie.worldwideGross ? Math.floor(latestMovie.worldwideGross * 0.03) : 0;
-    const upfrontPayout = Math.max(15000, Math.floor((trackRecord + lastHit) * (0.85 + Math.random() * 0.35)));
-    const capped = Math.min(upfrontPayout, Math.floor(200000000));
-
-    setPlatforms((prev) =>
-      prev.map((p) => {
-        if (p.id === platformId) {
-          return {
-            ...p,
-            status: 'Partner',
-            exclusiveDealsCount: p.exclusiveDealsCount + 1,
-            moviesLicensed: pitchType === 'Movie' ? p.moviesLicensed + 1 : p.moviesLicensed,
-            seriesLicensed: pitchType === 'Series' ? p.seriesLicensed + 1 : p.seriesLicensed,
-            moneyEarned: p.moneyEarned + capped,
-          };
-        }
-        return p;
-      })
-    );
-
-    // Player ACTUALLY receives the money (real income)
-    updatePlayer({ money: (player.money || 0) + capped });
-
-    setPitchFeedback(`PITCH ACCEPTED! ${selectedPlatform?.name} signed "${pitchTitle}" for an upfront licensing payout of $${capped.toLocaleString()} — deposited to your account!`);
-    setPitchTitle('');
-    setTimeout(() => {
-      setSelectedPlatform(null);
-      setPitchFeedback(null);
-    }, 3500);
+  // Pitch the selected project to the selected platform
+  const doPitch = () => {
+    if (!selectedPlatform || !pitchProject) return;
+    const isStudio = pitchProject && pitchProject.id && pitchProject.id.startsWith('proj_');
+    const rating = isStudio ? (pitchProject.overallRating || 70) : (pitchProject.criticRating || 70);
+    const budget = isStudio ? (pitchProject.totalBudget || 10000000) : (pitchProject.budget || 30000000);
+    const gross = isStudio ? 0 : (pitchProject.worldwideGross || 0);
+    const type = isStudio ? (pitchProject.type === 'Series' ? 'Series' : 'Movie') : (pitchProject.category === 'TV Series' ? 'Series' : 'Movie');
+    const res = submitPitch(state, selectedPlatform.id, pitchProject.movieTitle || pitchProject.title, type, rating, budget, gross, exclusive, pitchProject.id);
+    showFb(res.message);
+    setPitchProject(null);
+    refresh();
   };
 
+  // Handle a pending bid on this platform
+  const pendingBid = state.pendingBids.find((b) => b.platformId === selectedPlatform?.id && b.status === 'PENDING');
+
   return (
-    <div
-      className="min-h-screen w-full flex flex-col p-4 select-none overflow-y-auto pb-24 space-y-5"
-      style={{ backgroundColor: theme.background }}
-    >
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="px-4 py-2.5 rounded-2xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg"
-        >
-          <ArrowLeft className="w-4 h-4 text-amber-400" />
-          <span>Back to World Ecosystem</span>
+    <div className="min-h-screen w-full flex flex-col p-3 sm:p-5 select-none overflow-y-auto pb-28 space-y-4" style={{ backgroundColor: theme.background }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button onClick={onBack} className="px-4 py-2.5 rounded-2xl bg-black/60 hover:bg-black/80 border border-white/10 text-white text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg">
+          <ArrowLeft className="w-4 h-4 text-amber-400" /> <span>Back to World</span>
         </button>
-
-        <span className="text-xs font-black text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-1.5">
-          <Video className="w-4 h-4 text-amber-400" />
-          Real Streaming Networks Suite
-        </span>
-      </div>
-
-      {/* Header Banner */}
-      <div
-        className="rounded-3xl p-6 border shadow-2xl space-y-2 relative overflow-hidden"
-        style={{
-          backgroundColor: theme.headers,
-          borderColor: theme.borderDark,
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/40">
-            <Video className="w-8 h-8 text-amber-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-white">STREAMING NETWORKS & PLATFORMS</h1>
-            <p className="text-xs text-amber-300 font-medium">
-              Pitch original movies & series, negotiate exclusive overall deals, and track global licensing royalties.
-            </p>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-black text-white uppercase tracking-wider">
+          <Video className="w-5 h-5 text-red-400" /> <span>Streaming Platforms</span>
         </div>
       </div>
 
-      {!hasStudio && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1 flex items-center gap-3">
-          <Lock className="w-5 h-5 text-amber-400 shrink-0" />
-          <div>
-            <span className="font-extrabold text-amber-300 block uppercase text-[10px]">
-              Studio Pitch Requirement
-            </span>
-            <p className="text-gray-300">
-              You can browse global streaming platforms. To pitch original film/series titles, unlock a Personal Production Studio in Empire.
-            </p>
-          </div>
-        </div>
-      )}
+      {feedback && <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-200 text-xs font-black text-center">{feedback}</div>}
 
-      {/* Streaming Platform Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {platforms.map((plat) => (
-          <div
-            key={plat.id}
-            className="p-5 rounded-3xl border border-white/10 bg-black/40 hover:bg-black/70 hover:border-amber-400/50 transition-all space-y-4 shadow-xl flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shadow-lg overflow-hidden shrink-0 border border-white/20"
-                    style={{ backgroundColor: plat.color }}
-                  >
-                    <img src={plat.logoUrl} alt={plat.name} className="w-full h-full object-cover" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-black text-white">{plat.name}</h3>
-                    <span className="text-[10px] text-gray-400 font-bold block">
-                      {plat.subscribers} Global Subscribers
-                    </span>
-                  </div>
-                </div>
-
-                <span
-                  className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${
-                    plat.status === 'Exclusive'
-                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                      : plat.status === 'Partner'
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                      : 'bg-gray-800 text-gray-400 border-gray-700'
-                  }`}
-                >
-                  {plat.status}
-                </span>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-black/60 border border-white/5 text-[10px]">
-                <div>
-                  <span className="text-gray-500 block font-bold">Exclusive Deals</span>
-                  <span className="font-black text-amber-300">{plat.exclusiveDealsCount} Deals</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block font-bold">Licensed Titles</span>
-                  <span className="font-black text-sky-300">
-                    {plat.moviesLicensed + plat.seriesLicensed} Works
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block font-bold">Money Earned</span>
-                  <span className="font-black text-emerald-400">${plat.moneyEarned.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Pitch Action */}
-            {hasStudio ? (
-              <button
-                onClick={() => setSelectedPlatform(plat)}
-                className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-102 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Pitch Project to {plat.name}
-              </button>
-            ) : (
-              <button
-                disabled
-                className="w-full py-3 rounded-2xl font-black text-xs bg-gray-800 text-gray-400 border border-white/10 flex items-center justify-center gap-2 cursor-not-allowed"
-              >
-                <Lock className="w-4 h-4 text-amber-400" />
-                Personal Studio Required
-              </button>
-            )}
-          </div>
-        ))}
+      <div className="p-4 rounded-3xl border border-red-500/30 bg-gradient-to-br from-red-950/30 via-black/70 to-black/70 space-y-1">
+        <h2 className="text-sm font-black uppercase tracking-wider text-red-200 flex items-center gap-2"><Building2 className="w-4 h-4 text-red-400" /> Network Bidding & Licensing</h2>
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          Pitch your movies/series to real platforms — they <strong className="text-white">bid</strong>, you <strong className="text-white">negotiate</strong> (accept / counter / reject).
+          Exclusive deals pay more and they promote you on socials. Active deals earn <strong className="text-white">weekly streaming royalties</strong>.
+        </p>
       </div>
 
-      {/* Pitch Modal */}
-      {selectedPlatform && hasStudio && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div
-            className="w-full max-w-md rounded-3xl border border-amber-400/40 p-6 space-y-4 shadow-2xl relative"
-            style={{ backgroundColor: theme.headers }}
-          >
-            <button
-              onClick={() => setSelectedPlatform(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-gray-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-amber-400 uppercase">STREAMING PITCH SUITE</span>
-              <h2 className="text-xl font-black text-white">Pitch to {selectedPlatform.name}</h2>
-              <p className="text-xs text-gray-300">
-                Submit an original film or series project directly to executives for upfront licensing & royalties.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-300 block mb-1">Project Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Neon Horizon, Cyber Chronicles..."
-                  value={pitchTitle}
-                  onChange={(e) => setPitchTitle(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-300 block mb-1">Format Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPitchType('Movie')}
-                    className={`py-2 rounded-xl text-xs font-bold cursor-pointer ${
-                      pitchType === 'Movie'
-                        ? 'bg-amber-400 text-black'
-                        : 'bg-black/50 text-gray-400 border border-white/10'
-                    }`}
-                  >
-                    Feature Film
-                  </button>
-                  <button
-                    onClick={() => setPitchType('Series')}
-                    className={`py-2 rounded-xl text-xs font-bold cursor-pointer ${
-                      pitchType === 'Series'
-                        ? 'bg-amber-400 text-black'
-                        : 'bg-black/50 text-gray-400 border border-white/10'
-                    }`}
-                  >
-                    TV Series
-                  </button>
+      {/* Platform grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {state.platforms.map((p) => {
+          const pers = platformPersonality(p);
+          const deals = p.activeDeals?.length || 0;
+          return (
+            <button key={p.id} onClick={() => setSelectedPlatform(p)} className="p-3 rounded-2xl border border-white/10 bg-black/50 text-left cursor-pointer hover:border-red-400 transition-all">
+              <div className="flex items-center gap-2">
+                <img src={p.logoUrl} alt={p.name} className="w-8 h-8 rounded-lg object-cover border border-white/20" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black text-white truncate">{p.name}</p>
+                  <p className="text-[8px] text-gray-500">{p.subscribers}</p>
                 </div>
               </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className={`px-1.5 py-0.5 rounded border text-[8px] font-black ${TIER_STYLE[p.budgetTier] || TIER_STYLE.Mid}`}>{p.budgetTier}</span>
+                <span className={`text-[8px] font-black ${p.status === 'Exclusive' ? 'text-emerald-300' : p.status === 'Partner' ? 'text-sky-300' : 'text-gray-500'}`}>{p.status}</span>
+                {deals > 0 && <span className="text-[8px] text-amber-300 font-black ml-auto">{deals} deal{deals > 1 ? 's' : ''}</span>}
+              </div>
+              <p className="text-[8px] text-gray-600 mt-1 truncate">{pers.tierLabel} · Rep {p.reputation}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected platform detail */}
+      {selectedPlatform && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-3 border-b border-white/10">
+            <button onClick={() => setSelectedPlatform(null)} className="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer">← Back</button>
+            <div className="flex items-center gap-2">
+              <img src={selectedPlatform.logoUrl} alt="" className="w-6 h-6 rounded object-cover" />
+              <span className="text-xs font-black">{selectedPlatform.name}</span>
+            </div>
+            <span className="text-[10px] text-gray-500">{selectedPlatform.subscribers}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Platform info */}
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/10 space-y-1">
+              <p className="text-xs font-black text-white">{selectedPlatform.name}</p>
+              <p className="text-[10px] text-gray-400">{platformPersonality(selectedPlatform).tierLabel} · Reputation {selectedPlatform.reputation}/100 · Genres: {selectedPlatform.genrePrefs?.join(', ') || 'All'}</p>
+              <p className="text-[10px] text-gray-500">Status: <strong className={selectedPlatform.status === 'Exclusive' ? 'text-emerald-300' : selectedPlatform.status === 'Partner' ? 'text-sky-300' : 'text-gray-400'}>{selectedPlatform.status}</strong> · {selectedPlatform.moviesLicensed + selectedPlatform.seriesLicensed} works licensed</p>
             </div>
 
-            {pitchFeedback && (
-              <p className="text-xs font-bold text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/30">
-                {pitchFeedback}
-              </p>
+            {/* Active deals */}
+            {selectedPlatform.activeDeals && selectedPlatform.activeDeals.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black uppercase text-gray-400">Active Deals ({selectedPlatform.activeDeals.length})</h4>
+                {selectedPlatform.activeDeals.slice(0, 5).map((d) => (
+                  <div key={d.id} className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[10px]">
+                    <p className="font-black text-white">{d.projectTitle} <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${d.exclusive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-sky-500/20 text-sky-300'}`}>{d.exclusive ? 'EXCLUSIVE' : 'NON-EXCL'}</span></p>
+                    <p className="text-gray-500">${d.upfront.toLocaleString()} upfront · {d.royaltyRate}% royalty · {d.weeksRemaining}w left · ${d.weeklyRoyalty.toLocaleString()}/wk</p>
+                  </div>
+                ))}
+              </div>
             )}
 
-            <button
-              onClick={() => handlePitchProject(selectedPlatform.id)}
-              className="w-full py-3.5 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-102 transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
-            >
-              <Send className="w-4 h-4" />
-              Submit Pitch Proposal
-            </button>
+            {/* Pending bid on this platform */}
+            {pendingBid && (
+              <div className="p-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 space-y-2">
+                <p className="text-xs font-black text-amber-200 flex items-center gap-1.5"><Handshake className="w-4 h-4" /> Offer from {selectedPlatform.name}</p>
+                <p className="text-[10px] text-gray-300">{pendingBid.projectTitle} · {pendingBid.projectType} · {pendingBid.exclusive ? 'EXCLUSIVE' : 'Non-exclusive'}</p>
+                <p className="text-sm font-black text-emerald-400">${pendingBid.upfront.toLocaleString()} upfront · {pendingBid.royaltyRate}% royalty</p>
+                <div className="flex gap-2">
+                  <button onClick={() => { const r = acceptBid(state, pendingBid.id); if (r.success) updateSave({ ...saveData, player: { ...player, money: (player.money || 0) + r.upfront } }); showFb(r.message); refresh(); setSelectedPlatform(null); }} className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-black text-[10px] font-black cursor-pointer">✓ ACCEPT</button>
+                  <button onClick={() => { const r = counterBid(state, pendingBid.id, counterPct); showFb(r.message); if (r.success) updateSave({ ...saveData, player: { ...player, money: (player.money || 0) + r.newUpfront } }); refresh(); if (r.success) setSelectedPlatform(null); }} className="flex-1 py-2.5 rounded-xl bg-sky-500 text-black text-[10px] font-black cursor-pointer">↔ COUNTER (+{counterPct}%)</button>
+                  <button onClick={() => { rejectBid(state, pendingBid.id); showFb('Offer rejected.'); refresh(); }} className="px-3 py-2.5 rounded-xl bg-rose-600 text-white text-[10px] font-black cursor-pointer">✕</button>
+                </div>
+                <input type="range" min={5} max={50} step={5} value={counterPct} onChange={(e) => setCounterPct(Number(e.target.value))} className="w-full accent-sky-400" />
+                <p className="text-[8px] text-gray-500 text-center">Counter amount: +{counterPct}% (60% chance they accept)</p>
+              </div>
+            )}
+
+            {/* Pitch a project */}
+            {!pendingBid && (
+              <div className="p-3 rounded-2xl bg-black/50 border border-white/10 space-y-2">
+                <p className="text-[10px] font-black uppercase text-gray-400">Pitch a project to {selectedPlatform.name}</p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {pickable.length === 0 && <p className="text-[10px] text-gray-500">Release movies or produce studio projects first.</p>}
+                  {pickable.map((proj: any) => (
+                    <button key={proj.id || proj.movieTitle} onClick={() => setPitchProject(proj)} className={`w-full p-2 rounded-xl border text-left text-[10px] cursor-pointer ${pitchProject?.id === proj.id || pitchProject?.movieTitle === proj.movieTitle ? 'bg-red-500/20 border-red-400/50 text-white' : 'bg-black/40 border-white/10 text-gray-300'}`}>
+                      {proj.movieTitle || proj.title} · {proj.type || proj.category || 'Movie'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setExclusive(false)} className={`flex-1 py-2 rounded-xl text-[9px] font-black cursor-pointer ${!exclusive ? 'bg-sky-500 text-black' : 'bg-white/10 text-gray-300'}`}>Non-Exclusive (smaller, keep rights)</button>
+                  <button onClick={() => setExclusive(true)} className={`flex-1 py-2 rounded-xl text-[9px] font-black cursor-pointer ${exclusive ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-300'}`}>Exclusive (bigger + promo)</button>
+                </div>
+                <button disabled={!pitchProject} onClick={doPitch} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-black text-[10px] font-black cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1.5">
+                  <Send className="w-3.5 h-3.5" /> PITCH TO {selectedPlatform.name.toUpperCase()}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

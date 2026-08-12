@@ -45,6 +45,7 @@ import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
+import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
@@ -2295,6 +2296,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
     } catch (e) {
       console.error('TV/Radio interview weekly processing error:', e);
+    }
+
+    // 7f2. STREAMING PLATFORM WEEKLY ROYALTIES (real viewership-based)
+    try {
+      const streamState = loadStreamingState();
+      const studioFin = loadStudioState();
+      const royaltyResult = processStreamingRoyaltiesWeek(streamState, p, studioFin.financials, newWeek, newYear);
+      if (royaltyResult.moneyDelta > 0) {
+        p.money = (p.money || 0) + royaltyResult.moneyDelta;
+        socialReputation.push(...royaltyResult.messages);
+      }
+      saveStreamingState(streamState);
+      saveStudioState(studioFin);
+    } catch (e) {
+      console.error('Streaming royalty processing error:', e);
     }
 
     // 7f. PERSONAL STUDIO WEEKLY PROCESSING (energy drain, cast decisions, distribution/release)

@@ -367,3 +367,132 @@ export function closeStudio(state: PersonalStudioState) {
   state.active = false;
   saveStudioState(state);
 }
+
+// ============================================================
+// BEST-IDEAS PASS: real ratings, start filming, crew deductions,
+// renewals (×2/×3 targets, part 7 / 20 seasons, legacy follow-ups)
+// ============================================================
+
+// REAL RATING MATH — everything derives from actual player choices
+export function computeProjectRatings(proj: StudioProject, state: PersonalStudioState): StudioProject['ratings'] {
+  const acceptedCast = proj.cast.filter((c) => c.status === 'ACCEPTED');
+  // Cast & Crew: average of accepted actor ratings (no cast = weak)
+  const castAvg = acceptedCast.length
+    ? Math.round(acceptedCast.reduce((a, c) => a + (ACTOR_POOL.find((x) => x.id === c.actorId)?.rating || 50), 0) / acceptedCast.length)
+    : 30;
+
+  // Directing & Production: director baseline + production allocation share
+  const directing = Math.min(100, Math.round(45 + (proj.allocations.principalCast || 0) * 0.3 + (proj.allocations.distributionMarketing || 0) * 0.2));
+
+  // Editing Sound & VFX: postProduction allocation + equipment (Cutting Gallery + Resonance Chamber)
+  const eqPost = state.equipment.find((e) => e.stat === 'postProduction')?.level || 1;
+  const eqSound = state.equipment.find((e) => e.stat === 'sound')?.level || 1;
+  const editingSoundVfx = Math.min(100, Math.round((proj.allocations.postProduction || 0) * 0.5 + (eqPost + eqSound) * 1.2));
+
+  // Equipment: average level across all 8 departments * 5 (max 100)
+  const eqAvg = Math.round(state.equipment.reduce((a, e) => a + e.level, 0) / Math.max(1, state.equipment.length));
+  const equipment = Math.min(100, eqAvg * 5);
+
+  // Location Set & Design: allocation + number of locations chosen
+  const locationPct = Math.min(100, Math.round((proj.allocations.locationSet || 0) * 0.6 + proj.locations.length * 4));
+  const locationSet = Math.max(10, locationPct);
+
+  // Screenplay: script quality (fixed)
+  const screenplay = proj.scriptQuality;
+
+  return { castCrew: castAvg, directing, editingSoundVfx, equipment, locationSet, screenplay };
+}
+
+export function computeOverallRating(ratings: StudioProject['ratings']): number {
+  return Math.min(100, Math.round(
+    ratings.castCrew * 0.25 +
+    ratings.directing * 0.15 +
+    ratings.editingSoundVfx * 0.15 +
+    ratings.equipment * 0.15 +
+    ratings.locationSet * 0.1 +
+    ratings.screenplay * 0.2
+  ));
+}
+
+// Set a location with allocation % (locations sum their own 100% pool)
+export function toggleLocation(proj: StudioProject, name: string, allocationPct: number): { success: boolean; message: string } {
+  const idx = proj.locations.findIndex((l) => l.name === name);
+  if (idx !== -1) {
+    proj.locations.splice(idx, 1);
+    return { success: true, message: `${name} removed from the shoot.` };
+  }
+  const currentTotal = proj.locations.reduce((a, l) => a + l.allocationPct, 0);
+  if (currentTotal + allocationPct > 100) return { success: false, message: 'Location allocation would exceed 100%.' };
+  proj.locations.push({ name, allocationPct });
+  return { success: true, message: `${name} added (${allocationPct}%).` };
+}
+
+// START FILMING: validates cast accepted + locations set, computes ratings, moves to Distribution
+export function startFilming(state: PersonalStudioState, projectId: string): { success: boolean; message: string } {
+  const proj = state.projects.find((p) => p.id === projectId);
+  if (!proj) return { success: false, message: 'Project not found.' };
+  if (proj.cast.length === 0) return { success: false, message: 'Hire at least one actor first.' };
+  if (proj.cast.some((c) => c.status === 'PENDING')) return { success: false, message: 'Wait for all cast to respond (3-week window).' };
+  if (!proj.cast.some((c) => c.status === 'ACCEPTED')) return { success: false, message: 'No cast accepted yet — improve your offers.' };
+  if (proj.locations.length === 0) return { success: false, message: 'Choose at least one filming location.' };
+
+  // Compute real ratings
+  proj.ratings = computeProjectRatings(proj, state);
+  proj.overallRating = computeOverallRating(proj.ratings);
+  proj.stage = 'Distribution';
+  saveStudioState(state);
+  return { success: true, message: `🎬 Filming wrapped! "${proj.title}" moved to Distribution (Rating ${proj.overallRating}/100).` };
+}
+
+// RENEWAL CHECK: movie ×2 / series ×3 target on completion
+export function checkRenewalEligibility(state: PersonalStudioState, player: Player): { eligible: boolean; reason: string } {
+  const last = state.projects.find((p) => p.status === 'COMPLETED');
+  if (!last) return { eligible: false, reason: 'No completed project yet.' };
+  const earned = state.financials.filter((f) => f.projectId === last.id && f.type === 'INCOME').reduce((a, f) => a + f.amount, 0);
+  const target = last.type === 'Series' ? last.totalBudget * 3 : last.totalBudget * 2;
+  if (earned < target) return { eligible: false, reason: `"${last.title}" earned $${(earned / 1000000).toFixed(0)}M — needs ${last.type === 'Series' ? '×3' : '×2'} target ($${(target / 1000000).toFixed(0)}M).` };
+  if (last.type === 'Movie' && last.renewalCount >= 7) return { eligible: false, reason: 'Movies renew up to Part 7 — a legacy follow-up may return in 2-3 years.' };
+  if (last.type === 'Series' && last.renewalCount >= 20) return { eligible: false, reason: 'Series renew up to 20 seasons.' };
+  return { eligible: true, reason: `"${last.title}" met its target — eligible for renewal!` };
+}
+
+// Accept renewal funding -> creates next part/season project back in Development
+export function acceptRenewal(state: PersonalStudioState, money: number): { success: boolean; message: string; newMoney: number } {
+  const last = state.projects.find((p) => p.status === 'COMPLETED');
+  if (!last) return { success: false, message: 'No completed project to renew.', newMoney: money };
+  const elig = checkRenewalEligibility(state, {} as Player);
+  if (!elig.eligible) return { success: false, message: elig.reason, newMoney: money };
+  const nextCount = last.renewalCount + 1;
+  const funding = Math.floor(last.totalBudget * (last.type === 'Series' ? 0.45 : 0.4) * (1 + nextCount * 0.15));
+  if (money < funding) return { success: false, message: `Renewal funding costs $${funding.toLocaleString()} — you need that cash.`, newMoney: money };
+
+  const nextLabel = last.type === 'Series' ? `Season ${nextCount}` : nextCount === 2 ? 'Part 2: The Sequel' : nextCount === 3 ? 'Part 3: Trilogy Climax' : `Part ${nextCount}`;
+  const renewed: StudioProject = {
+    ...last,
+    id: `proj_${Date.now()}`,
+    title: last.type === 'Series' ? `${last.title.replace(/:\s*Season \d+$/, '')}: Season ${nextCount}` : `${last.title} (${nextLabel})`,
+    stage: 'Development',
+    totalBudget: 0,
+    allocations: { principalCast: 25, distributionMarketing: 25, postProduction: 25, locationSet: 25 },
+    cast: [],
+    locations: [],
+    distributionWeeks: 10,
+    distributionWeeksElapsed: 0,
+    boost: 4,
+    releaseWeeks: 20,
+    releaseWeeksElapsed: 0,
+    marketingBudget: 0,
+    networkPitchPcts: {},
+    bids: [],
+    renewalCount: nextCount,
+    renewedFromId: last.id,
+    status: 'ACTIVE',
+    scriptQuality: Math.min(100, last.scriptQuality + 3),
+  };
+  renewed.ratings = { castCrew: 0, directing: 0, editingSoundVfx: 0, equipment: 0, locationSet: 0, screenplay: renewed.scriptQuality };
+  renewed.overallRating = renewed.scriptQuality;
+  state.projects.unshift(renewed);
+  state.financials.unshift({ id: `fin_${Date.now()}`, projectId: renewed.id, projectTitle: renewed.title, type: 'INCOME', category: 'Renewal', amount: funding, week: 1, year: 2026 });
+  saveStudioState(state);
+  return { success: true, message: `${renewed.title} funded ($${funding.toLocaleString()})! It's in Development — set its budget.`, newMoney: money - funding };
+}

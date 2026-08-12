@@ -101,17 +101,41 @@ export interface StudioPerformance {
   topReleaseTitle?: string;
 }
 
+export type StreamingBudgetTier = 'Mega' | 'Major' | 'Mid' | 'Indie';
+
+export interface StreamingDeal {
+  id: string;
+  projectTitle: string;
+  projectType: 'Movie' | 'Series';
+  platformId: string;
+  exclusive: boolean;
+  upfront: number;
+  royaltyRate: number; // % of gross per week
+  weeklyRoyalty: number;
+  startWeek: number;
+  startYear: number;
+  weeksRemaining: number;
+  totalWeeks: number;
+  movieRefId?: string;
+}
+
 export interface StreamingPlatform {
   id: string;
   name: string;
   logoUrl: string;
   color: string;
   subscribers: string;
+  subscriberBase: number;
   status: 'Neutral' | 'Partner' | 'Exclusive';
   exclusiveDealsCount: number;
   moviesLicensed: number;
   seriesLicensed: number;
   moneyEarned: number;
+  // Streaming rewire: personality
+  budgetTier: StreamingBudgetTier;
+  genrePrefs: string[];
+  reputation: number; // 0-100
+  activeDeals?: StreamingDeal[];
 }
 
 export interface PitchOffer {

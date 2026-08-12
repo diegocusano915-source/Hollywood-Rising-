@@ -33,6 +33,12 @@ import {
   MIN_CAST_FEE,
   MAX_CAST_FEE,
   EQUIPMENT_DEFS,
+  toggleLocation,
+  startFilming,
+  checkRenewalEligibility,
+  acceptRenewal,
+  computeProjectRatings,
+  computeOverallRating,
 } from '../../services/personalStudioEngine';
 import { Player } from '../../types/game';
 import {
@@ -113,7 +119,10 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
     if (res.success) { setDevProject(null); refresh(); }
   };
 
-  const openProduction = (proj: StudioProject) => { setProdProject(proj); setSelectedActor(null); };
+  const [prodSubTab, setProdSubTab] = useState<'CAST' | 'LOCATIONS'>('CAST');
+  const [locPct, setLocPct] = useState(5);
+  const [showFilmingDisclaimer, setShowFilmingDisclaimer] = useState(false);
+  const openProduction = (proj: StudioProject) => { setProdProject(proj); setSelectedActor(null); setProdSubTab('CAST'); };
 
   // ================= DISTRIBUTION =================
   const openDistribution = (proj: StudioProject) => {
@@ -382,7 +391,27 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
               <div className="p-4 rounded-3xl border border-emerald-500/30 bg-black/50 space-y-2">
                 <h3 className="text-sm font-black text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400" /> Renewals</h3>
                 <p className="text-[10px] text-gray-500">Movies hitting ×2 target and series hitting ×3 target can be renewed (movies up to Part 7, series up to 20 seasons).</p>
-                {studio.projects.filter((p) => p.status === 'COMPLETED').length === 0 && <p className="text-[10px] text-gray-600">No completed projects yet — release something to see renewal offers here.</p>}
+                {(() => {
+                  const elig = checkRenewalEligibility(studio, player);
+                  const last = studio.projects.find((p) => p.status === 'COMPLETED');
+                  return (
+                    <div className={`p-3 rounded-2xl border ${elig.eligible ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
+                      {last ? (
+                        <>
+                          <p className="text-xs font-black text-white">{last.title} <span className="text-[9px] text-gray-400">(Part {last.renewalCount + 1} / {last.type === 'Series' ? 'Season ' + (last.renewalCount + 1) : 'Part 7'})</span></p>
+                          <p className={`text-[10px] mt-1 ${elig.eligible ? 'text-emerald-300' : 'text-gray-400'}`}>{elig.reason}</p>
+                          {elig.eligible && (
+                            <button onClick={() => { const r = acceptRenewal(studio, player.money || 0); if (r.success) updateSave({ ...saveData, player: { ...player, money: r.newMoney } }); showFb(r.message); refresh(); }} className="mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black text-[10px] font-black cursor-pointer">
+                              ACCEPT RENEWAL FUNDING → DEVELOP NEXT PART
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-gray-500">Release a movie/series first — renewals unlock when it hits ×2 (movie) or ×3 (series) target.</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -502,13 +531,38 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
             <span className="text-[10px] text-gray-500">{Math.round((prodProject.cast.filter((c) => c.status === 'ACCEPTED').length / Math.max(1, prodProject.cast.length)) * 100)}% cast</span>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-gray-400">Choose your actors/actresses and negotiate contracts</p>
-              <button onClick={() => setSelectedActor(null)} className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 text-[10px] font-black cursor-pointer">Principal Cast</button>
+            <div className="flex gap-2">
+              <button onClick={() => setProdSubTab('CAST')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer ${prodSubTab === 'CAST' ? 'bg-sky-500 text-black' : 'bg-white/10 text-gray-300'}`}>Principal Cast</button>
+              <button onClick={() => setProdSubTab('LOCATIONS')} className={`px-3 py-1.5 rounded-xl text-[10px] font-black cursor-pointer ${prodSubTab === 'LOCATIONS' ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-300'}`}>Film Locations</button>
             </div>
 
+            {/* LOCATIONS TAB */}
+            {prodSubTab === 'LOCATIONS' && (
+              <div className="space-y-3">
+                <p className="text-[10px] text-gray-400">Choose filming locations — each adds to your allocation (total must be 100%).</p>
+                <div className="flex items-center gap-2">
+                  <input type="range" min={5} max={50} step={5} value={locPct} onChange={(e) => setLocPct(Number(e.target.value))} className="flex-1 accent-emerald-400" />
+                  <span className="text-xs font-black text-emerald-300 w-12 text-right">{locPct}%</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+                  {LOCATION_POOL.map((loc) => {
+                    const added = prodProject.locations.some((l) => l.name === loc);
+                    return (
+                      <button key={loc} onClick={() => { const r = toggleLocation(prodProject, loc, locPct); showFb(r.message); refresh(); }} className={`p-2 rounded-xl border text-left text-[10px] cursor-pointer ${added ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200' : 'bg-black/40 border-white/10 text-gray-300'}`}>
+                        <MapPin className="w-3 h-3 inline mr-1" />{loc}
+                        {added && <span className="block text-[8px] text-emerald-300 font-black">{prodProject.locations.find((l) => l.name === loc)?.allocationPct}%</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className={`p-2.5 rounded-xl border text-[10px] font-black ${prodProject.locations.reduce((a, l) => a + l.allocationPct, 0) === 100 ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-black/40'}`}>
+                  Location allocation: {prodProject.locations.reduce((a, l) => a + l.allocationPct, 0)}% {prodProject.locations.reduce((a, l) => a + l.allocationPct, 0) === 100 ? '✓' : '(100% needed)'}
+                </div>
+              </div>
+            )}
+
             {/* Cast list */}
-            {!selectedActor && (
+            {prodSubTab === 'CAST' && !selectedActor && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {ACTOR_POOL.filter((a) => !prodProject.cast.some((c) => c.actorId === a.id)).slice(0, 30).map((a) => (
                   <button key={a.id} onClick={() => { setSelectedActor(a); setCashOffer(a.baseFee); setRoyaltyPct(0); setRole('Lead'); }} className="p-3 rounded-2xl bg-black/40 border border-white/10 text-left cursor-pointer hover:border-sky-400">
@@ -589,6 +643,29 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
             <div className="p-3 rounded-2xl bg-black/50 border border-amber-500/30">
               <p className="text-[10px] text-gray-400 uppercase font-bold">Crew Budget</p>
               <p className="text-sm font-black text-amber-300">${prodProject.cast.filter((c) => c.status === 'ACCEPTED').reduce((a, c) => a + c.cashOffer, 0).toLocaleString()} committed</p>
+            </div>
+
+            {/* START FILMING */}
+            <button onClick={() => setShowFilmingDisclaimer(true)} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black text-xs uppercase tracking-wider shadow-xl cursor-pointer">
+              🎬 START FILMING
+            </button>
+            <p className="text-[9px] text-gray-500 text-center">Requires: ≥1 cast accepted · locations 100% · all cast responded</p>
+          </div>
+        </div>
+      )}
+
+      {/* FILMING DISCLAIMER MODAL */}
+      {showFilmingDisclaimer && prodProject && (
+        <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-gray-950 border-2 border-amber-500/50 shadow-2xl space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400"><Clapperboard className="w-6 h-6" /></div>
+            <h3 className="text-base font-black text-white uppercase">Start Filming?</h3>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              ⚠️ <strong className="text-amber-300">Once you start filming, you can't change anything — the cast, locations and budget are locked.</strong> The project will move to Distribution with its real calculated rating.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setShowFilmingDisclaimer(false)} className="px-4 py-3 rounded-2xl bg-black/60 border border-white/20 text-gray-300 text-xs font-black cursor-pointer">No</button>
+              <button onClick={() => { const r = startFilming(studio, prodProject.id); showFb(r.message); setShowFilmingDisclaimer(false); setProdProject(null); refresh(); }} className="px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black text-xs font-black cursor-pointer">Yes — Start Filming</button>
             </div>
           </div>
         </div>
