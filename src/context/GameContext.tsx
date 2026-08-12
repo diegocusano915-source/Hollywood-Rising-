@@ -1324,6 +1324,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newTalentVal = Math.min(100, currentTalentVal + course.talentReward.amount);
           p.talents[talentCategory] = newTalentVal;
 
+          // REAL GRADUATION XP: reduced rate (~50%) — course completion pays
+          // fame XP scaled by talent gain + course length, capped at 60
+          const courseXp = Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5));
+          fameGainedThisWeek += courseXp;
+
           completedCourseIds.push(course.courseId);
           completedCourseRecords.unshift({
             id: `cmpl_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1336,7 +1341,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completionYear: newYear,
           });
 
-          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()})`);
+          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()}, +${courseXp} Fame XP)`);
 
           newInboxMessages.unshift({
             id: `msg_course_done_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1345,7 +1350,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             senderRole: 'Dean of Studies',
             senderAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
             subject: `COURSE GRADUATION: ${course.name}`,
-            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.`,
+            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.\n\nFame XP earned: +${courseXp}`,
             date: dateInfo.fullDateText,
             read: false,
           });
