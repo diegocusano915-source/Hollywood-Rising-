@@ -1403,7 +1403,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const nextWeeks = aud.weeksRemaining - 1;
       if (nextWeeks <= 0) {
         const avgTalent = (p.talents.acting + p.talents.voice + p.talents.comedy + p.talents.drama + p.talents.action + p.talents.dancing) / 6;
-        let score = p.talents.acting * 0.4 + avgTalent * 0.35 + (p.fameXp / 100);
+        // HIDDEN COURSE TRACKER: every completed course at the Acting Conservatory
+        // raises your casting chances. No training = roles are genuinely hard
+        // (medium difficulty). The more courses you complete, the more roles open up.
+        const coursesAttended = Math.max(
+          p.completedCourseRecords?.length || 0,
+          p.completedCourseIds?.length || 0
+        );
+        const courseBonus = Math.min(25, coursesAttended * 5);
+        let score = p.talents.acting * 0.4 + avgTalent * 0.35 + (p.fameXp / 100) + courseBonus;
         if (p.isUnionMember) score += 15;
         score += p.leadRolesCount * 5;
         if (p.representation?.agent?.signed) score += 12;
@@ -1411,11 +1419,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (RepresentationService.hasActiveCriticalScandal()) score -= 25; // Active CRITICAL scandal hurts casting
 
         let requiredScore = 15;
-        // SMALL TOUCH: new players can actually book Principal/Support roles.
-        // Leads stay aspirational (34) but a strong early career reaches them.
-        if (aud.roleType === 'Lead') requiredScore = 34;
-        else if (aud.roleType === 'Principal') requiredScore = 22;
-        else if (aud.roleType === 'Support') requiredScore = 16;
+        // MEDIUM-HARD: new players with no training mostly book Support/Minor.
+        // Courses unlock Principal (~4-5 courses) and Lead (~6-8 courses).
+        if (aud.roleType === 'Lead') requiredScore = 38;
+        else if (aud.roleType === 'Principal') requiredScore = 27;
+        else if (aud.roleType === 'Support') requiredScore = 20;
 
         const isAccepted = (score + Math.random() * 20) >= requiredScore;
         const studioName = aud.studio || 'Paramount Pictures';
@@ -1587,6 +1595,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ];
           const rejectionFeedback: string[] = [];
           const playerGuidance: string[] = [];
+          // THE TRAINING KEY: when the course tracker is low, the rejection
+          // tells the player exactly what unlocks bigger roles (real data).
+          if (coursesAttended < 4 && (aud.roleType === 'Principal' || aud.roleType === 'Lead')) {
+            playerGuidance.unshift(
+              `• TRAINING KEY: You've completed ${coursesAttended} course${coursesAttended === 1 ? '' : 's'} so far. Principal & Lead roles need more Conservatory training — every completed course directly boosts your casting chances.`
+            );
+          }
           // Pick 2-3 unique rejection reasons from pool
           const tempPool = [...rejectionPool];
           // Prioritize stat-based first
