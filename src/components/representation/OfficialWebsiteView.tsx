@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { RepresentationFullState } from '../../types/representation';
 import { RepresentationService } from '../../services/representationService';
-import { Globe, ArrowLeft, Film, Award, Briefcase, Eye, Sparkles, Check, ExternalLink } from 'lucide-react';
+import { Globe, ArrowLeft, Film, Award, Briefcase, Eye, Sparkles, Check, ExternalLink, DollarSign } from 'lucide-react';
 
 interface OfficialWebsiteViewProps {
   representationState: RepresentationFullState;
@@ -153,6 +153,41 @@ export const OfficialWebsiteView: React.FC<OfficialWebsiteViewProps> = ({
                 <Eye className="w-3.5 h-3.5 text-blue-400" />
                 <span>{website.weeklyVisitors.toLocaleString()} Visitors/Wk</span>
               </span>
+              <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-bold">
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>${(website.weeklyIncome || 0).toLocaleString()}/wk income · ${(website.totalIncome || 0).toLocaleString()} total</span>
+              </span>
+            </div>
+
+            {/* MONETIZATION + BOOST */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                onClick={() => { const st = RepresentationService.getState(); st.website.adEnabled = !st.website.adEnabled; RepresentationService.saveState(st); onRefresh(); }}
+                className={`px-3 py-2 rounded-xl text-[10px] font-black cursor-pointer ${website.adEnabled ? 'bg-emerald-500 text-black' : 'bg-black/40 text-gray-300 border border-white/10'}`}
+              >
+                📺 Ads {website.adEnabled ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => { const st = RepresentationService.getState(); st.website.merchEnabled = !st.website.merchEnabled; RepresentationService.saveState(st); onRefresh(); }}
+                className={`px-3 py-2 rounded-xl text-[10px] font-black cursor-pointer ${website.merchEnabled ? 'bg-emerald-500 text-black' : 'bg-black/40 text-gray-300 border border-white/10'}`}
+              >
+                🛍 Merch Store {website.merchEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            <div className="pt-1">
+              <p className="text-[9px] text-gray-500 uppercase font-black mb-1">Boost Visitors (Lv {website.boostLevel || 0}/5)</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((lv) => (
+                  <button
+                    key={lv}
+                    onClick={() => { const st = RepresentationService.getState(); const cost = lv * 25000; if (player.money < cost) { alert('Insufficient funds'); return; } player.money -= cost; st.website.boostLevel = lv; RepresentationService.saveState(st); onRefresh(); }}
+                    className={`flex-1 py-2 rounded-xl text-[10px] font-black cursor-pointer ${(website.boostLevel || 0) >= lv ? 'bg-blue-500 text-black' : 'bg-black/40 text-gray-400 border border-white/10'}`}
+                  >
+                    Lv{lv} ${(lv * 25000).toLocaleString()}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[8px] text-gray-600 mt-1">Each level = +40% visitors. Ads pay $0.02/visitor · Merch pays $0.03/visitor.</p>
             </div>
 
             {/* Website Content Preview */}

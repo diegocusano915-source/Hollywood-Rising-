@@ -656,6 +656,32 @@ export class RepresentationService {
           dateEarned: `Week ${player.dateWeek}, ${player.dateYear}`,
         });
       }
+      // AWARD-WIN PHOTOS (real: only when the movie actually won awards)
+      if ((rm.awardsWon || 0) > 0) {
+        const awardId = `gallery_award_${rm.id}`;
+        if (!existingIds.has(awardId)) {
+          state.mediaGallery.unshift({
+            id: awardId,
+            title: `Award Win: "${rm.movieTitle}" (${rm.awardsWon} trophy)`,
+            category: 'Award Photo',
+            imageUrl: rm.posterUrl,
+            caption: `Celebrating ${rm.awardsWon} award win(s) for "${rm.movieTitle}". A night to remember.`,
+            dateEarned: `Week ${player.dateWeek}, ${player.dateYear}`,
+          });
+        }
+      }
+      // RED CARPET PREMIERE PHOTOS (real: when released)
+      const carpetId = `gallery_carpet_${rm.id}`;
+      if (!existingIds.has(carpetId) && rm.inCinemas) {
+        state.mediaGallery.unshift({
+          id: carpetId,
+          title: `Red Carpet Premiere: "${rm.movieTitle}"`,
+          category: 'Red Carpet',
+          imageUrl: rm.posterUrl,
+          caption: `The world premiere of "${rm.movieTitle}" — photographers everywhere.`,
+          dateEarned: `Week ${player.dateWeek}, ${player.dateYear}`,
+        });
+      }
     });
   }
 

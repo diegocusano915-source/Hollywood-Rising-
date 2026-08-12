@@ -217,6 +217,10 @@ export interface MerchProduct {
   weeklySales: number;
   totalRevenue: number;
   totalProfit: number;
+  vipOnly?: boolean; // Legend Circle fans only
+  movieTied?: string; // movie title it's tied to
+  limitedDrop?: boolean; // limited-time drop (buzz)
+  dropWeeksLeft?: number;
 }
 
 // 8. IMAGE & REPUTATION
@@ -270,6 +274,13 @@ export interface WebsiteState {
   hasBusinessPortfolio: boolean;
   launchWeek?: number;
   launchYear?: number;
+  // Website v2
+  weeklyIncome?: number;
+  totalIncome?: number;
+  adEnabled?: boolean;
+  merchEnabled?: boolean;
+  boostLevel?: number; // paid marketing boosts (1-5)
+  visitsHistory?: number[];
 }
 
 // 12. MEDIA GALLERY

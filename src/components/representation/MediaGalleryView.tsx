@@ -18,11 +18,12 @@ export const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({
   onBack,
 }) => {
   const gallery = representationState.mediaGallery;
-
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [zoomedPhoto, setZoomedPhoto] = useState<GalleryPhoto | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const filtered = selectedCategory === 'ALL' ? gallery : gallery.filter((p) => p.category === selectedCategory);
+  const categories = ['ALL', ...Array.from(new Set(gallery.map((p) => p.category)))];
 
   return (
     <div className="space-y-6 text-white select-none pb-12">
@@ -74,6 +75,12 @@ export const MediaGalleryView: React.FC<MediaGalleryViewProps> = ({
                 className="group relative rounded-2xl overflow-hidden border border-white/10 bg-black/60 aspect-[3/4] cursor-pointer shadow-lg hover:border-rose-400/50 transition-all"
               >
                 <img src={photo.imageUrl} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFeedback(`📸 Shared "${photo.title}" to your socials! (post added to your feeds)`); setTimeout(() => setFeedback(null), 3000); }}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all bg-black/70 hover:bg-amber-500 hover:text-black text-white text-[9px] font-black px-2 py-1 rounded-lg cursor-pointer"
+                >
+                  📤 Share
+                </button>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-3 flex flex-col justify-end">
                   <span className="text-[9px] uppercase font-bold text-rose-300">{photo.category}</span>
                   <h4 className="text-xs font-black text-white line-clamp-1">{photo.title}</h4>

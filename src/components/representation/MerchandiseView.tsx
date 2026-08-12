@@ -37,6 +37,10 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
   const [productName, setProductName] = useState('');
   const [sellingPrice, setSellingPrice] = useState<number>(35);
   const [unitsToProduce, setUnitsToProduce] = useState<number>(100);
+  const [vipOnly, setVipOnly] = useState(false);
+  const [limitedDrop, setLimitedDrop] = useState(false);
+  const [movieTied, setMovieTied] = useState('');
+  const { releasedMovies } = useGame();
 
   // Launch Merch Product
   const handleLaunchProduct = () => {
@@ -61,12 +65,16 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
       name: productName.trim(),
       category: selectedCat,
       unitCost,
-      sellingPrice,
+      sellingPrice: vipOnly ? sellingPrice * 3 : sellingPrice, // VIP = premium pricing
       inventory: unitsToProduce,
       totalSold: 0,
       weeklySales: 0,
       totalRevenue: 0,
       totalProfit: 0,
+      vipOnly,
+      movieTied: movieTied || undefined,
+      limitedDrop,
+      dropWeeksLeft: limitedDrop ? 4 : undefined,
     });
 
     RepresentationService.saveState(state);
@@ -185,9 +193,24 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
               </div>
             </div>
 
+            {/* NEW: VIP, Limited Drop, Movie tie */}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setVipOnly((v) => !v)} className={`px-3 py-2 rounded-xl text-[10px] font-black cursor-pointer ${vipOnly ? 'bg-amber-500 text-black' : 'bg-black/40 text-gray-300 border border-white/10'}`}>
+                👑 VIP ONLY (3x price)
+              </button>
+              <button onClick={() => setLimitedDrop((v) => !v)} className={`px-3 py-2 rounded-xl text-[10px] font-black cursor-pointer ${limitedDrop ? 'bg-rose-500 text-black' : 'bg-black/40 text-gray-300 border border-white/10'}`}>
+                🔥 LIMITED DROP (3x sales)
+              </button>
+            </div>
+            <select value={movieTied} onChange={(e) => setMovieTied(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-xs outline-none">
+              <option value="">Tie to movie (optional)</option>
+              {(releasedMovies || []).slice(0, 10).map((m: any) => (
+                <option key={m.id} value={m.movieTitle}>{m.movieTitle}</option>
+              ))}
+            </select>
             <button
               onClick={handleLaunchProduct}
-              className="px-6 py-3 rounded-2xl bg-purple-500 hover:bg-purple-400 text-white font-black text-xs transition-all shadow-lg hover:scale-105 cursor-pointer"
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 transition-all cursor-pointer"
             >
               PRODUCE BATCH & LAUNCH STORE
             </button>

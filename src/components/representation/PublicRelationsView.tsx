@@ -87,6 +87,10 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
 
     const state = RepresentationService.getState();
     state.pr.pressReleasesIssued += 1;
+    // REAL EFFECT: press releases boost public reputation + fans
+    state.reputation.publicReputation = Math.min(100, (state.reputation.publicReputation || 0) + 4);
+    state.reputation.publicTrust = Math.min(100, (state.reputation.publicTrust || 0) + 3);
+    player.fans = (player.fans || 0) + Math.floor(50 + (player.fameXp || 0) * 0.5);
     state.reputation.publicReputation = Math.min(100, state.reputation.publicReputation + 5);
     state.mediaCenter.unshift({
       id: `press_rel_${Date.now()}`,
