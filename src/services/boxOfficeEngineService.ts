@@ -830,7 +830,7 @@ export class BoxOfficeEngineService {
           const prevWW = item.worldwideGross || item.grossWorldwide || item.lifetimeGross || 0;
 
           // Enforce $5 Billion lifetime cap on movies
-          const MAX_MOVIE_LIFETIME = 5000000000;
+          const MAX_MOVIE_LIFETIME = 500000000000;
           item.domesticGross = Math.min(MAX_MOVIE_LIFETIME * 0.45, prevDom + addDom);
           item.internationalGross = Math.min(MAX_MOVIE_LIFETIME * 0.55, prevIntl + addIntl);
           item.worldwideGross = Math.min(MAX_MOVIE_LIFETIME, Math.max(prevWW, item.domesticGross + item.internationalGross));

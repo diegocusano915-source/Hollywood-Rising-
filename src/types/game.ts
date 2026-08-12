@@ -402,6 +402,7 @@ export interface ReleasedMovie {
   sequelCheckWeeks?: number;
   sequelOffered?: boolean;
   sequelOfferedPart?: number;
+  sequelTarget?: number;
 }
 
 export interface TrophyItem {

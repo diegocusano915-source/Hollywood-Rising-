@@ -266,6 +266,34 @@ export const ReleasesModal: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* SEQUEL WATCH — visible greenlight tracker */}
+                    {(movie as any).sequelTarget && (
+                      <div className={`p-3 rounded-xl border ${(movie as any).sequelOffered ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-amber-500/30 bg-black/40'}`}>
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                            {(movie as any).sequelOffered ? '🎬 SEQUEL GREENLIT — OFFER IN PRODUCTION HUB' : '🎬 SEQUEL WATCH'}
+                          </span>
+                          <span className="text-gray-400">
+                            {(movie as any).sequelCheckWeeks || 0}/20 weeks
+                          </span>
+                        </div>
+                        {!(movie as any).sequelOffered && (
+                          <>
+                            <div className="mt-2 h-2 rounded-full bg-black/60 border border-white/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all"
+                                style={{ width: `${Math.min(100, Math.floor(((movie.worldwideGross || 0) / ((movie as any).sequelTarget || 1)) * 100))}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                              <span>Target: ${(((movie as any).sequelTarget) / 1000000).toFixed(0)}M gross + 60% audience</span>
+                              <span>Current: ${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {/* Secondary Metrics: Budget, Awards, Streaming, Royalties */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-xl bg-white/5 text-xs text-gray-300">
                       <div>

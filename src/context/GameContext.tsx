@@ -1796,11 +1796,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? (1.2 + (starRatingPct - 70) * 0.04)
             : (0.35 + (starRatingPct / 100) * 0.65);
 
-          const openingGross = Math.max(1500000, Math.floor(
-            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + fameBonus
+          // STAR-POWER SCALING: gross grows with fame (new player = low, legend = massive).
+          // Deterministic curve, no fake simulation - star power draws audiences.
+          const fameMult = p.fameXp >= 100000 ? 100 : p.fameXp >= 50000 ? 50 : p.fameXp >= 25000 ? 25 : p.fameXp >= 10000 ? 12 : p.fameXp >= 5000 ? 6 : p.fameXp >= 2000 ? 3 : p.fameXp >= 500 ? 1.5 : 1;
+          const baseOpening = Math.max(1500000, Math.floor(
+            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + (p.fameXp * 5000)
           ));
-          const domesticGross = Math.floor(openingGross * (2.1 + Math.random() * 0.6));
-          const worldwideGross = Math.floor(domesticGross * (1.7 + Math.random() * 0.9));
+          const MAX_PLAYER_GROSS = 500000000000; // up to $500B for legends
+          const worldwideGross = Math.min(MAX_PLAYER_GROSS, Math.floor(baseOpening * (2.5 + Math.random() * 2) * fameMult * (0.7 + performanceMultiplier)));
+          const domesticGross = Math.floor(worldwideGross * (0.4 + Math.random() * 0.12));
+          const openingGross = Math.floor(worldwideGross * (0.18 + Math.random() * 0.1));
 
           const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
           const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
@@ -1834,6 +1839,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             genre: book.genre || 'Drama',
             sequelCheckWeeks: 0,
             sequelOffered: false,
+            sequelTarget: Math.floor(baseBudget * 1.8),
             budget: book.budget || baseBudget,
             releaseWeek: newWeek,
             releaseYear: newYear,
