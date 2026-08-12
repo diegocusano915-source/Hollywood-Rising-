@@ -820,7 +820,7 @@ export interface StudioProject {
   marketingBudget: number;
   networkPitchPcts: Record<string, number>;
   winningNetwork?: string;
-  bids: { network: string; amount: number }[];
+  bids: { network: string; logoUrl?: string; amount: number }[];
   ratings: {
     castCrew: number;
     directing: number;

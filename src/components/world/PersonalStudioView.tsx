@@ -41,6 +41,7 @@ import {
   computeOverallRating,
 } from '../../services/personalStudioEngine';
 import { Player } from '../../types/game';
+import { INITIAL_STREAMING_PLATFORMS } from '../../database/worldDatabase';
 import {
   ArrowLeft, Building2, Film, Rocket, DollarSign, Settings2, Lock, Check, Crown,
   X, Plus, Minus, Star, MapPin, Clapperboard, Send, TrendingUp, Sparkles, ShieldCheck,
@@ -80,7 +81,8 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
   const [relWeeks, setRelWeeks] = useState(20);
   const [mktBudget, setMktBudget] = useState(5000000);
   const [pitchPcts, setPitchPcts] = useState<Record<string, number>>({});
-  const [networks, setNetworks] = useState(['Netstar', 'StreamFlix', 'PrimeReel', 'GalaxyStream', 'OceanPlay']);
+  // 12 REAL streaming platforms (Netflix, Prime, Disney+...) with real logos
+  const networks = INITIAL_STREAMING_PLATFORMS.map((p) => ({ id: p.id, name: p.name, logoUrl: p.logoUrl, subscribers: p.subscribers }));
 
   const showFb = (m: string) => { setFeedback(m); setTimeout(() => setFeedback(null), 5000); };
   const refresh = () => setStudio({ ...loadStudioState() });
@@ -152,10 +154,11 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
     if (!relProject) return;
     const total = Object.values(pitchPcts).reduce((a, b) => a + (b || 0), 0);
     if (Math.abs(total - 100) > 0.01) { showFb(`Pitch allocation must total 100% (currently ${total}%).`); return; }
-    // Simulated real bidding: each network bids based on rating + allocation
+    // REAL bidding: each of the 12 platforms bids based on rating + allocation
     const bids = networks.map((n) => ({
-      network: n,
-      amount: Math.floor(relProject.totalBudget * (0.1 + (relProject.overallRating / 100) * 0.5) * ((pitchPcts[n] || 10) / 100)),
+      network: n.name,
+      logoUrl: n.logoUrl,
+      amount: Math.floor(relProject.totalBudget * (0.1 + (relProject.overallRating / 100) * 0.5) * ((pitchPcts[n.id] || 10) / 100)),
     }));
     const p = studio.projects.find((x) => x.id === relProject.id);
     if (p) {
@@ -172,7 +175,7 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
     }
     saveStudioState(studio);
     setRelProject(null); refresh();
-    showFb('💰 Networks bid! Funds added. Release in ' + relWeeks + ' weeks.');
+    showFb('💰 ' + networks.length + ' platforms bid! Funds added. Release in ' + relWeeks + ' weeks.');
   };
 
   // ================= FINANCIALS =================
@@ -736,10 +739,11 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
               <p className="text-[9px] text-gray-400 uppercase font-bold">Network Release — Pitch % (total must be 100%)</p>
               <div className="space-y-2 mt-2">
                 {networks.map((n) => (
-                  <div key={n} className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-white w-28">{n}</span>
-                    <input type="range" min={0} max={100} value={pitchPcts[n] || 0} onChange={(e) => setPitchPcts((p) => ({ ...p, [n]: Number(e.target.value) }))} className="flex-1 accent-purple-400" />
-                    <span className="text-[10px] font-black text-purple-300 w-10 text-right">{pitchPcts[n] || 0}%</span>
+                  <div key={n.id} className="flex items-center gap-2">
+                    <img src={n.logoUrl} alt={n.name} className="w-6 h-6 rounded object-cover border border-white/20 shrink-0" />
+                    <span className="text-[10px] font-black text-white w-28 truncate">{n.name}</span>
+                    <input type="range" min={0} max={100} value={pitchPcts[n.id] || 0} onChange={(e) => setPitchPcts((p) => ({ ...p, [n.id]: Number(e.target.value) }))} className="flex-1 accent-purple-400" />
+                    <span className="text-[10px] font-black text-purple-300 w-10 text-right">{pitchPcts[n.id] || 0}%</span>
                   </div>
                 ))}
               </div>
@@ -753,6 +757,23 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
               <p className="text-xs font-black text-white text-center">{relWeeks} weeks</p>
             </div>
             <button onClick={handlePitchNetworks} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-sky-500 text-black font-black text-xs uppercase tracking-wider shadow-xl cursor-pointer">PITCH TO NETWORKS</button>
+
+            {/* BIDS DISPLAY — after pitching, show each platform's bid */}
+            {relProject.bids && relProject.bids.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black uppercase text-gray-400">Platform Bids ({relProject.bids.length})</h4>
+                {[...relProject.bids].sort((a, b) => b.amount - a.amount).map((bid, i) => (
+                  <div key={i} className={`p-2.5 rounded-xl border flex items-center gap-2 ${i === 0 ? 'border-amber-500/50 bg-amber-500/10' : 'border-white/10 bg-black/40'}`}>
+                    <img src={bid.logoUrl} alt="" className="w-7 h-7 rounded object-cover border border-white/20" />
+                    <span className="text-[10px] font-black text-white flex-1">{bid.network} {i === 0 && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black ml-1">TOP BID</span>}</span>
+                    <span className="text-[11px] font-black text-emerald-400">${bid.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                {relProject.winningNetwork && (
+                  <p className="text-[10px] text-amber-300 font-bold text-center">🏆 {relProject.winningNetwork} won — they'll promote on socials!</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
