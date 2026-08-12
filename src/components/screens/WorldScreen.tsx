@@ -1,6 +1,6 @@
 /**
  * HOLLYWOOD RISING - World Screen (Phase 3 Premium Grid Redesign)
- * Modern 3-Cards-Per-Row Grid Layout with Glassmorphism, Scale & Glow Tap Animations,
+ * Modern 3-Cards-Per-Row Grid Layout with Glassmorphism, & Glow Tap Animations,
  * Top Bar Controls & Full Interconnected Hollywood Business Ecosystem.
  */
 
@@ -17,7 +17,6 @@ import {
   Film,
   MessageSquare,
   Award,
-  Scale,
   Coins,
   BarChart3,
   Globe,
@@ -44,7 +43,6 @@ import { RadioStationsView } from '../world/RadioStationsView';
 import { PersonalStudioView } from '../world/PersonalStudioView';
 import { SocialsView } from '../world/SocialsView';
 import { AwardsView } from '../world/AwardsView';
-import { LawyersView } from '../world/LawyersView';
 import { StockCoinView } from '../world/StockCoinView';
 import { StarStocksView } from '../world/StarStocksView';
 import { FilmingLocationsView } from '../world/FilmingLocationsView';
@@ -79,7 +77,6 @@ export const WorldScreen: React.FC = () => {
   if (activeFeature === 'PERSONAL_STUDIO') return <PersonalStudioView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'SOCIALS') return <SocialsView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'AWARDS') return <AwardsView onBack={() => setActiveFeature(null)} />;
-  if (activeFeature === 'LAWYERS') return <LawyersView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'STOCK_COIN') return <StockCoinView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'STAR_STOCKS') return <StarStocksView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'FILMING_LOCATIONS') return <FilmingLocationsView onBack={() => setActiveFeature(null)} />;
@@ -147,17 +144,6 @@ export const WorldScreen: React.FC = () => {
         border: 'border-yellow-400/40',
         glowColor: 'shadow-yellow-500/30',
         iconColor: 'text-yellow-400',
-      },
-      {
-        id: 'LAWYERS' as const,
-        name: 'LAWYERS',
-        desc: 'Beverly Firms',
-        icon: Scale,
-        badge: '7 Defense',
-        color: 'from-stone-500/20 via-stone-950/40 to-black',
-        border: 'border-stone-400/40',
-        glowColor: 'shadow-stone-500/30',
-        iconColor: 'text-stone-300',
       },
     ],
     // ROW 3
