@@ -93,6 +93,31 @@ export const InvestmentsView: React.FC<Props> = ({ empireState, onUpdateState, o
     onUpdateState(updated);
   };
 
+  const handleSellShares = (opp: InvestmentOpportunity) => {
+    const holdings = portfolioMap.get(opp.id);
+    if (!holdings || holdings.sharesOwned <= 0) return;
+    const proceeds = holdings.sharesOwned * (holdings.currentSharePrice || opp.sharePrice);
+    if (!window.confirm(`Sell all ${holdings.sharesOwned} shares of ${opp.companyName} for $${proceeds.toLocaleString()}?`)) return;
+    player.money += proceeds;
+
+    const updatedPortfolio = invState.portfolio.filter((p) => p.opportunityId !== opp.id);
+    const newTotalInvested = updatedPortfolio.reduce((sum, p) => sum + p.totalInvested, 0);
+    const newTotalVal = updatedPortfolio.reduce((sum, p) => sum + p.currentValue, 0);
+
+    const updated: EmpireFullState = {
+      ...empireState,
+      investments: {
+        ...invState,
+        portfolio: updatedPortfolio,
+        totalInvested: newTotalInvested,
+        totalCurrentValue: newTotalVal,
+      },
+    };
+
+    EmpireService.saveState(updated);
+    onUpdateState(updated);
+  };
+
   const portfolioMap = new Map(invState.portfolio.map((p) => [p.opportunityId, p]));
 
   return (
@@ -125,8 +150,47 @@ export const InvestmentsView: React.FC<Props> = ({ empireState, onUpdateState, o
               ${invState.totalInvested.toLocaleString()}
             </span>
           </div>
+          <div className="px-4 py-2 rounded-2xl bg-black/60 border border-amber-500/30 text-right">
+            <span className="text-[10px] text-gray-400 uppercase font-bold block">Weekly Dividends</span>
+            <span className="text-base font-black text-amber-300 font-mono">
+              ${((invState.weeklyDividendYield || 0)).toLocaleString()}/wk
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* My Portfolio — real holdings + real dividends earned */}
+      {invState.portfolio.length > 0 && (
+        <div className="p-5 rounded-3xl border border-emerald-500/25 bg-black/50 space-y-3">
+          <h4 className="text-sm font-black text-white uppercase flex items-center gap-2">
+            <PieChart className="w-5 h-5 text-emerald-400" /> My Portfolio ({invState.portfolio.length})
+          </h4>
+          <div className="space-y-2">
+            {invState.portfolio.map((p) => {
+              const opp = INITIAL_INVESTMENT_OPPORTUNITIES.find((o) => o.id === p.opportunityId);
+              return (
+                <div key={p.id} className="flex items-center justify-between flex-wrap gap-2 p-3 rounded-2xl bg-black/60 border border-white/10 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-black text-white truncate">{opp?.companyName || p.companyName}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {p.sharesOwned} shares · avg ${p.averageBuyPrice} · dividends earned ${(p.totalDividendsEarned || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-black text-emerald-400">${(p.currentValue || 0).toLocaleString()}</span>
+                    <button
+                      onClick={() => opp && handleSellShares(opp)}
+                      className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-[10px] transition-all cursor-pointer"
+                    >
+                      SELL
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Grid View: 3 Cards Per Row */}
       <div>

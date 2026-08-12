@@ -954,6 +954,27 @@ export class EmpireService {
       });
     }
 
+    // 3.5 INVESTMENTS — REAL WEEKLY DIVIDENDS (annual yield / 52 on current value)
+    if (state.investments && (state.investments.portfolio || []).length > 0) {
+      const oppMap = new Map(INITIAL_INVESTMENT_OPPORTUNITIES.map((o) => [o.id, o]));
+      let weeklyDiv = 0;
+      state.investments.portfolio = state.investments.portfolio.map((item) => {
+        const opp = oppMap.get(item.opportunityId);
+        const rate = opp?.dividendYieldPercent || 0;
+        const weekly = Math.floor((item.currentValue || 0) * (rate / 100) / 52);
+        if (weekly > 0) {
+          item.totalDividendsEarned = (item.totalDividendsEarned || 0) + weekly;
+          weeklyDiv += weekly;
+        }
+        return item;
+      });
+      state.investments.weeklyDividendYield = weeklyDiv;
+      if (weeklyDiv > 0) {
+        netWeeklyCashYield += weeklyDiv;
+        logMessages.push(`📈 Investment dividends paid: +$${weeklyDiv.toLocaleString()} this week.`);
+      }
+    }
+
     // 4. TAXES: real engine (taxEngine.ts) runs weekly in GameContext — real
     // withholding, real deductions, year-end filing. No fake numbers here.
     // (taxState.accountantTier is set by the Tax view and read by the engine.)

@@ -508,13 +508,29 @@ export class RepresentationService {
       }
     }
 
-    // 9. Process Website Traffic
+    // 9. Process Website Traffic + REAL revenue (ads $0.02/visitor, merch $0.03/visitor)
     if (state.website.isLaunched) {
       const activeMoviesCount = releasedMovies ? releasedMovies.filter((m) => m.inCinemas).length : 0;
+      const boostMult = 1 + Math.max(0, ((state.website.boostLevel || 1) - 1)) * 0.4; // +40% visitors per boost level
       const baseVisitors = Math.floor(
-        (player.fans || 50) * 0.05 + player.fameXp * 5 + activeMoviesCount * 1500 + (state.fanClub.isCreated ? 100 : 0)
+        ((player.fans || 50) * 0.05 + player.fameXp * 5 + activeMoviesCount * 1500 + (state.fanClub.isCreated ? 100 : 0)) * boostMult
       );
       state.website.weeklyVisitors = Math.max(10, baseVisitors);
+
+      // REAL website income — paid into weekly earnings like every other system
+      const webAds = state.website.adEnabled ? Math.floor(state.website.weeklyVisitors * 0.02) : 0;
+      const webMerch = state.website.merchEnabled ? Math.floor(state.website.weeklyVisitors * 0.03) : 0;
+      const webTotal = webAds + webMerch;
+      if (webTotal > 0) {
+        weeklyEarnings += webTotal;
+        state.website.weeklyIncome = (state.website.weeklyIncome || 0) + webTotal;
+        state.website.totalIncome = (state.website.totalIncome || 0) + webTotal;
+        notifications.push(
+          `🌐 Website revenue: +$${webTotal.toLocaleString()} this week` +
+          (webAds > 0 ? ` (ads $${webAds.toLocaleString()})` : '') +
+          (webMerch > 0 ? ` (merch $${webMerch.toLocaleString()})` : '')
+        );
+      }
     }
 
     // 10. Sync Contracts Archive with Booked Projects & Released Movies

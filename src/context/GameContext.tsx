@@ -1225,7 +1225,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
     if (socialsResult.socialReputation) socialReputation.push(...socialsResult.socialReputation);
 
-    fansGainedThisWeek = socialsResult.fanGrowth || 0;
+    fansGainedThisWeek = (fansGainedThisWeek || 0) + (socialsResult.fanGrowth || 0);
     prRetainerExpensesThisWeek = repResult.prWeeklyCost || 0;
     legalRetainerExpensesThisWeek = repResult.lawWeeklyCost || 0;
     writerExpensesThisWeek = socialsResult.writerWeeklyCost || 0;
@@ -1301,12 +1301,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       achievementRewardXp = (empireResult as any).achievementsXp || 0;
       empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${achievementRewardXp} Fame XP`);
     }
-    const activeBusinesses = (empireResult.updatedState?.businesses || []).filter(b => b.status === 'Active' || b.status === 'Distressed');
-    if (activeBusinesses.length > 0) {
-      businessIncomeThisWeek = empireResult.weeklyCashYield || 0;
-    } else {
-      businessIncomeThisWeek = 0;
-    }
+    // Empire weekly yield is ONE real number covering businesses + commercial
+    // real estate + acting academy net. It always counts — owning only a film
+    // lot or academy must still pay (previously gated on having an active business).
+    businessIncomeThisWeek = empireResult.weeklyCashYield || 0;
     if (empireResult.logMessages && empireResult.logMessages.length > 0) {
       empireBusinesses.push(...empireResult.logMessages);
     }
@@ -2526,6 +2524,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const posBusinessIncome = businessIncomeThisWeek > 0 ? businessIncomeThisWeek : 0;
     const negBusinessLoss = businessIncomeThisWeek < 0 ? Math.abs(businessIncomeThisWeek) : 0;
 
+    // SINGLE-SOURCE OF TRUTH: repResult.weeklyEarnings ALREADY includes
+    // endorsements + sponsorships + fan club dues + merch profit. Adding
+    // dues/merch again here would DOUBLE-PAY them — so they are excluded from
+    // the money flow (kept only for recap/transaction display).
     const totalWeeklyIncome =
       salaryEarnedThisWeek +
       royaltiesEarnedThisWeek +
@@ -2534,9 +2536,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sponsorshipIncomeThisWeek +
       endorsementIncomeThisWeek +
       socialYoutubeIncomeThisWeek +
-      savingsInterestThisWeek +
-      fanClubDuesIncomeThisWeek +
-      merchProfitIncomeThisWeek +
       streamingIncomeThisWeek +
       studioIncomeThisWeek +
       hubIncomeThisWeek +
@@ -2570,11 +2569,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         business: posBusinessIncome,
         property: propertyIncomeThisWeek,
         sponsorship: sponsorshipIncomeThisWeek,
+        // endorsement already includes fan club dues + merch profit (single source)
         endorsement: endorsementIncomeThisWeek,
         social: socialYoutubeIncomeThisWeek,
-        interest: savingsInterestThisWeek,
-        fanClub: fanClubDuesIncomeThisWeek,
-        merch: merchProfitIncomeThisWeek,
         streaming: streamingIncomeThisWeek,
         studio: studioIncomeThisWeek,
         media: hubIncomeThisWeek + interviewFeeIncomeThisWeek,
