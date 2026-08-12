@@ -2,7 +2,7 @@
  * HOLLYWOOD RISING - Talent Agents & Personal Managers Marketplace (Rebuilt)
  * Two SEPARATE sections. Each is always visible but LOCKED until requirements are met:
  *   - Talent Agent   : 4 Principal Roles OR 4 Movies Released
- *   - Personal Manager: 8 Lead Roles OR 8 Movies Released + 3,000 Fame XP
+ *   - Personal Manager: 8 Principal Roles OR 8 Movies Released + 3,000 Fame XP
  * 10 agents + 10 managers rotate weekly from pools of 28 each (4 tiers, ratings).
  * Agents & managers pitch themselves in your Inbox when you're doing well.
  */
@@ -61,7 +61,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
   const fameXp = player.fameXp || 0;
 
   const agentUnlocked = principalCount + moviesCount >= 4;
-  const managerUnlocked = leadCount + moviesCount >= 8 && fameXp >= 3000;
+  const managerUnlocked = principalCount + moviesCount >= 8 && fameXp >= 3000;
 
   const currentAgent = player.representation?.agent;
   const currentManager = player.representation?.manager;
@@ -353,10 +353,10 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`p-4 rounded-2xl border ${leadCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Lead Roles</p>
-                  <p className="text-xl font-black text-white">{leadCount} / 8</p>
-                  {leadCount >= 8 && <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3 h-3" /> Satisfied</p>}
+                <div className={`p-4 rounded-2xl border ${principalCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Principal Roles</p>
+                  <p className="text-xl font-black text-white">{principalCount} / 8</p>
+                  {principalCount >= 8 && <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3 h-3" /> Satisfied</p>}
                 </div>
                 <div className={`p-4 rounded-2xl border ${moviesCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Movies Released</p>
@@ -370,7 +370,7 @@ export const RepresentationView: React.FC<RepresentationViewProps> = ({ onBack }
                 </div>
               </div>
               <p className="text-[10px] text-gray-500">
-                Unlock: <strong className="text-white">8 Lead Roles OR 8 Movies Released</strong> + <strong className="text-white">3,000 Fame XP</strong>.
+                Unlock: <strong className="text-white">8 Principal Roles OR 8 Movies Released</strong> + <strong className="text-white">3,000 Fame XP</strong>.
               </p>
             </div>
           )}

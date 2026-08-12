@@ -1284,10 +1284,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error draining representation pitches:', e);
     }
 
-    // ACHIEVEMENT REWARDS: cash + XP paid directly (no more swallowed rewards)
+    // ACHIEVEMENT REWARDS: cash + XP captured here, paid out at the end of the
+    // week AFTER the single-source-of-truth assignment (so nothing gets swallowed)
+    let achievementRewardCash = 0;
+    let achievementRewardXp = 0;
     if ((empireResult as any).achievementsCash > 0) {
-      p.money = (p.money || 0) + (empireResult as any).achievementsCash;
-      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${(empireResult as any).achievementsCash.toLocaleString()} cash & +${(empireResult as any).achievementsXp} Fame XP`);
+      achievementRewardCash = (empireResult as any).achievementsCash || 0;
+      achievementRewardXp = (empireResult as any).achievementsXp || 0;
+      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${achievementRewardXp} Fame XP`);
     }
     const activeBusinesses = (empireResult.updatedState?.businesses || []).filter(b => b.status === 'Active' || b.status === 'Distressed');
     if (activeBusinesses.length > 0) {
@@ -2530,6 +2534,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     p.money = Math.max(0, startMoney + netWeeklyChange);
     p.fans = startFans + fansGainedThisWeek;
     p.fameXp = startFame + fameGainedThisWeek;
+
+    // Achievement rewards are REAL income — paid on top of the weekly total
+    if (achievementRewardCash > 0) p.money = (p.money || 0) + achievementRewardCash;
+    if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + achievementRewardXp;
 
     // Synchronize Network Banking & Record Itemized Bank Transactions
     if (!networkState.bankAccount) {

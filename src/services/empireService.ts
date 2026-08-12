@@ -1112,12 +1112,11 @@ export class EmpireService {
 
       if (shouldUnlock) {
         logMessages.push(`🏆 ACHIEVEMENT UNLOCKED: "${ach.title}"! (+ $${ach.rewardCash.toLocaleString()} / +${ach.rewardFameXp} XP)`);
-        // REAL PAYOUT: cash returned to GameContext, XP applied to the player directly
+        // REAL PAYOUT: cash + XP returned via achievementsCash/achievementsXp and
+        // paid out by GameContext at the end of the week (single source of truth —
+        // direct mutation here would be overwritten by the weekly reconciliation)
         achievementsCash += ach.rewardCash;
         achievementsXp += ach.rewardFameXp;
-        if (player) {
-          player.fameXp = (player.fameXp || 0) + ach.rewardFameXp;
-        }
         return {
           ...ach,
           isUnlocked: true,

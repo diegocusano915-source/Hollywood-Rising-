@@ -146,9 +146,12 @@ export function computeInterviewResult(
   chosen: TvAnswerChoice[]
 ): TvInterviewResult {
   const p = ctx.player;
-  const fansBase = Math.floor((station?.viewerBase || 2000000) * 0.03);
-  const cash = Math.floor((station?.viewerBase || 2000000) * 0.0012 + (p.fameXp || 0) * 0.8);
-  const fame = Math.floor(8 + (p.fameXp || 0) * 0.004);
+  const fame = p.fameXp || 0;
+  // Fans scale with REAL career progress, NOT station size — keeps new players
+  // small (a few hundred fans) while still rewarding veterans (~a few thousand).
+  const fansBase = Math.floor(25 + fame * 0.005); // per question
+  const cash = Math.floor((station?.viewerBase || 2000000) * 0.0012 + fame * 0.8);
+  const fameTotalRaw = Math.floor(8 + fame * 0.004);
 
   let fans = 0, rep = 0, fameTotal = 0, scandal = false, cashFinal = cash;
   const reactions: string[] = [];
@@ -165,7 +168,7 @@ export function computeInterviewResult(
   const qMult = questions.length / 5;
   fans = Math.floor(fans * (0.7 + qMult * 0.3));
   cashFinal = Math.floor(cash * qMult);
-  fameTotal = Math.max(1, Math.floor(fame * qMult));
+  fameTotal = Math.max(1, Math.floor(fameTotalRaw * qMult));
 
   return {
     stationName: station?.name || 'TV Station',
@@ -204,13 +207,15 @@ export function saveTvOffers(offers: TvOfferEntry[]) {
   } catch {}
 }
 
-// Manager books an interview for the player (every 6 weeks) — schedules in 3 weeks
+// Manager books an interview for the player (every 6 weeks) — schedules in 3 weeks.
+// TV is manager-gated: no signed manager = no TV interviews, no inbox spam.
 export function scheduleTvInterview(player: any): { subject: string; body: string; date: string; read: boolean }[] {
+  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
+  if (!player?.representation?.manager?.signed) return msgs;
   const offers = loadTvOffers();
   const mgr = player?.representation?.manager;
   const stationId = mgr ? `tv_${1 + ((player?.dateWeek || 0) % 6)}` : 'tv_1';
   const existing = offers.find((o) => o.stationId === stationId && o.offer.status !== 'DONE');
-  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
 
   const offer = {
     id: `tv_int_${Date.now()}`,
@@ -239,11 +244,22 @@ export function scheduleTvInterview(player: any): { subject: string; body: strin
   return msgs;
 }
 
-// Weekly processing: countdown -> READY + notifications; station invites on real news
+// Weekly processing: countdown -> READY + notifications; station invites on real news.
+// TV is manager-gated: without a signed manager, stale offers are cleared and nothing new is created.
 export function processTvOffersWeekly(player: any, newWeek: number, newYear: number): { subject: string; body: string; date: string; read: boolean }[] {
   const offers = loadTvOffers();
   const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
   let changed = false;
+
+  // No signed manager -> TV is locked. Clear any stale offers so nothing lingers.
+  if (!player?.representation?.manager?.signed) {
+    const stale = offers.some((o) => o.offer && o.offer.status !== 'DONE');
+    if (stale) {
+      offers.forEach((o) => { if (o.offer) o.offer.status = 'DONE'; });
+      saveTvOffers(offers);
+    }
+    return msgs;
+  }
 
   offers.forEach((entry) => {
     const o = entry.offer;
@@ -343,13 +359,15 @@ export function saveRadioOffers(offers: RadioOfferEntry[]) {
   try { localStorage.setItem(RADIO_OFFERS_KEY, JSON.stringify(offers)); } catch {}
 }
 
-// AGENT books a radio interview (every 4 weeks) — scheduled in 3 weeks
+// AGENT books a radio interview (every 4 weeks) — scheduled in 3 weeks.
+// Radio is agent-gated: no signed agent = no radio interviews, no inbox spam.
 export function scheduleRadioInterview(player: any): { subject: string; body: string; date: string; read: boolean }[] {
+  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
+  if (!player?.representation?.agent?.signed) return msgs;
   const offers = loadRadioOffers();
   const agent = player?.representation?.agent;
   const stationId = `rad_${1 + ((player?.dateWeek || 0) % 4)}`;
   const existing = offers.find((o) => o.stationId === stationId && o.offer.status !== 'DONE');
-  const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
   if (existing) return msgs;
 
   const offer = {
@@ -376,11 +394,22 @@ export function scheduleRadioInterview(player: any): { subject: string; body: st
   return msgs;
 }
 
-// Weekly processing for radio offers (countdown -> READY)
+// Weekly processing for radio offers (countdown -> READY).
+// Radio is agent-gated: without a signed agent, stale offers are cleared.
 export function processRadioOffersWeekly(player: any, newWeek: number, newYear: number): { subject: string; body: string; date: string; read: boolean }[] {
   const offers = loadRadioOffers();
   const msgs: { subject: string; body: string; date: string; read: boolean }[] = [];
   let changed = false;
+
+  if (!player?.representation?.agent?.signed) {
+    const stale = offers.some((o) => o.offer && o.offer.status !== 'DONE');
+    if (stale) {
+      offers.forEach((o) => { if (o.offer) o.offer.status = 'DONE'; });
+      saveRadioOffers(offers);
+    }
+    return msgs;
+  }
+
   offers.forEach((entry) => {
     const o = entry.offer;
     if (!o || o.status !== 'PENDING') return;

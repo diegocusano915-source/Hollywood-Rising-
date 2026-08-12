@@ -5,7 +5,7 @@
  *   - section="managers" -> ONLY the Personal Managers marketplace
  * No tabs, no mixing. Cards are locked until requirements are met.
  *   - Talent Agent    : 4 Principal Roles OR 4 Movies Released
- *   - Personal Manager: 8 Lead Roles OR 8 Movies Released + 3,000 Fame XP
+ *   - Personal Manager: 8 Principal Roles OR 8 Movies Released + 3,000 Fame XP
  */
 
 import React, { useState, useEffect } from 'react';
@@ -60,7 +60,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section,
   const fameXp = player.fameXp || 0;
 
   const agentUnlocked = principalCount + moviesCount >= 4;
-  const managerUnlocked = leadCount + moviesCount >= 8 && fameXp >= 3000;
+  const managerUnlocked = principalCount + moviesCount >= 8 && fameXp >= 3000;
   const unlocked = isAgents ? agentUnlocked : managerUnlocked;
 
   const currentAgent = player.representation?.agent;
@@ -340,10 +340,10 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section,
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`p-4 rounded-2xl border ${leadCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Lead Roles</p>
-                  <p className="text-xl font-black text-white">{leadCount} / 8</p>
-                  {leadCount >= 8 && <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3 h-3" /> Satisfied</p>}
+                <div className={`p-4 rounded-2xl border ${principalCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
+                  <p className="text-[10px] text-gray-400 uppercase font-bold">Principal Roles</p>
+                  <p className="text-xl font-black text-white">{principalCount} / 8</p>
+                  {principalCount >= 8 && <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><Check className="w-3 h-3" /> Satisfied</p>}
                 </div>
                 <div className={`p-4 rounded-2xl border ${moviesCount >= 8 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-white/10 bg-black/40'}`}>
                   <p className="text-[10px] text-gray-400 uppercase font-bold">Movies Released</p>
@@ -357,7 +357,7 @@ export const AgentsManagersView: React.FC<AgentsManagersViewProps> = ({ section,
                 </div>
               </div>
               <p className="text-[10px] text-gray-500">
-                Unlock: <strong className="text-white">8 Lead Roles OR 8 Movies Released</strong> + <strong className="text-white">3,000 Fame XP</strong>.
+                Unlock: <strong className="text-white">8 Principal Roles OR 8 Movies Released</strong> + <strong className="text-white">3,000 Fame XP</strong>.
               </p>
             </div>
           )}
