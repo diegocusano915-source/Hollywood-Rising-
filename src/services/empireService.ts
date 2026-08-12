@@ -599,18 +599,6 @@ export const createInitialEmpireState = (player: Player): EmpireFullState => {
       taxSaved: 0,
       auditRiskPercent: 5,
       auditHistory: [],
-      // REAL TAX ENGINE (v2)
-      ytdTaxableIncome: 0,
-      ytdBusinessIncome: 0,
-      ytdWithheld: 0,
-      ytdDeductions: 0,
-      ytdCharityDonations: 0,
-      ytdStudioExpenses: 0,
-      ytdBusinessLosses: 0,
-      ytdRetainers: 0,
-      lastCharityTotal: 0,
-      lastStudioExpensesTotal: 0,
-      weeklyWithheldHistory: [],
     },
 
     achievements: INITIAL_ACHIEVEMENTS,
@@ -966,10 +954,9 @@ export class EmpireService {
       });
     }
 
-    // 4. TAX — REMOVED FAKE CALCULATION (was computing from invented income and
-    // never touching player money). The REAL tax engine lives in GameContext:
-    // weekly withholding from actual income + Week 52 filing + real-trigger audits.
-    // taxState is preserved here untouched so GameContext can read/write it.
+    // 4. TAXES: real engine (taxEngine.ts) runs weekly in GameContext — real
+    // withholding, real deductions, year-end filing. No fake numbers here.
+    // (taxState.accountantTier is set by the Tax view and read by the engine.)
 
     // 5. HOLDING COMPANY VALUATION UPDATE
     if (state.holdingCompany.isFormed) {
@@ -993,6 +980,22 @@ export class EmpireService {
     const netWorth = totalValuation + liquidCash;
     let achievementsCash = 0;
     let achievementsXp = 0;
+
+    // ONE-TIME BACKPAY: achievements unlocked before the payout engine existed
+    // were displayed with rewards that never reached the player. Pay them all
+    // once (real money + XP), then flag the migration so it never repeats.
+    if ((state as any).achievementPayoutVersion !== 1) {
+      (state.achievements || []).forEach((ach) => {
+        if (ach?.isUnlocked) {
+          achievementsCash += ach.rewardCash || 0;
+          achievementsXp += ach.rewardFameXp || 0;
+        }
+      });
+      (state as any).achievementPayoutVersion = 1;
+      if (achievementsCash > 0) {
+        logMessages.push(`🏆 ACHIEVEMENT BACKPAY: ${(state.achievements || []).filter((a) => a?.isUnlocked).length} unlocked achievement rewards paid out (+$${achievementsCash.toLocaleString()} / +${achievementsXp} XP).`);
+      }
+    }
 
     state.achievements = (state.achievements || []).map((ach) => {
       if (ach.isUnlocked) return ach;
@@ -1077,7 +1080,7 @@ export class EmpireService {
         case 'ach_m_7': if (netWorth >= 500000000) shouldUnlock = true; break;
         case 'ach_m_8': if (liquidCash >= 10000000) shouldUnlock = true; break;
         case 'ach_m_9': if (state.taxState.taxSaved >= 250000) shouldUnlock = true; break;
-        case 'ach_m_10': if ((state.taxState.ytdTaxableIncome || 0) >= 500000) shouldUnlock = true; break;
+        case 'ach_m_10': if (totalBusinessRevenue + totalRentalIncome >= 500000) shouldUnlock = true; break;
 
         // Secret
         case 'ach_h_1': if ((state.rivalries || []).some((r) => r?.relationshipLevel === 'Arch Rival' || r?.relationshipLevel === 'Legendary Rival')) shouldUnlock = true; break;

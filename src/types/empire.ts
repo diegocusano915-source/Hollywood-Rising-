@@ -473,24 +473,6 @@ export interface TaxBreakdown {
   taxSaved: number;
   auditRiskPercent: number;
   auditHistory: AuditRecord[];
-  // ===== REAL TAX ENGINE (v2) — all values come from real player income/expenses =====
-  ytdTaxableIncome: number; // real income YTD in current tax year
-  ytdBusinessIncome: number; // real business income YTD (corporate rate when holding company formed)
-  ytdWithheld: number; // real cash withheld from player money
-  ytdDeductions: number; // deductions claimed (accountant % x eligible expenses)
-  ytdCharityDonations: number; // real charity donations YTD
-  ytdStudioExpenses: number; // real studio costs YTD (equipment/scripts/marketing/cast)
-  ytdBusinessLosses: number; // real business losses YTD
-  ytdRetainers: number; // real PR + legal retainer fees YTD
-  lastCharityTotal: number; // cumulative charity total at last check (delta tracking)
-  lastStudioExpensesTotal: number; // cumulative studio costs at last check (delta tracking)
-  lastFilingYear?: number;
-  lastFilingResult?: 'REFUND' | 'BALANCE_DUE' | 'NONE';
-  lastFilingAmount?: number;
-  weeklyWithheldHistory?: { week: number; year: number; income: number; withheld: number }[];
-  auditPending?: boolean; // set ONLY by a real balance-due filing (underpayment)
-  auditPendingWeeks?: number; // weeks since the underpaid filing
-  auditPenaltyBase?: number; // the real underpaid amount the audit is about
 }
 
 export interface EmpireAchievement {
@@ -661,4 +643,5 @@ export interface EmpireFullState {
   reports?: ReportsState;
   acquisitionsCatalog?: AcquisitionTargetCompany[];
   empireLogs: { id: string; title: string; description: string; week: number; year: number }[];
+  achievementPayoutVersion?: number;
 }
