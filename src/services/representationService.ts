@@ -464,6 +464,19 @@ export class RepresentationService {
     // 7c. WEEKLY REPRESENTATION MARKETPLACE ROTATION (10 agents + 10 managers per week)
     this.rotateWeeklyOffers(player.dateWeek, player);
 
+    // 7f. FOUNDATION PASSIVE GROWTH (only when a foundation exists — real, earned)
+    const foundation = state.charities.find((c) => c.isFoundationEstablished);
+    if (foundation && foundation.totalDonated > 0) {
+      const weeklyGain = Math.min(2, Math.max(1, Math.floor(foundation.totalDonated / 10000000)));
+      state.reputation.publicReputation = Math.min(100, (state.reputation.publicReputation || 0) + weeklyGain);
+      state.reputation.publicTrust = Math.min(100, (state.reputation.publicTrust || 0) + weeklyGain);
+      const weeklyFans = Math.min(5000, Math.floor(foundation.totalDonated / 200000));
+      if (weeklyFans > 0) {
+        player.fans = (player.fans || 0) + weeklyFans;
+        notifications.push(`🌱 Your foundation's good work grew goodwill: +${weeklyFans.toLocaleString()} fans this week.`);
+      }
+    }
+
     // 8. Process Merchandise Weekly Sales
     if (state.merchandise.length > 0) {
       let totalMerchProfit = 0;
