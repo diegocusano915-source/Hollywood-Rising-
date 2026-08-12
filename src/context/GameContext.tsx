@@ -1420,8 +1420,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         let requiredScore = 15;
         // MEDIUM-HARD: new players with no training mostly book Support/Minor.
-        // Courses unlock Principal (~4-5 courses) and Lead (~6-8 courses).
-        if (aud.roleType === 'Lead') requiredScore = 38;
+        // Courses unlock Principal AND Lead equally (same requirement) — leads
+        // carry no extra gate since they're not needed for membership/unlocks.
+        if (aud.roleType === 'Lead') requiredScore = 27;
         else if (aud.roleType === 'Principal') requiredScore = 27;
         else if (aud.roleType === 'Support') requiredScore = 20;
 
