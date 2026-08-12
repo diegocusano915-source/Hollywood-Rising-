@@ -44,6 +44,7 @@ import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
+import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
 import { RepresentationService } from '../services/representationService';
 import { LivingWorldService } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
@@ -2294,6 +2295,35 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
     } catch (e) {
       console.error('TV/Radio interview weekly processing error:', e);
+    }
+
+    // 7f. PERSONAL STUDIO WEEKLY PROCESSING (energy drain, cast decisions, distribution/release)
+    try {
+      const studioState = loadStudioState();
+      if (studioState.unlocked && studioState.active) {
+        const studioResult = processStudioWeek(studioState, p);
+        if (studioResult.moneyDelta > 0) {
+          p.money = (p.money || 0) + studioResult.moneyDelta;
+          empireBusinesses.push(`🏢 Personal Studio income: +$${studioResult.moneyDelta.toLocaleString()}`);
+        }
+        studioResult.messages.forEach((m) => {
+          empireBusinesses.push(m);
+          newInboxMessages.unshift({
+            id: `msg_studio_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            category: 'BUSINESS',
+            sender: studioState.name || 'Personal Studio',
+            senderRole: 'Studio Operations',
+            senderAvatar: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100',
+            subject: m.length > 50 ? m.slice(0, 50) + '…' : m,
+            body: m,
+            date: dateInfo.fullDateText,
+            read: false,
+          });
+        });
+      }
+      saveStudioState(studioState);
+    } catch (e) {
+      console.error('Personal studio weekly processing error:', e);
     }
 
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)

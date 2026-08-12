@@ -759,3 +759,110 @@ export interface AwardCeremonyResult {
   newPlayerAwardsWon: number;
   playerEligible: boolean;
 }
+
+// ============ PERSONAL STUDIO V2 ============
+export type StudioProjectStage = 'Development' | 'Production' | 'Distribution' | 'Release';
+
+export interface StudioScript {
+  id: string;
+  title: string;
+  type: 'Movie' | 'Series';
+  genre: string;
+  qualityRating: number; // 10-100
+  estimatedBudget: number;
+  potentialAudience: string;
+  askingPrice: number;
+  owned: boolean;
+}
+
+export interface StudioBudgetAlloc {
+  principalCast: number; // %
+  distributionMarketing: number; // %
+  postProduction: number; // % (editing/sound/visual)
+  locationSet: number; // %
+}
+
+export interface StudioCastOffer {
+  actorId: string;
+  name: string;
+  role: 'Lead' | 'Support' | 'Principal' | 'Cameo' | 'Recurring';
+  cashOffer: number;
+  royaltyPct: number;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  weeksRemaining: number;
+  fee: number;
+}
+
+export interface StudioLocation {
+  name: string;
+  allocationPct: number;
+}
+
+export interface StudioProject {
+  id: string;
+  scriptId: string;
+  title: string;
+  type: 'Movie' | 'Series';
+  genre: string;
+  description: string;
+  scriptQuality: number;
+  director: string;
+  stage: StudioProjectStage;
+  totalBudget: number;
+  allocations: StudioBudgetAlloc;
+  cast: StudioCastOffer[];
+  locations: StudioLocation[];
+  distributionWeeks: number; // 5-20
+  distributionWeeksElapsed: number;
+  boost: number; // 4-40
+  releaseWeeks: number; // 10-40
+  releaseWeeksElapsed: number;
+  marketingBudget: number;
+  networkPitchPcts: Record<string, number>;
+  winningNetwork?: string;
+  bids: { network: string; amount: number }[];
+  ratings: {
+    castCrew: number;
+    directing: number;
+    editingSoundVfx: number;
+    equipment: number;
+    locationSet: number;
+    screenplay: number;
+  };
+  overallRating: number;
+  renewalCount: number; // movie up to 7 parts, series up to 20 seasons
+  renewedFromId?: string;
+  status: 'ACTIVE' | 'RENEWED' | 'COMPLETED' | 'SOLD';
+}
+
+export interface StudioEquipment {
+  id: string;
+  name: string;
+  level: number; // 1-20
+  stat: string; // what it boosts
+}
+
+export interface StudioFinancialEntry {
+  id: string;
+  projectId?: string;
+  projectTitle?: string;
+  type: 'COST' | 'INCOME';
+  category: string; // Script, Cast, Budget, Equipment, Marketing, Bid, BoxOffice, Streaming, Renewal
+  amount: number;
+  week: number;
+  year: number;
+}
+
+export interface PersonalStudioState {
+  unlocked: boolean;
+  active: boolean;
+  name: string;
+  description: string;
+  level: number;
+  studioValue: number;
+  scripts: StudioScript[];
+  projects: StudioProject[];
+  equipment: StudioEquipment[];
+  financials: StudioFinancialEntry[];
+  sold: boolean;
+}
