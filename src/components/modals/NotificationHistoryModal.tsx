@@ -1,103 +1,192 @@
 /**
- * HOLLYWOOD RISING - Notification History Log
- * Categorized archive of all Awards, Movie Releases, Investments, Retainers, Contracts & Empire Events.
+ * HOLLYWOOD RISING - Notification History Log (REAL EVENTS ONLY)
+ * Archival log built entirely from the player's actual game history:
+ * career timeline, released movies, award records, bookings, signed
+ * representation and empire holdings. Nothing is static or invented.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import {
   X,
   Bell,
-  Award,
-  Film,
-  DollarSign,
-  Briefcase,
-  Users,
-  Building2,
-  Calendar,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 
 export interface NotificationLogItem {
   id: string;
-  category: 'AWARDS' | 'RELEASES' | 'INVESTMENTS' | 'RELATIONSHIPS' | 'BUSINESS' | 'CONTRACTS' | 'RETAINERS';
+  category: 'AWARDS' | 'RELEASES' | 'CONTRACTS' | 'RELATIONSHIPS' | 'BUSINESS' | 'RETAINERS';
+  icon: string;
   title: string;
   message: string;
   year: number;
   week: number;
-  timestamp: string;
 }
 
+const ICONS: Record<NotificationLogItem['category'], string> = {
+  AWARDS: '🏆',
+  RELEASES: '🎥',
+  CONTRACTS: '📝',
+  RELATIONSHIPS: '💞',
+  BUSINESS: '🏢',
+  RETAINERS: '🤝',
+};
+
 export const NotificationHistoryModal: React.FC = () => {
-  const { setActiveModal, player, saveData, toasts, settings } = useGame();
+  const { setActiveModal, player, saveData, settings } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
 
-  // Build unified notification history array from recent toasts + saved state logs
-  const generatedHistory: NotificationLogItem[] = [
-    {
-      id: 'log_1',
-      category: 'RETAINERS',
-      title: 'Representation Retainer Active',
-      message: 'Signed Talent Agent representation contract with CAA (10% commission).',
-      year: player.dateYear || 2026,
-      week: Math.max(1, (player.dateWeek || 1) - 1),
-      timestamp: 'Recently',
-    },
-    {
-      id: 'log_2',
-      category: 'CONTRACTS',
-      title: 'Principal Role Booking',
-      message: 'Successfully booked co-lead principal role in studio dramatic feature.',
-      year: player.dateYear || 2026,
-      week: Math.max(1, (player.dateWeek || 1) - 2),
-      timestamp: 'Recently',
-    },
-    {
-      id: 'log_3',
-      category: 'RELEASES',
-      title: 'Theatrical Box Office Release',
-      message: 'Movie entered nationwide theatrical distribution, tracking $15M opening weekend.',
-      year: player.dateYear || 2026,
-      week: Math.max(1, (player.dateWeek || 1) - 4),
-      timestamp: '4 Weeks Ago',
-    },
-    {
-      id: 'log_4',
-      category: 'AWARDS',
-      title: 'Award Nomination Logged',
-      message: 'Nominated for Best Actor in a Leading Role at the Hollywood Critics Gala.',
-      year: player.dateYear || 2026,
-      week: Math.max(1, (player.dateWeek || 1) - 6),
-      timestamp: '6 Weeks Ago',
-    },
-    {
-      id: 'log_5',
-      category: 'INVESTMENTS',
-      title: 'Beverly Hills Property Acquisition',
-      message: 'Acquired 1 luxury real estate commercial unit generating weekly passive cashflow.',
-      year: player.dateYear || 2026,
-      week: Math.max(1, (player.dateWeek || 1) - 8),
-      timestamp: '8 Weeks Ago',
-    },
-  ];
+  // ============ BUILD THE LOG FROM REAL GAME HISTORY ONLY ============
+  const allLogs: NotificationLogItem[] = useMemo(() => {
+    const logs: NotificationLogItem[] = [];
+    const p = player;
+    const year = p.dateYear || 2026;
+    const week = p.dateWeek || 1;
 
-  // Merge live toasts into log
-  const liveLogs: NotificationLogItem[] = toasts.map((t) => ({
-    id: t.id,
-    category: (t.category === 'Achievement' || t.category === 'Award') ? 'AWARDS' : (t.category === 'Movie Released' || t.category === 'Box Office Record') ? 'RELEASES' : 'CONTRACTS',
-    title: t.title,
-    message: t.message,
-    year: player.dateYear || 2026,
-    week: player.dateWeek || 1,
-    timestamp: 'Just Now',
-  }));
+    // 1. REAL CAREER TIMELINE (persisted events with real week/year)
+    (saveData.careerTimeline || []).forEach((ev) => {
+      const map: Record<string, NotificationLogItem['category']> = {
+        ROLE: 'CONTRACTS',
+        RELEASE: 'RELEASES',
+        AWARD: 'AWARDS',
+        EMPIRE: 'BUSINESS',
+        RELATIONSHIP: 'RELATIONSHIPS',
+        MILESTONE: 'BUSINESS',
+      };
+      logs.push({
+        id: `tl_${ev.id}`,
+        category: map[ev.category] || 'BUSINESS',
+        icon: ev.iconType === 'award' ? '🏆' : ev.iconType === 'movie' ? '🎥' : ICONS[map[ev.category] || 'BUSINESS'],
+        title: ev.title,
+        message: ev.description,
+        year: ev.year || year,
+        week: ev.week || 1,
+      });
+    });
 
-  const allLogs = [...liveLogs, ...generatedHistory];
+    // 2. REAL MOVIE RELEASES (box office records)
+    (saveData.releasedMovies || []).forEach((m) => {
+      logs.push({
+        id: `rel_${m.id}`,
+        category: 'RELEASES',
+        icon: m.isTvSeries ? '📺' : '🎥',
+        title: m.isTvSeries ? `"${m.movieTitle}" — TV series ${m.tvSeason ? `S${m.tvSeason} ` : ''}release` : `"${m.movieTitle}" theatrical release`,
+        message: `Lifetime ${m.isTvSeries ? 'viewership' : 'gross'}: $${(m.worldwideGross || m.boxOfficeGross || 0).toLocaleString()} · Critics ${Math.round(m.criticRating || m.criticScore || 0)}% · Audience ${Math.round(m.audienceRating || m.audienceScore || 0)}%${m.isSequel ? ` · Sequel Part ${m.franchisePart || ''}` : ''}`,
+        year: m.releaseYear || year,
+        week: m.releaseWeek || 1,
+      });
+    });
+
+    // 3. REAL AWARD RECORDS
+    (saveData.awardHistory || []).forEach((a) => {
+      logs.push({
+        id: `aw_${a.id}`,
+        category: 'AWARDS',
+        icon: a.isPlayerWinner ? '🏆' : '⭐',
+        title: a.isPlayerWinner ? `WON ${a.eventName} — ${a.category}` : `Nominated: ${a.eventName} — ${a.category}`,
+        message: a.movieTitle
+          ? `${a.category} for "${a.movieTitle}"${a.isPlayerWinner ? ' — the trophy is yours.' : ' — no win this time.'}`
+          : a.winnerTitle,
+        year: a.year || year,
+        week: 52,
+      });
+    });
+
+    // 4. REAL BOOKED CONTRACTS (current + in production)
+    (saveData.bookedProjects || []).forEach((b) => {
+      logs.push({
+        id: `bk_${b.id}`,
+        category: 'CONTRACTS',
+        icon: '📝',
+        title: `${b.roleType} role — "${b.movieTitle}"`,
+        message: `Salary $${(b.salary || 0).toLocaleString()} · ${b.totalFilmingWeeks || 0}-week shoot · ${b.isFilmingComplete ? 'Filming complete' : `Filming ${b.productionWeeksCompleted ?? 0}/${b.totalFilmingWeeks || 0} weeks`}${b.status ? ` · ${b.status}` : ''}`,
+        year: year,
+        week: week,
+      });
+    });
+
+    // 5. REAL SIGNED REPRESENTATION (only if actually signed)
+    const agent = p.representation?.agent;
+    const manager = p.representation?.manager;
+    if (agent && agent.signed) {
+      logs.push({
+        id: `ag_${agent.id}`,
+        category: 'RETAINERS',
+        icon: '🤝',
+        title: `Talent agent — ${agent.agencyName}`,
+        message: `${agent.name} (${agent.tierName || 'Agent'}) · ${agent.commissionPercent}% commission · ${agent.contractLengthWeeks || 0}-week contract${agent.weeksRemaining !== undefined ? ` · ${agent.weeksRemaining} weeks left` : ''} · Signed ${agent.signedWeek ? `Week ${agent.signedWeek}, ${agent.signedYear || year}` : ''}`,
+        year: agent.signedYear || year,
+        week: agent.signedWeek || 1,
+      });
+    }
+    if (manager && manager.signed) {
+      logs.push({
+        id: `mg_${manager.id}`,
+        category: 'RETAINERS',
+        icon: '🎩',
+        title: `Manager — ${manager.company}`,
+        message: `${manager.name} (${manager.tierName || 'Manager'}) · ${manager.commissionPercent}% commission · ${manager.contractLengthWeeks || 0}-week contract${manager.weeksRemaining !== undefined ? ` · ${manager.weeksRemaining} weeks left` : ''} · Signed ${manager.signedWeek ? `Week ${manager.signedWeek}, ${manager.signedYear || year}` : ''}`,
+        year: manager.signedYear || year,
+        week: manager.signedWeek || 1,
+      });
+    }
+
+    // 6. REAL EMPIRE HOLDINGS (only what the player actually owns)
+    const empire = p.empire;
+    if (empire) {
+      if (empire.realEstateUnits > 0) {
+        logs.push({
+          id: 'emp_re',
+          category: 'BUSINESS',
+          icon: '🏢',
+          title: 'Real estate holdings',
+          message: `${empire.realEstateUnits} unit${empire.realEstateUnits === 1 ? '' : 's'} owned · generating weekly income through your empire.`,
+          year: year,
+          week: week,
+        });
+      }
+      if (empire.indieStudioOwned && empire.studioName) {
+        logs.push({
+          id: 'emp_studio',
+          category: 'BUSINESS',
+          icon: '🎬',
+          title: `Indie studio — ${empire.studioName}`,
+          message: 'Your independent studio is active in your empire portfolio.',
+          year: year,
+          week: week,
+        });
+      }
+      if (empire.weeklyBusinessIncome > 0) {
+        logs.push({
+          id: 'emp_inc',
+          category: 'BUSINESS',
+          icon: '💼',
+          title: 'Business ventures income',
+          message: `Active ventures generating $${empire.weeklyBusinessIncome.toLocaleString()}/week in real income.`,
+          year: year,
+          week: week,
+        });
+      }
+    }
+
+    // 7. REAL MISSED ALERTS (while-you-were-away digest, only if it exists)
+    (saveData.notificationCenter?.digest || []).forEach((d) => {
+      logs.push({
+        id: `dig_${d.id}`,
+        category: 'CONTRACTS',
+        icon: d.icon || '📬',
+        title: d.title,
+        message: d.body,
+        year: year,
+        week: d.refWeek || week,
+      });
+    });
+
+    // Sort by real time: newest first (year, then week)
+    return logs.sort((a, b) => (b.year - a.year) || (b.week - a.week));
+  }, [saveData, player]);
 
   const filteredLogs = activeCategory === 'ALL'
     ? allLogs
@@ -124,7 +213,7 @@ export const NotificationHistoryModal: React.FC = () => {
             <div>
               <h2 className="text-lg font-black text-white uppercase tracking-wider">NOTIFICATION HISTORY & AUDIT LOG</h2>
               <p className="text-[11px] text-amber-300 font-medium">
-                Archived history of awards, box office releases, investments, retainers, and contracts.
+                Real history only — timeline, releases, awards, contracts, retainers & empire.
               </p>
             </div>
           </div>
@@ -138,7 +227,7 @@ export const NotificationHistoryModal: React.FC = () => {
 
         {/* Category Filters */}
         <div className="p-3 bg-black/40 border-b border-white/10 flex items-center gap-1.5 overflow-x-auto shrink-0">
-          {['ALL', 'AWARDS', 'RELEASES', 'INVESTMENTS', 'RETAINERS', 'CONTRACTS', 'RELATIONSHIPS'].map((cat) => (
+          {['ALL', 'AWARDS', 'RELEASES', 'CONTRACTS', 'RELATIONSHIPS', 'BUSINESS', 'RETAINERS'].map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -156,7 +245,11 @@ export const NotificationHistoryModal: React.FC = () => {
         {/* Log Feed */}
         <div className="p-5 overflow-y-auto space-y-3 text-xs flex-1">
           {filteredLogs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 italic">No notifications logged for this category yet.</div>
+            <div className="p-8 text-center text-gray-500 italic">
+              {activeCategory === 'ALL'
+                ? 'No history yet — book roles, release movies, win awards and your real log will build itself.'
+                : `Nothing recorded for ${activeCategory} yet — this category fills up as you actually do things.`}
+            </div>
           ) : (
             filteredLogs.map((item) => (
               <div
@@ -165,6 +258,7 @@ export const NotificationHistoryModal: React.FC = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
+                    <span className="text-base">{item.icon}</span>
                     <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black text-[9px] uppercase border border-amber-500/30">
                       {item.category}
                     </span>
@@ -172,7 +266,7 @@ export const NotificationHistoryModal: React.FC = () => {
                   </div>
 
                   <span className="text-[10px] font-mono text-gray-400">
-                    Yr {item.year} • Wk {item.week} ({item.timestamp})
+                    Yr {item.year} • Wk {item.week}
                   </span>
                 </div>
 
