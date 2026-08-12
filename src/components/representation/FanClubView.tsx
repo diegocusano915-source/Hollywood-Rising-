@@ -39,7 +39,7 @@ const TIER_META: { id: FanClubTierId; name: string; yearly: number; color: strin
 ];
 
 export const FanClubView: React.FC<FanClubViewProps> = ({ representationState, onRefresh, onBack }) => {
-  const { player, saveData, updateSave } = useGame();
+  const { player, saveData, updateSave , persistNow } = useGame();
   const fanClub = representationState.fanClub;
 
   const [clubNameInput, setClubNameInput] = useState('');
@@ -66,6 +66,7 @@ export const FanClubView: React.FC<FanClubViewProps> = ({ representationState, o
     }
 
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     const initialMembers = Math.min(10, Math.max(2, player.fans || 5));
 
@@ -122,6 +123,7 @@ export const FanClubView: React.FC<FanClubViewProps> = ({ representationState, o
     }
 
     player.money -= cost;
+    persistNow();
     player.fans = (player.fans || 0) + fansGained;
 
     const state = RepresentationService.getState();

@@ -50,7 +50,7 @@ interface StarStocksViewProps {
 }
 
 export const StarStocksView: React.FC<StarStocksViewProps> = ({ onBack }) => {
-  const { player, settings } = useGame();
+  const { player, settings , persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [marketState, setMarketState] = useState<EconomyMarketState>(() => MarketEngineService.getMarketState());
@@ -85,6 +85,7 @@ export const StarStocksView: React.FC<StarStocksViewProps> = ({ onBack }) => {
     const res = MarketEngineService.buyStock(ticker, qty, player.money);
     if (res.success) {
       player.money -= res.totalCost;
+    persistNow();
       setFeedback(res.message);
       refreshMarket();
     } else {
@@ -97,6 +98,7 @@ export const StarStocksView: React.FC<StarStocksViewProps> = ({ onBack }) => {
     const res = MarketEngineService.sellStock(ticker, qty);
     if (res.success) {
       player.money += res.totalRevenue;
+    persistNow();
       setFeedback(res.message);
       refreshMarket();
     } else {
@@ -109,6 +111,7 @@ export const StarStocksView: React.FC<StarStocksViewProps> = ({ onBack }) => {
     const res = MarketEngineService.subscribeIpo(ipoId, shares, player.money);
     if (res.success) {
       player.money -= res.totalCost;
+    persistNow();
       setFeedback(res.message);
       refreshMarket();
     } else {
@@ -135,6 +138,7 @@ export const StarStocksView: React.FC<StarStocksViewProps> = ({ onBack }) => {
 
     if (res.success) {
       player.money -= 500000;
+    persistNow();
       setFeedback(res.message);
       setShowLaunchIpoModal(false);
       setCustomIpoName('');

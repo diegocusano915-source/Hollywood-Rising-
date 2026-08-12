@@ -45,7 +45,7 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player, saveData, updateSave } = useGame();
+  const { player, saveData, updateSave , persistNow } = useGame();
   const pr = representationState.pr;
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRESS_RELEASE' | 'CRISIS' | 'TRAINING'>('OVERVIEW');
@@ -119,6 +119,7 @@ export const PublicRelationsView: React.FC<PublicRelationsViewProps> = ({
     }
 
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     state.pr.mediaTrainingLevel = Math.min(100, state.pr.mediaTrainingLevel + 15);
     state.reputation.professionalism = Math.min(100, state.reputation.professionalism + 8);

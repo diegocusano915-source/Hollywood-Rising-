@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const CorporateBoardView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const boardState = empireState?.boardSeats || [];
   const acqCatalog = empireState.acquisitionsCatalog || [];
   const [selectedAcquisition, setSelectedAcquisition] = useState<AcquisitionTargetCompany | null>(null);
@@ -95,6 +95,7 @@ export const CorporateBoardView: React.FC<Props> = ({ empireState, onUpdateState
 
     // Deduct cash
     player.money -= target.askingPrice;
+    persistNow();
 
     // Convert to Active Business Venture
     const newAcquiredVenture: BusinessVenture = {

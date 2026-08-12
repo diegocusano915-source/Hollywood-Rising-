@@ -45,7 +45,7 @@ interface StockCoinViewProps {
 }
 
 export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
-  const { player, settings } = useGame();
+  const { player, settings , persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [marketState, setMarketState] = useState<EconomyMarketState>(() => MarketEngineService.getMarketState());
@@ -76,6 +76,7 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     const res = MarketEngineService.buyCrypto(symbol, amount, player.money);
     if (res.success) {
       player.money -= amount;
+    persistNow();
       setFeedback(res.message);
       refreshMarket();
     } else {
@@ -88,6 +89,7 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     const res = MarketEngineService.sellCrypto(symbol, coinAmount);
     if (res.success) {
       player.money += res.totalDollarRevenue;
+    persistNow();
       setFeedback(res.message);
       refreshMarket();
     } else {
@@ -113,6 +115,7 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
 
     if (res.success) {
       player.money -= 100000;
+    persistNow();
       setFeedback(res.message);
       setShowDeployTokenModal(false);
       setTokenName('');

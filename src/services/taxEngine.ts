@@ -292,6 +292,26 @@ export function processTaxWeek(input: TaxWeekInput): TaxWeekResult {
   return { withheld, taxesPaid: withheld, filing };
 }
 
+/**
+ * SEED BASELINES ON FIRST RUN (v2): the tax engine's deduction deltas compare
+ * current totals against a baseline that used to start at 0 — which would
+ * treat ALL historical charity donations / studio expenses as one-week
+ * deductions the first week. v2 seeds the baseline to current totals once.
+ */
+export function ensureTaxBaselines(
+  charities: { totalDonated?: number }[],
+  financials: { type: string; amount: number }[]
+) {
+  const state = loadTaxState();
+  if ((state.version || 1) >= 2) return;
+  state.lastCharityTotal = (charities || []).reduce((a, c) => a + (c?.totalDonated || 0), 0);
+  state.lastStudioCostTotal = (financials || [])
+    .filter((f) => f?.type === 'COST')
+    .reduce((a, f) => a + Math.abs(f?.amount || 0), 0);
+  state.version = 2;
+  saveTaxState(state);
+}
+
 /** Weekly charity donation delta (real, from Representation charity state) */
 export function charityDeltaThisWeek(charities: { totalDonated?: number }[]): number {
   const state = loadTaxState();

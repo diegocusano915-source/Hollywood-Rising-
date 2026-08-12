@@ -60,7 +60,7 @@ import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
 import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
-import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, loadTaxState, getTaxRecord } from '../services/taxEngine';
+import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { ActiveJob, TransactionRecord } from '../types/network';
 
 
@@ -190,6 +190,7 @@ interface GameContextType {
   changeTheme: (theme: ThemeOption) => void;
   updateSettings: (newSettings: Partial<GameSettings>) => void;
   updateSave: (newSave: SaveData) => void;
+  persistNow: () => void;
   resetGame: () => void;
   manualSave: () => void;
 
@@ -394,6 +395,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newSave = { ...prev, player: updatedPlayer };
       StorageService.saveGameData(newSave, newSave.slotNumber);
       return newSave;
+    });
+  }, []);
+
+  // Views that mutate saveData.player in place (stocks, crypto, investments,
+  // donations, upgrades...) call this to persist the CURRENT latest state.
+  const persistNow = useCallback(() => {
+    setSaveData((prev) => {
+      try { StorageService.saveGameData(prev, prev.slotNumber || 1); } catch (e) { console.error('persistNow failed', e); }
+      return prev;
     });
   }, []);
 
@@ -2579,6 +2589,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const empireNow = empireResult?.updatedState;
       const repNow = RepresentationService.getState();
       const studioFinTax = loadStudioState();
+      // Seed deduction baselines once so historical totals never count as one-week deductions
+      ensureTaxBaselines(repNow?.charities || [], studioFinTax?.financials || []);
       const taxResult = processTaxWeek({
         year: p.dateYear,
         week: p.dateWeek,
@@ -3433,6 +3445,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         changeTheme,
         updateSettings,
         updateSave,
+        persistNow,
         resetGame,
         manualSave,
         addFameXp,

@@ -44,7 +44,7 @@ const HEAT_LEVEL_BADGES: Record<RivalryLevel, { color: string; label: string }> 
 };
 
 export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(
     empireState.rivalries.length > 0 ? empireState.rivalries[0].id : null
   );
@@ -75,6 +75,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
     }
 
     player.money -= cost;
+    persistNow();
     const selected = unadded[Math.floor(Math.random() * unadded.length)];
 
     const newRival: RivalryNPC = {
@@ -144,6 +145,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
         return;
       }
       player.money -= cost;
+    persistNow();
       scoreDelta = -20;
       if (selectedRival.heatLevel === 'Arch Rival') heatChange = 'Feud';
       else if (selectedRival.heatLevel === 'Feud') heatChange = 'Tension';
@@ -158,6 +160,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
         return;
       }
       player.money -= cost;
+    persistNow();
       scoreDelta = +25;
       heatChange = 'Arch Rival';
       eventText = `Challenged ${selectedRival.name} to a direct opening weekend Box Office showdown!`;
@@ -169,6 +172,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
         return;
       }
       player.money -= cost;
+    persistNow();
       scoreDelta = +10;
       if (selectedRival.heatLevel === 'Tension') heatChange = 'Feud';
       eventText = `Posted viral social media clapback targeting ${selectedRival.name}. Trended #1 globally!`;
@@ -180,6 +184,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
         return;
       }
       player.money -= cost;
+    persistNow();
       scoreDelta = +15;
       heatChange = 'Feud';
       eventText = `Leaked internal studio audio memo critiquing ${selectedRival.name}'s onset demeanor.`;
@@ -191,6 +196,7 @@ export const RivalriesView: React.FC<Props> = ({ empireState, onUpdateState, onB
         return;
       }
       player.money -= cost;
+    persistNow();
       scoreDelta = +30;
       heatChange = 'Arch Rival';
       eventText = `Served ${selectedRival.name} with formal defamation cease & desist legal notice!`;

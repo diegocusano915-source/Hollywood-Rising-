@@ -153,7 +153,7 @@ export const ExecutiveManagementView: React.FC<Props> = ({
   onUpdateState,
   onBack,
 }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const currentExecs = business.executives || [];
   const [notification, setNotification] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -173,6 +173,7 @@ export const ExecutiveManagementView: React.FC<Props> = ({
     }
 
     player.money -= signingFee;
+    persistNow();
 
     const newExec: Executive = {
       ...cand,

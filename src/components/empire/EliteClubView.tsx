@@ -29,7 +29,7 @@ interface Props {
 }
 
 export const EliteClubView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const eliteState = empireState.eliteClub;
 
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'EVENTS' | 'LOGS'>('MEMBERS');
@@ -49,6 +49,7 @@ export const EliteClubView: React.FC<Props> = ({ empireState, onUpdateState, onB
     }
 
     player.money -= entryFee;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,
@@ -73,6 +74,7 @@ export const EliteClubView: React.FC<Props> = ({ empireState, onUpdateState, onB
     }
 
     player.money -= evt.cost;
+    persistNow();
 
     const attendeesCount = Math.floor(4 + Math.random() * 8);
     const outcomes = [

@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const FoundationView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const foundation = empireState.foundation;
 
   const establishmentCost = 100000;
@@ -28,6 +28,7 @@ export const FoundationView: React.FC<Props> = ({ empireState, onUpdateState, on
     }
 
     player.money -= establishmentCost;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,
@@ -53,6 +54,7 @@ export const FoundationView: React.FC<Props> = ({ empireState, onUpdateState, on
     }
 
     player.money -= donationAmount;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,

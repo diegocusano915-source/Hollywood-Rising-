@@ -50,7 +50,7 @@ type LegacyTabFilter =
   | 'RECORDS';
 
 export const LegacyView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player, releasedMovies = [], bookedProjects = [], relationships = [], settings } = useGame();
+  const { player, releasedMovies = [], bookedProjects = [], relationships = [], settings , persistNow } = useGame();
   const theme = THEMES[settings?.theme || 'Hollywood Gold'] || THEMES['Hollywood Gold'];
 
   const [activeTab, setActiveTab] = useState<LegacyTabFilter>('ALL');
@@ -103,6 +103,7 @@ export const LegacyView: React.FC<Props> = ({ empireState, onUpdateState, onBack
 
     if (player) {
       player.money -= starCost;
+    persistNow();
     }
 
     const updated: EmpireFullState = {
@@ -129,6 +130,7 @@ export const LegacyView: React.FC<Props> = ({ empireState, onUpdateState, onBack
 
     if (player) {
       player.money -= cost;
+    persistNow();
     }
 
     const updated: EmpireFullState = {

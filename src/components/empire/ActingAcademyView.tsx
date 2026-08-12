@@ -26,7 +26,7 @@ interface Props {
 }
 
 export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const academy = empireState.actingAcademy;
   const [notification, setNotification] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -42,6 +42,7 @@ export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState,
     }
 
     player.money -= openingCost;
+    persistNow();
 
     const initialStudents: AcademyStudent[] = [];
 
@@ -73,6 +74,7 @@ export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState,
     }
 
     player.money -= cost;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,
@@ -98,6 +100,7 @@ export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState,
     }
 
     player.money -= cost;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,
@@ -122,6 +125,7 @@ export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState,
     }
 
     player.money -= cost;
+    persistNow();
 
     const names = ['Ethan Huntley', 'Maya Lin', 'Caleb Ross', 'Serenity Vance', 'Liam Kincaid', 'Chloe Bennett', 'Dante Thorne', 'Elena Rostova', 'Marcus Brody', 'Sienna Cruz'];
     const talents = ['Method Acting', 'Classical Drama', 'Screen Comedy', 'Action Stunts', 'Musical Theatre', 'Voice Acting'];

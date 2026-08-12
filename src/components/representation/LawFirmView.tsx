@@ -33,7 +33,7 @@ export const LawFirmView: React.FC<LawFirmViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const law = representationState.lawFirm;
 
   const [activeTab, setActiveTab] = useState<'FIRM' | 'TRADEMARKS' | 'LAWSUITS' | 'WILL'>('FIRM');
@@ -82,6 +82,7 @@ export const LawFirmView: React.FC<LawFirmViewProps> = ({
     }
 
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     state.lawFirm.trademarks.unshift({
       id: `tm_${Date.now()}`,
@@ -105,6 +106,7 @@ export const LawFirmView: React.FC<LawFirmViewProps> = ({
       return;
     }
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     state.lawFirm.willsReviewed = true;
     state.reputation.professionalism = Math.min(100, state.reputation.professionalism + 10);

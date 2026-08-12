@@ -20,7 +20,7 @@ export const OfficialWebsiteView: React.FC<OfficialWebsiteViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player, bookedProjects, releasedMovies } = useGame();
+  const { player, bookedProjects, releasedMovies , persistNow } = useGame();
   const website = representationState.website;
 
   const [domainInput, setDomainInput] = useState('');
@@ -42,6 +42,7 @@ export const OfficialWebsiteView: React.FC<OfficialWebsiteViewProps> = ({
     }
 
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     const cleanDomain = domainInput.trim().toLowerCase().replace(/[^a-z0-0]/g, '') + '.com';
 

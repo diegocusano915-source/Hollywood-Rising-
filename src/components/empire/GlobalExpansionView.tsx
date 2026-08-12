@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const GlobalExpansionView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const hubs = empireState?.globalHubs || [];
 
   const handleEstablishHub = (hub: GlobalHubOption) => {
@@ -31,6 +31,7 @@ export const GlobalExpansionView: React.FC<Props> = ({ empireState, onUpdateStat
     }
 
     player.money -= hub.cost;
+    persistNow();
 
     const newHub = {
       id: `hub_${Date.now()}`,

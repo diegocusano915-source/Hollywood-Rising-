@@ -33,7 +33,7 @@ export const CharityCausesView: React.FC<CharityCausesViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const charities = representationState.charities;
 
   const [donationAmount, setDonationAmount] = useState<Record<string, number>>({});
@@ -53,6 +53,7 @@ export const CharityCausesView: React.FC<CharityCausesViewProps> = ({
     }
 
     player.money -= amount;
+    persistNow();
     const state = RepresentationService.getState();
 
     let existing = state.charities.find((c) => c.category === cause.category);
@@ -102,6 +103,7 @@ export const CharityCausesView: React.FC<CharityCausesViewProps> = ({
     const cost = Math.max(250000, Math.floor((donationAmount[cause.category] || 500000) * 0.2));
     if (player.money < cost) { setFeedback(`Charity event needs $${cost.toLocaleString()}.`); setTimeout(() => setFeedback(null), 4000); return; }
     player.money -= cost;
+    persistNow();
     const state = RepresentationService.getState();
     state.reputation.publicReputation = Math.min(100, (state.reputation.publicReputation || 0) + 5);
     state.reputation.publicTrust = Math.min(100, (state.reputation.publicTrust || 0) + 5);

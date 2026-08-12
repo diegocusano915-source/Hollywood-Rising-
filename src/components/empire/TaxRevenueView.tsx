@@ -43,7 +43,7 @@ const ACCOUNTANT_TIERS: {
 ];
 
 export const TaxRevenueView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const tax = empireState.taxState;
   const [notification, setNotification] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -81,6 +81,7 @@ export const TaxRevenueView: React.FC<Props> = ({ empireState, onUpdateState, on
     }
 
     player.money -= acc.cost;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,

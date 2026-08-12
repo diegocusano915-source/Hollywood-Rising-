@@ -93,7 +93,7 @@ const AVAILABLE_COMMERCIAL_LISTINGS: {
 ];
 
 export const RealEstateEmpireView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const [activeTab, setActiveTab] = useState<'PORTFOLIO' | 'MARKET'>('PORTFOLIO');
 
   const handleAcquireProperty = (listing: typeof AVAILABLE_COMMERCIAL_LISTINGS[0]) => {
@@ -103,6 +103,7 @@ export const RealEstateEmpireView: React.FC<Props> = ({ empireState, onUpdateSta
     }
 
     player.money -= listing.price;
+    persistNow();
 
     const newEstate: CommercialRealEstate = {
       id: `estate_${Date.now()}`,
@@ -140,6 +141,7 @@ export const RealEstateEmpireView: React.FC<Props> = ({ empireState, onUpdateSta
     }
 
     player.money -= upgradeCost;
+    persistNow();
 
     const updatedEstate: CommercialRealEstate = {
       ...estate,

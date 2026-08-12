@@ -48,7 +48,7 @@ const EXECUTIVE_ROLES: ExecutiveRole[] = [
 ];
 
 export const HoldingCompanyView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const holding = empireState.holdingCompany;
 
   // Form State
@@ -67,6 +67,7 @@ export const HoldingCompanyView: React.FC<Props> = ({ empireState, onUpdateState
 
     // Deduct cash from player
     player.money -= formationCost;
+    persistNow();
 
     const updated: EmpireFullState = {
       ...empireState,
@@ -95,6 +96,7 @@ export const HoldingCompanyView: React.FC<Props> = ({ empireState, onUpdateState
     }
 
     player.money -= hiringCost;
+    persistNow();
 
     const names = [
       'Julian Sterling',

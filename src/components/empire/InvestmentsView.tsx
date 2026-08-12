@@ -27,7 +27,7 @@ const SECTOR_ICONS: Record<InvestmentSector, React.ComponentType<{ className?: s
 };
 
 export const InvestmentsView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const invState = empireState.investments || {
     portfolio: [],
     totalInvested: 0,
@@ -43,6 +43,7 @@ export const InvestmentsView: React.FC<Props> = ({ empireState, onUpdateState, o
     }
 
     player.money -= totalCost;
+    persistNow();
 
     const existingIndex = invState.portfolio.findIndex((p) => p.opportunityId === opp.id);
     let updatedPortfolio: InvestmentPortfolioItem[] = [...invState.portfolio];
@@ -99,6 +100,7 @@ export const InvestmentsView: React.FC<Props> = ({ empireState, onUpdateState, o
     const proceeds = holdings.sharesOwned * (holdings.currentSharePrice || opp.sharePrice);
     if (!window.confirm(`Sell all ${holdings.sharesOwned} shares of ${opp.companyName} for $${proceeds.toLocaleString()}?`)) return;
     player.money += proceeds;
+    persistNow();
 
     const updatedPortfolio = invState.portfolio.filter((p) => p.opportunityId !== opp.id);
     const newTotalInvested = updatedPortfolio.reduce((sum, p) => sum + p.totalInvested, 0);

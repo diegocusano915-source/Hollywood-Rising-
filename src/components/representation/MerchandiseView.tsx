@@ -29,7 +29,7 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
   onRefresh,
   onBack,
 }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const merchandise = representationState.merchandise;
   const isEligible = (player.fans || 0) >= 50 || representationState.fanClub.isCreated;
 
@@ -59,6 +59,7 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
     }
 
     player.money -= totalProductionCost;
+    persistNow();
     const state = RepresentationService.getState();
     state.merchandise.unshift({
       id: `merch_${Date.now()}`,
@@ -96,6 +97,7 @@ export const MerchandiseView: React.FC<MerchandiseViewProps> = ({
     }
 
     player.money -= cost;
+    persistNow();
     item.inventory += count;
     RepresentationService.saveState(state);
     alert(`📦 Restocked +${count} units of "${item.name}".`);

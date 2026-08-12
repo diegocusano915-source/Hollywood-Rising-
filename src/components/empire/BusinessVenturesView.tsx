@@ -69,7 +69,7 @@ const INDUSTRIES_CATALOG = [
 ];
 
 export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
-  const { player } = useGame();
+  const { player , persistNow } = useGame();
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [selectedExecBiz, setSelectedExecBiz] = useState<BusinessVenture | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
@@ -93,6 +93,7 @@ export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateSta
     }
 
     player.money -= selectedIndustry.cost;
+    persistNow();
 
     const newBiz: BusinessVenture = {
       id: `biz_${Date.now()}`,
@@ -164,6 +165,7 @@ export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateSta
     }
 
     player.money -= cost;
+    persistNow();
 
     const newBranch: BusinessBranch = {
       id: `br_${Date.now()}`,
@@ -208,6 +210,7 @@ export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateSta
     }
 
     player.money -= cost;
+    persistNow();
 
     const updatedBusinesses = empireState.businesses.map((b) => {
       if (b.id === biz.id) {

@@ -70,7 +70,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
   networkState,
   onUpdateState,
 }) => {
-  const { player, settings } = useGame();
+  const { player, settings , persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTab, setActiveTab] = useState<HealthTab>('OVERVIEW');
@@ -258,6 +258,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
     }
 
     player.money -= outOfPocket;
+    persistNow();
 
     const newRecord: MedicalRecordEntry = {
       id: `med_${Date.now()}`,
@@ -308,6 +309,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
     }
 
     player.money -= act.cost;
+    persistNow();
 
     const nextHealth: PlayerHealthState = {
       ...health,
@@ -343,6 +345,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
     }
 
     player.money -= act.cost;
+    persistNow();
 
     const nextHealth: PlayerHealthState = {
       ...health,
@@ -417,6 +420,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
     }
 
     player.money -= method.cost;
+    persistNow();
 
     const nextHealth: PlayerHealthState = {
       ...health,
