@@ -66,7 +66,7 @@ export const ContractNegotiationModal: React.FC<ContractNegotiationModalProps> =
 
       const newBooked: BookedProject = {
         id: `book_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        projectId: project.id,
+        projectId: (project as any).originalProjectId || (project as any).projectId || project.id,
         movieTitle: project.title,
         posterUrl: project.posterUrl,
         roleType: project.roleType,

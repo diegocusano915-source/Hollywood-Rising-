@@ -246,7 +246,7 @@ export const BookingModal: React.FC = () => {
   // Negotiation Adapter & Actions for Greenlit Sequels / Pending Deals
   const negotiationProjectAdapter: CallboardProject = currentProject
     ? {
-        id: currentProject.projectId || currentProject.id,
+        id: currentProject.projectId || `book_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         title: currentProject.movieTitle,
         posterUrl: currentProject.posterUrl,
         genre: currentProject.genre || 'Action',

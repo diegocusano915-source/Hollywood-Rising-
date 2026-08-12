@@ -2355,11 +2355,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 15% chance per week for older projects to be filled by competing NPC actors
       const npcClaimed = remainingWeeks <= 0 || (Math.random() < 0.15 && remainingWeeks <= 2);
       if (npcClaimed) {
-        // ONLY notify when the player ACTUALLY APPLIED to THIS EXACT listing (strict projectId match).
-        // Title matching is banned: recycled titles from the endless pool would spam fake messages.
+        // ONLY notify when the player MANUALLY applied to THIS EXACT listing (strict projectId match).
+        // Title matching is BANNED (recycled titles would spam). Agent auto-pitches are
+        // silent until resolved — no expiry spam for submissions the player never chose.
         const playerAppliedToThisListing =
-          saveData.auditions.some(a => a.projectId === project.id) ||
-          saveData.bookedProjects.some(b => b.projectId === project.id);
+          saveData.auditions.some(a => a.projectId === project.id && !a.agentPitched);
 
         if (playerAppliedToThisListing) {
           newInboxMessages.unshift({
