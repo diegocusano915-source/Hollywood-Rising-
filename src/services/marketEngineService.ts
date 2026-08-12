@@ -50,6 +50,10 @@ export interface StockCompany {
   news: string[];
   chartData: number[]; // last 12 weeks
   status: CompanyStatus;
+  weeksSinceListing?: number;
+  weakStreak?: number;
+  listedWeek?: number;
+  listedYear?: number;
   institutionalOwnershipPct: number;
   insiderOwnershipPct: number;
   publicOwnershipPct: number;
@@ -105,6 +109,10 @@ export interface CryptoCoin {
   status: 'Active' | 'Delisted' | 'RugPulled' | 'TopLeader';
   playerHoldings: number;
   playerAvgBuyPrice: number;
+  weeksSinceListing?: number;
+  weakStreak?: number;
+  listedWeek?: number;
+  listedYear?: number;
 }
 
 export interface MarketTransaction {
@@ -1117,6 +1125,14 @@ export class MarketEngineService {
       }
     }
 
+    // ENDLESS MARKET (v2): infinite listings, delistings, bankruptcies, acquisitions
+    try {
+      const endlessNews = processEndlessMarket(s, playerWeek, playerYear);
+      headlineNews.push(...endlessNews);
+    } catch (e) {
+      console.error('Endless market error:', e);
+    }
+
     this.saveMarketState(s);
     return { updatedState: s, headlineNews };
   }
@@ -1491,4 +1507,184 @@ export class MarketEngineService {
       message: `WEB3 TOKEN DEPLOYED! $${cleanSymbol} (${coinName}) is now live with 1,000,000 token founder allocation!`,
     };
   }
+}
+
+// ============================================================
+// ENDLESS MARKET ENGINE (v2) — invisible procedural pool
+// Infinite coins & studios: list, rise/fall, delist, acquired, bankrupt
+// ============================================================
+
+const COIN_PREFIX = ['Red', 'Gold', 'Star', 'Neon', 'Crimson', 'Velvet', 'Lunar', 'Solar', 'Pixel', 'Quantum', 'Royal', 'Cosmic', 'Vivid', 'Echo', 'Apex', 'Nova', 'Phantom', 'Crystal', 'Ivory', 'Obsidian'];
+const COIN_SUFFIX = ['Token', 'Coin', 'Credit', 'Cash', 'Dollar', 'Bucks', 'Notes', 'Coinage', 'Chips', 'Script', 'Pay', 'Flux', 'Bond', 'Yield', 'Mint', 'Shares'];
+const COIN_SECTORS = ['Entertainment', 'Streaming', 'AI & Creative', 'Ticketing', 'Gaming', 'Music', 'Fashion', 'Real Estate', 'Fintech', 'Social', 'Sports', 'Travel'];
+const COIN_SYMBOLS = ['R', 'G', 'S', 'N', 'C', 'V', 'L', 'Q', 'P', 'X', 'K', 'M', 'A', 'E', 'T', 'B', 'D', 'Y', 'W', 'F'];
+
+function rand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ENDLESS COIN GENERATOR — never runs out (combinatorial pool)
+export function generateEndlessCoin(): Omit<CryptoCoin, 'playerHoldings' | 'playerAvgBuyPrice'> {
+  const prefix = rand(COIN_PREFIX);
+  const suffix = rand(COIN_SUFFIX);
+  const sector = rand(COIN_SECTORS);
+  const sym = '$' + prefix[0] + suffix[0];
+  const price = Math.round((0.5 + Math.random() * 9.5) * 100) / 100;
+  const supply = Math.floor(1000000 + Math.random() * 50000000);
+  const cap = Math.floor(price * supply);
+  const vol = (['Low', 'Moderate', 'High', 'Extreme Degen'] as const)[Math.floor(Math.random() * 4)];
+  return {
+    id: `coin_gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    name: `${prefix} ${suffix}`,
+    symbol: sym,
+    price,
+    prevPrice: price * 0.92,
+    change24h: 8.7,
+    change7d: 15.2,
+    marketCap: cap,
+    circulatingSupply: supply,
+    volume24h: Math.floor(cap * (0.08 + Math.random() * 0.2)),
+    popularity: Math.floor(40 + Math.random() * 55),
+    communityStrength: Math.floor(35 + Math.random() * 60),
+    volatility: vol,
+    sector,
+    risk: vol === 'Extreme Degen' ? 'Extreme Degen' : vol === 'High' ? 'High' : vol === 'Moderate' ? 'Medium' : 'Low',
+    techDescription: `${prefix} ${suffix} powers ${sector.toLowerCase()} payments and community rewards across Hollywood.`,
+    sparkline: [price * 0.8, price * 0.9, price * 0.95, price],
+    news: `$${sym} (${prefix} ${suffix}) lists on Hollywood Web3 Exchange!`,
+    status: 'Active',
+    weeksSinceListing: 0,
+    weakStreak: 0,
+    listedWeek: 1,
+    listedYear: 2026,
+  };
+}
+
+const STUDIO_PREFIX = ['Apex', 'Stellar', 'Meridian', 'Cascade', 'Ironclad', 'Sunburst', 'Northstar', 'Vanguard', 'Golden', 'Silverline', 'Bluebird', 'Redwood', 'Crestline', 'Atlas', 'Monarch', 'Quill', 'Summit', 'Harbor', 'Sterling', 'Blackwood'];
+const STUDIO_SUFFIX = ['Studios', 'Pictures', 'Entertainment', 'Films', 'Productions', 'Media', 'Pictures Group', 'Works', 'Cinema', 'Motion Co.', 'Pictures Co.', 'Entertainment Group', 'Films Co.', 'Studios Group'];
+
+// ENDLESS STUDIO GENERATOR
+export function generateEndlessStudio(): Omit<StockCompany, 'playerSharesOwned' | 'playerAvgBuyPrice' | 'playerBoardMember'> {
+  const prefix = rand(STUDIO_PREFIX);
+  const suffix = rand(STUDIO_SUFFIX);
+  const ticker = (prefix.slice(0, 2) + suffix.slice(0, 1)).toUpperCase();
+  const price = Math.round((5 + Math.random() * 60) * 100) / 100;
+  const shares = Math.floor(10000000 + Math.random() * 90000000);
+  const revenue = Math.floor(20000000 + Math.random() * 900000000);
+  const profit = Math.floor(revenue * (0.03 + Math.random() * 0.2));
+  const debt = Math.floor(revenue * (0.1 + Math.random() * 0.7));
+  return {
+    id: `stk_gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    name: `${prefix} ${suffix}`,
+    ticker,
+    industry: 'Media & Entertainment',
+    ceo: rand(['Marcus Hayes', 'Seraphina Sterling', 'Damon Kincaid', 'Victoria Reign', 'Gabriel Stone', 'Nadia Frost']),
+    logo: '🎬',
+    sharePrice: price,
+    prevPrice: price * 0.97,
+    changePct: 3.1,
+    marketCap: Math.floor(price * shares),
+    sharesOutstanding: shares,
+    revenue,
+    profit,
+    debt,
+    growthRate: Math.floor(5 + Math.random() * 40),
+    investorConfidence: Math.floor(45 + Math.random() * 45),
+    ceoRating: Math.floor(55 + Math.random() * 40),
+    newsSentiment: Math.floor(40 + Math.random() * 50),
+    volatility: (['Low', 'Moderate', 'High'] as const)[Math.floor(Math.random() * 3)],
+    rating: (['CCC', 'B', 'BB', 'BBB', 'A', 'AA', 'AAA'] as const)[Math.floor(Math.random() * 5)],
+    dividendYieldPct: Math.round((Math.random() * 3) * 100) / 100,
+    history: `${prefix} ${suffix} is a mid-cap studio expanding across film, streaming and distribution.`,
+    movies: [],
+    series: [],
+    upcomingProjects: ['Slate Expansion', 'Streaming Push', 'Franchise Development'],
+    news: `${prefix} ${suffix} (${ticker}) goes public on Wall Street!`,
+    chartData: [price * 0.9, price],
+    status: 'Public',
+    institutionalOwnershipPct: 50,
+    insiderOwnershipPct: 20,
+    publicOwnershipPct: 30,
+    boardSeatsTotal: 9,
+    playerBoardMember: false,
+    weeksSinceListing: 0,
+    weakStreak: 0,
+    listedWeek: 1,
+    listedYear: 2026,
+  } as any;
+}
+
+// PROCESS ENDLESS LISTINGS + LIFECYCLES (call inside processEndWeek)
+export function processEndlessMarket(s: any, playerWeek: number, playerYear: number): string[] {
+  const news: string[] = [];
+
+  // ---- COINS ----
+  // Age + delisting logic
+  s.cryptoCoins = (s.cryptoCoins || []).map((c: any) => {
+    if (c.status !== 'Active' && c.status !== 'TopLeader') return c;
+    c.weeksSinceListing = (c.weeksSinceListing || 0) + 1;
+    // Weak detection: price fell below 15% of its peak
+    const peak = Math.max(...(c.sparkline || [c.price]), c.price);
+    const crashed = c.price < peak * 0.15;
+    c.weakStreak = crashed ? (c.weakStreak || 0) + 1 : 0;
+    // Delist: crashed 6 straight weeks OR too old (>52 weeks) and weak
+    if (c.weakStreak >= 6 || (c.weeksSinceListing > 52 && c.weakStreak >= 3)) {
+      const delisted = { ...c, status: 'Delisted' as const, news: `$${c.symbol} (${c.name}) has been DELISTED after sustained losses. Holders left with dust.` };
+      news.push(`🚨 DELISTED: $${c.symbol} (${c.name}) removed from the exchange after sustained collapse.`);
+      return delisted;
+    }
+    return c;
+  });
+  // New endless listings every 5 weeks (keep up to 15 active)
+  if (playerWeek % 5 === 0) {
+    const activeCoins = (s.cryptoCoins || []).filter((c: any) => c.status === 'Active' || c.status === 'TopLeader').length;
+    if (activeCoins < 15) {
+      const newCoin = generateEndlessCoin();
+      (newCoin as any).listedWeek = playerWeek;
+      (newCoin as any).listedYear = playerYear;
+      s.cryptoCoins.push(newCoin);
+      news.push(`🪙 NEW LISTING: $${newCoin.symbol} (${newCoin.name}) deploys on the exchange!`);
+    }
+  }
+
+  // ---- STUDIOS ----
+  s.stocks = (s.stocks || []).map((st: any) => {
+    if (st.status !== 'Public') return st;
+    st.weeksSinceListing = (st.weeksSinceListing || 0) + 1;
+    const price = st.sharePrice || 1;
+    const weak = price < 1.5;
+    st.weakStreak = weak ? (st.weakStreak || 0) + 1 : 0;
+    // BANKRUPT: weak 6 weeks straight AND debt > 6x revenue
+    const bankrupt = st.weakStreak >= 6 && (st.debt || 0) > (st.revenue || 1) * 6;
+    if (bankrupt) {
+      st.status = 'Bankrupt';
+      st.news = `${st.name} (${st.ticker}) declares BANKRUPTCY. Shareholders wiped out.`;
+      news.push(`💥 BANKRUPT: ${st.name} (${st.ticker}) collapsed under massive debt. Stock is worthless.`);
+    }
+    return st;
+  });
+  // ACQUISITIONS: healthy studio (cap >= 3x) buys a weak one; shareholders get +25% premium
+  const publics = (s.stocks || []).filter((x: any) => x.status === 'Public');
+  const weakTargets = publics.filter((x: any) => x.weakStreak >= 3 && (x.sharePrice || 1) < 8);
+  if (weakTargets.length > 0 && publics.length >= 2) {
+    const target = weakTargets[0];
+    const acquirers = publics.filter((x: any) => x.id !== target.id && (x.marketCap || 0) >= (target.marketCap || 1) * 3 && x.weakStreak === 0);
+    if (acquirers.length > 0 && Math.random() < 0.5) {
+      const acquirer = acquirers[Math.floor(Math.random() * acquirers.length)];
+      target.status = 'Acquired';
+      target.news = `${target.name} (${target.ticker}) acquired by ${acquirer.name} — shareholders paid a 25% premium.`;
+      news.push(`🤝 ACQUISITION: ${acquirer.name} (${acquirer.ticker}) acquired ${target.name} (${target.ticker})!`);
+    }
+  }
+  // New endless studio IPOs every 4 weeks (keep up to 12 public)
+  if (playerWeek % 4 === 0) {
+    const publicCount = (s.stocks || []).filter((x: any) => x.status === 'Public').length;
+    if (publicCount < 12) {
+      const newStudio = generateEndlessStudio();
+      (newStudio as any).listedWeek = playerWeek;
+      (newStudio as any).listedYear = playerYear;
+      s.stocks.push(newStudio);
+      news.push(`🏦 NEW IPO: ${newStudio.name} (${newStudio.ticker}) begins trading at $${newStudio.sharePrice}!`);
+    }
+  }
+
+  return news;
 }
