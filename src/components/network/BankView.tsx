@@ -220,6 +220,16 @@ export const BankView: React.FC<BankViewProps> = ({
     setTimeout(() => setFeedback(null), 3000);
   };
 
+  const handleUseCardPurchase = (card: typeof CREDIT_CARD_TIERS[0]) => {
+    const amt = Math.min(5000, Math.max(100, Math.floor(card.limit * 0.01)));
+    if (player.money < amt) { setFeedback('Insufficient funds for card purchase.'); return; }
+    const nextBank = { ...bank, cardUsageCount: ((bank as any).cardUsageCount || 0) + 1, cardOnTimeCount: ((bank as any).cardOnTimeCount || 0) + 1 };
+    NetworkService.saveState({ ...NetworkService.getState(), bankAccount: nextBank });
+    updateSave({ ...saveData, player: { ...player, money: Math.max(0, (player.money || 0) - amt) } });
+    setFeedback(`💳 Purchased with ${card.name} ($${amt.toLocaleString()}). On-time card usage builds your credit!`);
+    setTimeout(() => setFeedback(null), 4000);
+  };
+
   const handleApplyCreditCard = (card: typeof CREDIT_CARD_TIERS[0]) => {
     if (ownedCreditCards.includes(card.id)) {
       setFeedback(`You already hold the ${card.name}!`);
@@ -342,6 +352,20 @@ export const BankView: React.FC<BankViewProps> = ({
             <span className="text-[9px] text-sky-300 font-bold block">{getRatingLabel(bank.creditScore)}</span>
           </div>
         </div>
+
+        {/* CREDIT BREAKDOWN — why your score is rising */}
+        {(bank as any).creditBreakdown && (bank as any).creditBreakdown.length > 0 && (
+          <div className="p-3 rounded-2xl bg-black/40 border border-amber-500/20 space-y-1.5">
+            <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">Credit Factors — this week</p>
+            {(bank as any).creditBreakdown.map((f: any, i: number) => (
+              <p key={i} className="text-[10px] text-gray-300 flex justify-between">
+                <span>{f.factor}</span>
+                <span className={f.points >= 0 ? 'text-emerald-400 font-black' : 'text-rose-400 font-black'}>{f.points >= 0 ? '+' : ''}{f.points}</span>
+              </p>
+            ))}
+            <p className="text-[8px] text-gray-500 pt-1">Credit rises from income stability, wealth, account age, card usage & tax compliance — not just loans.</p>
+          </div>
+        )}
 
         {/* FINANCIAL DASHBOARD METRICS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-black bg-black/60 p-3 rounded-2xl border border-white/10">
@@ -544,6 +568,15 @@ export const BankView: React.FC<BankViewProps> = ({
                   >
                     {isOwned ? '✓ CARD ACTIVE' : isEligible ? 'APPLY FOR CARD' : `REQUIRES ${card.minCredit} CREDIT`}
                   </button>
+
+                  {isOwned && (
+                    <button
+                      onClick={() => handleUseCardPurchase(card)}
+                      className="w-full py-2 rounded-xl bg-black/50 border border-white/15 text-gray-200 font-black text-[10px] hover:border-sky-400 transition-all cursor-pointer"
+                    >
+                      💳 USE CARD — builds credit
+                    </button>
+                  )}
                 </div>
               );
             })}

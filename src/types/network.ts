@@ -318,6 +318,14 @@ export interface BankAccount {
   taxComplianceScore?: number; // 0-100
   auditRiskPct?: number; // 0-100
   taxRetainerPaid?: boolean;
+  // CREDIT SCORE MULTI-FACTOR (v2)
+  cardUsageCount?: number; // times card used
+  cardOnTimeCount?: number; // card payments on time
+  cardMaxedCount?: number; // times card usage maxed (penalty)
+  wealthFactorEarned?: boolean; // already got wealth boost
+  weeklyIncomeHistory?: number[]; // last 8 weeks income for stability
+  lastCreditBoostWeek?: number;
+  creditBreakdown?: { factor: string; points: number }[];
 }
 
 // 7. VAULT & AUCTIONS

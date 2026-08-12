@@ -1613,8 +1613,8 @@ export const NetworkService = {
           loan.weeksRemaining = Math.max(0, (loan.weeksRemaining || 1) - 1);
           nextState.bankAccount.onTimePaymentsCount = (nextState.bankAccount.onTimePaymentsCount || 0) + 1;
 
-          // Gradual progression over time: +1 point every 8 on-time weekly repayments
-          if (nextState.bankAccount.onTimePaymentsCount % 8 === 0) {
+          // On-time loan payments boost credit faster: +1 every 4 on-time repayments (was 8)
+          if (nextState.bankAccount.onTimePaymentsCount % 4 === 0) {
             nextState.bankAccount.creditScore = Math.min(850, nextState.bankAccount.creditScore + 1);
           }
 
@@ -1648,6 +1648,66 @@ export const NetworkService = {
     });
 
     nextState.bankAccount.activeLoans = remainingLoans;
+
+    // ============================================================
+    // MULTI-FACTOR CREDIT ENGINE — credit rises from more than loans
+    // ============================================================
+    const breakdown: { factor: string; points: number }[] = [];
+    let gained = 0;
+
+    // 1) INCOME STABILITY: record weekly income (first 8 weeks of history), slow climb weekly
+    const incomeHistory = nextState.bankAccount.weeklyIncomeHistory || [];
+    const weeklyIncome = playerMoney > 0 ? Math.floor(playerMoney / 4) : 0; // proxy of weekly flow
+    incomeHistory.push(weeklyIncome);
+    if (incomeHistory.length > 8) incomeHistory.shift();
+    nextState.bankAccount.weeklyIncomeHistory = incomeHistory;
+    if (incomeHistory.length >= 4) {
+      const avgIncome = incomeHistory.reduce((a, b) => a + b, 0) / incomeHistory.length;
+      if (avgIncome > 5000) { gained += 1; breakdown.push({ factor: 'Income stability', points: 1 }); }
+      if (avgIncome > 50000) { gained += 1; breakdown.push({ factor: 'High income', points: 1 }); }
+    }
+
+    // 2) PASSIVE SLOW CLIMB: +1 every 4 weeks of responsible banking (not loan-dependent)
+    const creditAge = nextState.bankAccount.creditAgeWeeks || 0;
+    if (creditAge > 0 && creditAge % 4 === 0 && nextState.bankAccount.missedPaymentsCount === 0) {
+      gained += 1;
+      breakdown.push({ factor: 'Account age (4 wks clean)', points: 1 });
+    }
+
+    // 3) WEALTH MULTIPLIER: big savings/net worth unlock bigger boosts (one-time milestones)
+    const savingsBal = nextState.bankAccount?.savingsBalance || 0;
+    const checkingBal = nextState.bankAccount?.checkingBalance || 0;
+    const totalWealth = savingsBal + checkingBal;
+    if (totalWealth >= 100000000 && !nextState.bankAccount.wealthFactorEarned) {
+      gained += 40; breakdown.push({ factor: '$100M+ wealth', points: 40 });
+    } else if (totalWealth >= 10000000 && !nextState.bankAccount.wealthFactorEarned) {
+      gained += 25; breakdown.push({ factor: '$10M+ wealth', points: 25 });
+    } else if (totalWealth >= 1000000 && !nextState.bankAccount.wealthFactorEarned) {
+      gained += 10; breakdown.push({ factor: '$1M+ wealth', points: 10 });
+    }
+    if (gained > 0 && !nextState.bankAccount.wealthFactorEarned && totalWealth >= 1000000) {
+      nextState.bankAccount.wealthFactorEarned = true;
+    }
+
+    // 4) CREDIT CARD USAGE: using cards builds credit (usage tracked), maxing penalizes
+    const cardUsage = nextState.bankAccount.cardUsageCount || 0;
+    if (cardUsage > 0) {
+      const onTime = nextState.bankAccount.cardOnTimeCount || 0;
+      if (onTime >= 4) { gained += 1; breakdown.push({ factor: 'Card on-time usage', points: 1 }); }
+    }
+
+    // 5) TAX COMPLIANCE: filing taxes cleanly boosts score
+    if ((nextState.bankAccount.taxComplianceScore || 0) >= 80) {
+      gained += 2; breakdown.push({ factor: 'Tax compliance', points: 2 });
+    }
+
+    // Apply gains (slow: never more than +6 in one week)
+    const finalGain = Math.min(6, gained);
+    if (finalGain > 0) {
+      nextState.bankAccount.creditScore = Math.min(850, (nextState.bankAccount.creditScore || 320) + finalGain);
+      breakdown.push({ factor: 'Weekly total', points: finalGain });
+    }
+    nextState.bankAccount.creditBreakdown = breakdown;
 
     // Update FICO reputation rating
     const finalScore = nextState.bankAccount.creditScore;
