@@ -963,6 +963,16 @@ export class SocialsService {
     this.saveState(state);
   }
 
+  /** Player manual posting limit per platform per week. */
+  public static readonly PLAYER_POSTS_PER_WEEK = 2;
+
+  /** How many manual posts the player has left on a platform this week. */
+  public static playerPostsLeft(pid: string): number {
+    const state = this.getState();
+    const used = state.postsThisWeekByPlatform?.[pid] || 0;
+    return Math.max(0, SocialsService.PLAYER_POSTS_PER_WEEK - used);
+  }
+
   /**
    * Pitch/Hire a ghostwriter/PR writer. Checks player qualifications,
    * generates an acceptance or rejection InboxMessage, and returns status.
@@ -1012,7 +1022,7 @@ export class SocialsService {
         senderRole: writer.agencyName || 'PR & Ghostwriting Agency',
         senderAvatar: writer.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
         subject: `RETAINER ACCEPTED: ${writer.name} joins your PR Team!`,
-        body: `Dear ${player.firstName},\n\nI have reviewed your Hollywood portfolio, recent filmography (${playerLeadRoles} Lead Roles), and public standing (${playerFame.toLocaleString()} Fame XP). My agency is pleased to accept your retainer proposal.\n\nBeginning this week, my team will craft and publish ${writer.postsPerWeek} automated high-engagement strategic posts per week directly on your official social feed. We will also monitor fan comments and optimize your follower growth.\n\nWeekly Retainer Fee: $${weeklyCost.toLocaleString()}\n\nWelcome to our client roster!\n\nBest regards,\n${writer.name}\n${writer.agencyName || 'Hollywood PR Media Group'}`,
+        body: `Dear ${player.firstName},\n\nI have reviewed your Hollywood portfolio, recent filmography (${playerLeadRoles} Lead Roles), and public standing (${playerFame.toLocaleString()} Fame XP). My agency is pleased to accept your retainer proposal.\n\nBeginning this week, my team will craft and publish 2 detailed strategic posts per week directly on your official ${SocialsService.PLATFORM_LABEL[writer.platform || 'twitter'] || 'social'} feed. We will also monitor fan comments and optimize your follower growth.\n\nWeekly Retainer Fee: $${weeklyCost.toLocaleString()}\n\nWelcome to our client roster!\n\nBest regards,\n${writer.name}\n${writer.agencyName || 'Hollywood PR Media Group'}`,
         date: dateStr,
         read: false,
       };
@@ -1067,16 +1077,10 @@ export class SocialsService {
   } {
     const state = this.getState();
 
-    // 1. Reset Weekly Posts — posting quota bonus from your best writer
-    let baseWeeklyPosts = 2;
+    // Hired writers — each retained for ONE platform (posting handled below).
+    // Player manual posts are capped at SocialsService.PLAYER_POSTS_PER_WEEK per platform.
     const hiredWriters = state.writers.filter((w) => w.hired);
-    const bestWriter = hiredWriters.slice().sort((a, b) => b.postsPerWeek - a.postsPerWeek)[0];
-    if (bestWriter) {
-      baseWeeklyPosts += Math.min(10, Math.floor(bestWriter.postsPerWeek / 2));
-    }
-
-    const spentPostsThisWeek = Math.max(0, baseWeeklyPosts - state.postsRemainingThisWeek);
-    state.postsRemainingThisWeek = baseWeeklyPosts;
+    state.postsRemainingThisWeek = SocialsService.PLAYER_POSTS_PER_WEEK;
 
     const socialPosts: string[] = [];
     const socialTrending: string[] = [];
@@ -1093,18 +1097,44 @@ export class SocialsService {
     const realGross = latestRealMovie?.worldwideGross || 0;
     const realAud = latestRealMovie?.audienceRating || 0;
     const realAwards = (player as any).awardsWon || 0;
-    const writerPostTemplates = [
-      realTitle
-        ? `'${realTitle}' is IN THEATERS NOW! ${realGross > 0 ? `Already past $${(realGross / 1000000).toFixed(1)}M worldwide ` : ''}— thank you to every single fan who showed up! 🎬🍿 #${realTitle.replace(/[^a-zA-Z0-9]/g, '')}`
-        : `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
-      realTitle
-        ? `The critics are loving '${realTitle}' (${realAud}% audience score)! This is only the beginning of the ride. 🔥`
-        : `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
-      realAwards > 0
-        ? `What a season it's been — ${realAwards} award(s) and counting. Grateful beyond words. ❤️🏆`
-        : `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
-      `On set preparing for a demanding role. The hustle never stops in Los Angeles! Stay tuned! 🎭✨`,
+    const realCritic = latestRealMovie?.criticRating || 0;
+    const realOpening = latestRealMovie?.openingWeekendGross || 0;
+    const realPosition = latestRealMovie?.boxOfficePosition || 0;
+    const realWeeks = latestRealMovie?.weeksInCinemas || 0;
+    const realIntl = latestRealMovie?.internationalGross || 0;
+    const realRole = latestRealMovie?.roleType === 'Lead' ? 'leading' : latestRealMovie?.roleType === 'Principal' ? 'principal' : 'supporting';
+    const tag = realTitle ? realTitle.replace(/[^a-zA-Z0-9]/g, '') : '';
+    const mM = (v: number) => `$${(v / 1000000).toFixed(1)}M`;
+
+    // Movie-driven posts (only used when a released movie exists) — detailed, varied copy
+    const movieTemplates = realTitle ? [
+      `'${realTitle}' is officially IN THEATERS! ${realOpening > 0 ? `We opened to ${mM(realOpening)} in our first weekend ` : ''}and I still can't believe this day is here. Three years of work, rehearsals, night shoots and rewrites — all for this moment. Thank you to every single person buying a ticket. 🎬🍿 #${tag}`,
+      `The numbers are in: '${realTitle}' has now crossed ${mM(realGross)} worldwide. ${realPosition > 0 && realPosition <= 3 ? `Sitting at #${realPosition} on the box office chart, ` : ''}and it's all because audiences keep showing up week after week. This business is nothing without the fans. Grateful forever. ❤️ #${tag}`,
+      `Critics score: ${realCritic}%. Audience score: ${realAud}%. I'll be honest — reading the reviews has been an out-of-body experience. Some of these write-ups understood the character better than I did while playing ${realRole === 'leading' ? 'the lead' : `the ${realRole} role`}. This one came from the heart. 🔥`,
+      `Playing a ${realRole} role in '${realTitle}' demanded everything I had. Six weeks of dialect coaching, stunt rehearsals every morning, and one 19-hour night shoot I will never forget. When you see that scene — you'll know the one — I hope you feel every second of it. 🎭 #${tag}`,
+      `Saw '${realTitle}' with a packed audience tonight and heard people gasping, laughing, cheering at the screen. That's why we make movies. Not for the numbers — for that room full of strangers feeling the same thing at the same time. Thank you for having us. 🍿❤️`,
+      `A word for the crew of '${realTitle}': the gaffers who lit those night exteriors, the sound team who caught every whisper, the editors who shaped this thing into what it is. ${realWeeks > 1 ? `${realWeeks} weeks in theaters and counting — ` : ''}this movie belongs to hundreds of people. I was just lucky enough to be on the call sheet. 🎬`,
+      ...(realAwards > 0 ? [
+        `Awards tally so far: ${realAwards} win${realAwards === 1 ? '' : 's'} this season. I keep being told to act casual about this. I cannot. Every trophy on that shelf represents a crew that bet on a ${realRole} performance and a fanbase that never let the buzz die. This is ours, not mine. 🏆❤️`,
+      ] : []),
+      ...(realIntl > 0 ? [
+        `'${realTitle}' has now earned ${mM(realIntl)} internationally. Seeing fans in different countries, different languages, all posting about the same scenes — cinema really is a universal language. World tour next time? I think we've earned it. 🌍🎬 #${tag}`,
+      ] : []),
+    ] : [];
+
+    // General career posts — used when there's no released movie yet, mixed in occasionally otherwise
+    const generalTemplates = [
+      `Development week. Three scripts on the desk, one I can't stop thinking about. It's the kind of role that scares me a little — which is exactly how I know it's the right one. Meetings all week, decisions soon. Stay close. 📖✨`,
+      `Spent the morning with a dialect coach and the afternoon in stunt training. My body hates me, my craft loves me. This next character is going to be unlike anything you've seen from me. That's a promise. 🎭💪`,
+      `Grateful post: a few years ago I was auditioning in rooms where nobody knew my name. Today I read your messages and I genuinely cannot believe this community. Whatever comes next, we built this together. Thank you. ❤️`,
+      `Los Angeles at 5AM. Table read in six hours, gym bag packed, script annotated to death. People see the premiere lights — they don't see the 5AM call times. I wouldn't trade a single one of them. That's the honest truth. 🌅🎬`,
+      `Something is coming. I wish I could say more — contracts and embargoes being what they are — but the next announcement is going to be worth the wait. Keep an eye on this feed this month. 👀🔥`,
+      `On craft: the scene you're proudest of is never the loudest one. It's the quiet moment where the audience finally understands why the character stayed. That's the scene I chase in every script I read. 🎬`,
+      `Ask me anything below — about the process, the roles, the failures, all of it. The best part of this job is this community, and I learn more from your questions than from any director's note. Drop them now. 💬⬇️`,
+      `Industry thought: awards season is heating up and the trades are full of speculation. One thing I've learned — buzz is loud in October and silence is loud in February. Keep your head down, do the work, let the work answer. 🎥`,
     ];
+
+    const writerPostTemplates = realTitle ? [...movieTemplates, ...generalTemplates] : generalTemplates;
 
     for (const hiredWriter of hiredWriters) {
       hiredWriter.postsThisWeek = 0;
@@ -1123,7 +1153,7 @@ export class SocialsService {
       if (player.money < writerWeeklyCost + hiredWriter.weeklyCost) continue; // can't afford this writer this week
 
       writerWeeklyCost += hiredWriter.weeklyCost;
-      const count = Math.min(4, Math.max(1, Math.floor(hiredWriter.postsPerWeek / 2)));
+      const count = 2; // every writer posts exactly 2 detailed posts per week on their platform
       writerPostCount += count;
 
       const playerHandle = SocialsService.getHandle(pid, player);
@@ -2192,8 +2222,6 @@ export function processSocialHubWeek(
   const year = player?.dateYear || 2026;
   const fameXp = player?.fameXp || 0;
   const movies = saveData?.releasedMovies || [];
-  const latest = movies[0];
-  const awards = player?.awardsWon || 0;
   const premium = state.premium || { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
 
   // 1. PREMIUM EXPIRY
@@ -2201,160 +2229,6 @@ export function processSocialHubWeek(
     if (year > premium.expiresYear || (year === premium.expiresYear && week > premium.expiresWeek)) {
       state.premium = { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
       messages.push('⏳ Your platform Premium subscription expired.');
-    }
-  }
-
-  // 2. WRITER AUTO-POSTS (1 hired writer posts on EVERY platform about REAL events)
-  const writer = state.writers.find((w) => w.hired);
-  if (writer && writer.contractWeeksRemaining > 0) {
-    writer.contractWeeksRemaining -= 1;
-    const boost = writer.qualityBoost || 10;
-    const realEvent = latest
-      ? { title: latest.movieTitle, gross: latest.worldwideGross || 0, aud: latest.audienceRating || 0 }
-      : null;
-
-    // Twitter (For You = player feed)
-    if (realEvent) {
-      const t = [
-        `'${realEvent.title}' is IN THEATERS — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! 🎬`,
-        `The critics are raving about '${realEvent.title}' (${realEvent.aud}% audience score)!`,
-        awards > 0 ? `🏆 ${awards} award(s) this season — what a year it's been!` : `Excited about what's next — stay tuned!`,
-      ];
-      state.playerPosts.Twitter = state.playerPosts.Twitter || [];
-      state.playerPosts.Twitter.unshift({
-        id: `w_tw_${Date.now()}`,
-        authorName: `${player.firstName} ${player.lastName}`,
-        authorHandle: `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
-        authorAvatar: player.avatarUrl || '',
-        platform: 'Twitter',
-        tab: 'PLAYER_FEED',
-        text: t[Math.floor(Math.random() * t.length)],
-        likes: Math.floor(50 + fameXp * 0.5 + boost),
-        comments: Math.floor(10 + fameXp * 0.2),
-        retweets: Math.floor(20 + fameXp * 0.3),
-        shares: 0,
-        timestamp: 'Just now',
-        isPlayer: true,
-        isNpc: false,
-        sentiment: 'Positive',
-        generatedByWriter: true,
-      });
-    }
-    // Instagram caption/story
-    if (realEvent) {
-      state.instagramPosts = state.instagramPosts || [];
-      state.instagramPosts.unshift({
-        id: `w_ig_${Date.now()}`,
-        imageUrl: latest?.posterUrl || player.avatarUrl || '',
-        caption: `Behind the scenes of '${realEvent.title}' 🎬 #${realEvent.title.replace(/[^a-zA-Z0-9]/g, '')}`,
-        likes: Math.floor(80 + fameXp * 0.6 + boost),
-        comments: Math.floor(12 + fameXp * 0.15),
-        username: `${player.firstName}${player.lastName}`,
-        timestamp: 'Just now',
-        isPlayer: true,
-      } as any);
-    }
-    // YouTube video publish + algorithm tracker
-    if (realEvent) {
-      state.youtubeVideos = state.youtubeVideos || [];
-      state.youtubeVideos.unshift({
-        id: `w_yt_${Date.now()}`,
-        title: `'${realEvent.title}' — Official Trailer & BTS`,
-        views: Math.floor(youtubeAlgorithmViews(state.youtubeAlgorithm.lifetimeVideos, fameXp, state.youtubeAlgorithm.discovered)),
-        likes: 0,
-        comments: 0,
-        thumbnailUrl: latest?.posterUrl || player.avatarUrl || '',
-        channelName: `${player.firstName} ${player.lastName}`,
-        duration: '2:15',
-        isPlayer: true,
-        isLive: false,
-      } as any);
-      state.youtubeAlgorithm.lifetimeVideos += 1;
-      if (state.youtubeAlgorithm.lifetimeVideos >= 55 && !state.youtubeAlgorithm.discovered) {
-        state.youtubeAlgorithm.discovered = true;
-        messages.push('🚀 The YouTube algorithm has discovered your channel — your videos are being pushed to new audiences!');
-      }
-    }
-    // Facebook post
-    state.facebookPosts = state.facebookPosts || [];
-    state.facebookPosts.unshift({
-      id: `w_fb_${Date.now()}`,
-      authorName: `${player.firstName} ${player.lastName}`,
-      authorHandle: '',
-      authorAvatar: player.avatarUrl || '',
-      platform: 'Facebook',
-      tab: 'PLAYER_FEED',
-      text: realEvent
-        ? `So proud of '${realEvent.title}' — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! Thank you to everyone who came out. ❤️`
-        : `Grateful for this incredible journey. More announcements coming soon! ✨`,
-      likes: Math.floor(100 + fameXp * 0.8 + boost),
-      comments: Math.floor(15 + fameXp * 0.2),
-      retweets: 0,
-      shares: Math.floor(30 + fameXp * 0.4),
-      timestamp: 'Just now',
-      isPlayer: true,
-      isNpc: false,
-      sentiment: 'Positive',
-      generatedByWriter: true,
-    } as any);
-    // The Marquee professional post
-    state.marqueePosts = state.marqueePosts || [];
-    state.marqueePosts.unshift({
-      id: `w_mq_${Date.now()}`,
-      authorName: `${player.firstName} ${player.lastName}`,
-      authorHandle: '',
-      authorAvatar: player.avatarUrl || '',
-      platform: 'Twitter',
-      tab: 'PLAYER_FEED',
-      text: realEvent
-        ? `Thrilled to share that '${realEvent.title}' has earned $${(realEvent.gross / 1000000).toFixed(1)}M at the worldwide box office. Grateful to the studio and the incredible cast and crew.`
-        : `Excited for what's next in this chapter of my career.`,
-      likes: Math.floor(40 + fameXp * 0.4 + boost),
-      comments: Math.floor(8 + fameXp * 0.1),
-      retweets: 0,
-      shares: Math.floor(10 + fameXp * 0.2),
-      timestamp: 'Just now',
-      isPlayer: true,
-      isNpc: false,
-      sentiment: 'Positive',
-      generatedByWriter: true,
-    } as any);
-    // Reddit promo thread
-    state.redditPosts = state.redditPosts || [];
-    if (realEvent) {
-      state.redditPosts.unshift({
-        id: `w_rd_${Date.now()}`,
-        subreddit: 'r/HollywoodRising',
-        author: `u/${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
-        title: `I'm ${player.firstName} ${player.lastName}, star of '${realEvent.title}' — ask me anything! 🎬`,
-        text: `AMA! Ask me anything about '${realEvent.title}', the box office run, or my career.`,
-        upvotes: Math.floor(30 + fameXp * 0.4 + boost),
-        commentCount: Math.floor(5 + fameXp * 0.1),
-        isPlayer: true,
-        isNpc: false,
-        flair: 'AMA',
-        timeText: 'Just now',
-        week,
-        year,
-      });
-    }
-    // Telegram channel post + subscriber growth
-    state.telegramStories = state.telegramStories || [];
-    state.telegramStories.unshift({
-      id: `w_tg_${Date.now()}`,
-      author: `${player.firstName} ${player.lastName}`,
-      text: realEvent ? `📣 '${realEvent.title}' is in theaters now — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide!` : `📣 New week, new moves. Stay tuned.`,
-      hoursLeft: 24,
-      isPlayer: true,
-      week,
-      year,
-    });
-    const subGrowth = Math.floor(2 + fameXp * 0.4 + boost);
-    state.telegramChannelSubs = (state.telegramChannelSubs || 0) + subGrowth;
-
-    messages.push(`✍️ ${writer.name} published content across your platforms (+${subGrowth} Telegram channel subs).`);
-    if (writer.contractWeeksRemaining <= 0) {
-      messages.push(`✅ Writer contract with ${writer.name} completed.`);
     }
   }
 

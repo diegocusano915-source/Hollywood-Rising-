@@ -48,6 +48,11 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const publish = () => {
     if (!draft.trim()) return;
+    if (SocialsService.playerPostsLeft('twitter') <= 0) {
+      setFb("You've already posted twice on X this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const maxLen = premium.tier !== 'none' ? 500 : 280;
     const text = draft.trim().slice(0, maxLen);
     const handleClean = handle;

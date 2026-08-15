@@ -147,6 +147,11 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const submit = () => {
     if (!titleDraft.trim()) return;
+    if (SocialsService.playerPostsLeft('reddit') <= 0) {
+      setFb("You've already posted twice on Reddit this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     state.redditPosts = state.redditPosts || [];
     state.redditPosts.unshift({
       id: `rd_${Date.now()}`,
@@ -174,6 +179,11 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const hostAMA = () => {
     if (!canAMA || !latest) return;
+    if (SocialsService.playerPostsLeft('reddit') <= 0) {
+      setFb("You've already posted twice on Reddit this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     state.redditPosts = state.redditPosts || [];
     state.redditPosts.unshift({
       id: `ama_${Date.now()}`,
@@ -190,6 +200,7 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
+    SocialsService.notePlayerPost('reddit');
     SocialsService.saveState(state);
     setState({ ...state });
     setFb('🎙️ AMA posted — fans are asking questions! (+fans)');

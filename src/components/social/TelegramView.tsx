@@ -26,6 +26,11 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const username = `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`;
 
   const postChannel = () => {
+    if (SocialsService.playerPostsLeft('telegram') <= 0) {
+      setFb("You've already posted twice on Telegram this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const text = channelDraft.trim() || (latest ? `📣 '${latest.movieTitle}' update — stay tuned!` : '📣 Channel announcement');
     state.telegramStories = state.telegramStories || [];
     state.telegramStories.unshift({
@@ -49,6 +54,11 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const postStory = () => {
     if (!storyDraft.trim()) return;
+    if (SocialsService.playerPostsLeft('telegram') <= 0) {
+      setFb("You've already posted twice on Telegram this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     state.telegramStories = state.telegramStories || [];
     state.telegramStories.unshift({
       id: `tg_st_${Date.now()}`,
@@ -59,6 +69,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
+    SocialsService.notePlayerPost('telegram');
     SocialsService.saveState(state);
     setState({ ...state });
     setStoryDraft('');

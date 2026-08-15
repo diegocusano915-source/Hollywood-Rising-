@@ -117,7 +117,7 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
         <div className="p-3 rounded-2xl border border-purple-400/40 bg-purple-500/10 space-y-1">
           <p className="text-xs font-black text-white">{hired.name} <span className="text-purple-300">✍️ HIRED · {platformLabel}</span></p>
           <p className="text-[10px] text-gray-400">{hired.agencyName} · ${hired.weeklyCost.toLocaleString()}/wk · {hired.contractWeeksRemaining} wks left</p>
-          <p className="text-[10px] text-gray-400">Auto-posts {Math.min(4, Math.max(1, Math.floor(hired.postsPerWeek / 2)))}×/week on {platformLabel} about your real events.</p>
+          <p className="text-[10px] text-gray-400">Auto-posts 2×/week on {platformLabel} — detailed posts about your real events.</p>
           <button onClick={fire} className="mt-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[10px] font-black cursor-pointer">✕ Cancel Contract</button>
         </div>
       ) : (
@@ -130,7 +130,7 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
                 <div className="min-w-0">
                   <p className="text-xs font-black text-white truncate">{w.name}</p>
                   <p className="text-[9px] text-gray-400 truncate">{w.tierLabel} · {w.specialty}</p>
-                  <p className="text-[9px] text-gray-500 truncate">{w.agencyName} · ${w.weeklyCost}/wk · {w.postsPerWeek} posts/wk</p>
+                  <p className="text-[9px] text-gray-500 truncate">{w.agencyName} · ${w.weeklyCost}/wk · quality +{w.qualityBoost}%</p>
                 </div>
                 {busy ? (
                   <span className="text-[9px] text-sky-300 shrink-0">On {SocialsService.PLATFORM_LABEL[busy.platform || 'twitter'] || 'other'}</span>

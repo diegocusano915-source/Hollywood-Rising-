@@ -75,6 +75,11 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const posts = state.facebookPosts || [];
 
   const publish = () => {
+    if (SocialsService.playerPostsLeft('facebook') <= 0) {
+      setFb("You've already posted twice on Facebook this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const text = draft.trim() || (latest ? `Just thinking about '${latest.movieTitle}' — what a ride! 🎬` : 'Another amazing day in Hollywood! ✨');
     state.facebookPosts = state.facebookPosts || [];
     state.facebookPosts.unshift({

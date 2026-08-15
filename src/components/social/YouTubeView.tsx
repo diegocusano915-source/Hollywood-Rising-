@@ -61,6 +61,11 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         'Inside My Gym Session',
       ];
   const publish = () => {
+    if (SocialsService.playerPostsLeft('youtube') <= 0) {
+      setFb("You've already uploaded twice on YouTube this week — END WEEK to upload again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const fallbackTitle = TITLE_POOL[PUBLISH_COUNT % TITLE_POOL.length];
     const title = videoTitle.trim() || fallbackTitle;
     const views = youtubeAlgorithmViews(algo.lifetimeVideos, player.fameXp || 0, algo.discovered);

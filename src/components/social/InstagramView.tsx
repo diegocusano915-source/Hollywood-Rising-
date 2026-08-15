@@ -111,6 +111,11 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         'Los Angeles energy ✨',
       ];
   const createPost = () => {
+    if (SocialsService.playerPostsLeft('instagram') <= 0) {
+      setFb("You've already posted twice on Instagram this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     // DETERMINISTIC image: rotate by post count so EVERY post is guaranteed unique,
     // no async state race (handleGenerate would not be visible to this call).
     const genIdx = POST_COUNT % GEN_POOL.length;
