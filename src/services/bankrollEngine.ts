@@ -12,7 +12,7 @@ export type BankrollRisk = 'Low' | 'Medium' | 'High' | 'Extreme';
 export type BankrollOutcome = 'Blockbuster' | 'Hit' | 'Average' | 'Flop';
 
 export const BANKROLL_MIN_INVEST = 2000000; // $2M
-export const BANKROLL_MAX_ASK = 500000000; // $500M
+export const BANKROLL_MAX_ASK = 1000000000; // $1B absolute cap (mega-deals are trust-gated)
 
 export interface BankrollDeal {
   id: string;
@@ -70,6 +70,7 @@ export interface BankrollState {
   investments: BankrollInvestment[];
   history: BankrollHistoryEntry[];
   nextSourceWeek: number;
+  nextSourceYear?: number; // year-aware scheduling (survives year rollover)
 }
 
 const KEY = 'HR_BANKROLL_V1';
@@ -134,26 +135,46 @@ export function saveBankrollState(state: BankrollState) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
 }
 
-/** First activation: manager sources the first deal on the NEXT end-week. */
+/**
+ * Year-aware scheduling: week is week-of-year (1..52) and resets every year,
+ * so a naive "week + N" comparison dies permanently once it crosses 52.
+ * Store the due week AND year, computed on an absolute 52-week timeline.
+ */
+function setNextSource(state: BankrollState, week: number, year: number, delayWeeks: number) {
+  const abs = year * 52 + (week - 1) + delayWeeks;
+  state.nextSourceWeek = (abs % 52) + 1;
+  state.nextSourceYear = Math.floor(abs / 52);
+}
+
+function sourceDue(state: BankrollState, week: number, year: number): boolean {
+  const dueYear = state.nextSourceYear ?? year;
+  return year > dueYear || (year === dueYear && week >= state.nextSourceWeek);
+}
+
+/** First activation: manager sources the first deal 3 weeks after signing. */
 export function ensureBankrollInit(state: BankrollState, player: any) {
   if (!player?.representation?.manager?.signed) return;
   if (state.nextSourceWeek === 0) {
-    state.nextSourceWeek = player.dateWeek + 1;
+    setNextSource(state, player.dateWeek || 1, player.dateYear || 2026, 3);
     saveBankrollState(state);
   }
 }
 
-// Deal size scales with the manager's real tier + dealCap (max $500M)
-function managerDealCeiling(mgr: any): number {
+// Deal size scales with the manager's real tier + dealCap; TREASURED trust
+// unlocks mega-deals above the tier ceiling (up to the $1B absolute cap)
+function managerDealCeiling(mgr: any, trust: number): number {
   const cap = mgr?.dealCap || 250000000;
   const tier = mgr?.tier || 2;
   const tierMax = tier === 1 ? 10000000 : tier === 2 ? 60000000 : tier === 3 ? 200000000 : 500000000;
-  return Math.max(BANKROLL_MIN_INVEST, Math.min(cap, tierMax));
+  let ceiling = Math.max(BANKROLL_MIN_INVEST, Math.min(cap, tierMax));
+  if (trust >= 95) ceiling = Math.max(ceiling, 1000000000);
+  else if (trust >= 80) ceiling = Math.max(ceiling, 750000000);
+  return Math.min(ceiling, BANKROLL_MAX_ASK);
 }
 
 function generateDeal(state: BankrollState, player: any): BankrollDeal {
   const mgr = player?.representation?.manager;
-  const ceiling = managerDealCeiling(mgr);
+  const ceiling = managerDealCeiling(mgr, state.trust);
   const trustBoost = 1 + (state.trust - 50) / 200; // trust 0 -> 0.75x, 100 -> 1.25x
   const ask = Math.max(
     BANKROLL_MIN_INVEST,
@@ -203,6 +224,21 @@ export function processBankrollWeek(
   let moneyDelta = 0;
   const mgr = player?.representation?.manager;
 
+  // Legacy-save migration: old states stored a bare nextSourceWeek (1..56).
+  // Anything above 52 could NEVER fire again after a year rollover — revive
+  // those dead schedulers with a fresh 3-week countdown.
+  if (state.nextSourceYear === undefined) {
+    if (!state.nextSourceWeek || state.nextSourceWeek > 52) {
+      setNextSource(state, week, year, 3);
+    } else {
+      state.nextSourceYear = year;
+    }
+  }
+
+  // FROSTY trust slowly rebuilds (+1/week up to 25) so low trust is a drought,
+  // never a permanent lock-out
+  if (state.trust < 25) state.trust = Math.min(25, state.trust + 1);
+
   // 1. DEAL EXPIRY COUNTDOWN
   state.deals.forEach((d) => {
     if (d.status !== 'PENDING') return;
@@ -248,10 +284,14 @@ export function processBankrollWeek(
           if (roll <= cursor) { outcome = o; break; }
         }
 
+        // HONEST PAYOUT: the multiplier scales with the deal's advertised
+        // Expected Return %, so the offer sheet tells the truth. EV across the
+        // outcome ladder ≈ the advertised return; flops still lose real money.
+        const E = 1 + (inv.expectedReturnPct || 50) / 100;
         const mult =
-          outcome === 'Blockbuster' ? 2.2 + Math.random() * 0.3
-          : outcome === 'Hit' ? 1.5
-          : outcome === 'Average' ? 1.2
+          outcome === 'Blockbuster' ? Math.min(3.0, E * 1.45)
+          : outcome === 'Hit' ? E * 1.1
+          : outcome === 'Average' ? E * 0.85
           : 0.4;
         inv.outcome = outcome;
         inv.multiplier = Math.round(mult * 100) / 100;
@@ -292,23 +332,24 @@ export function processBankrollWeek(
     }
   });
 
-  // 3. MANAGER SOURCING (every ~4 weeks; silence when trust is low)
-  if (mgr?.signed && week >= state.nextSourceWeek) {
+  // 3. MANAGER SOURCING (every ~4 weeks, faster at high trust; silence while
+  // trust rebuilds) — year-aware due check survives every year rollover
+  if (mgr?.signed && sourceDue(state, week, year)) {
     if (state.trust < 25) {
-      state.nextSourceWeek = week + 3;
+      setNextSource(state, week, year, 3);
       state.history.unshift({
         id: uid('hx'), title: 'Producer trust low', week, year, type: 'SILENCE',
-        message: 'Producers went quiet — trust is too low for new deals right now.',
+        message: 'Producers went quiet — trust is rebuilding.',
       });
       messages.push({
         subject: `🤝 ${mgr.name}: producers are hesitant`,
-        body: `Your bankroll track record has hurt your standing (Producer Trust ${state.trust}/100). Producers aren't returning calls. Complete existing projects cleanly to rebuild trust — new offers return automatically.`,
+        body: `Your bankroll track record has hurt your standing (Producer Trust ${state.trust}/100). Producers aren't returning calls yet, but your reputation is rebuilding every week (+1/week). New offers return automatically once trust reaches 25.`,
         sender: mgr.name,
       });
     } else {
       const deal = generateDeal(state, player);
       state.deals.unshift(deal);
-      state.nextSourceWeek = week + (state.trust >= 80 ? 3 : 4);
+      setNextSource(state, week, year, state.trust >= 80 ? 3 : 4);
       messages.push({
         subject: `🤝 BANKROLL OPPORTUNITY: "${deal.title}"`,
         body: `${mgr.name} (${mgr.company}) sourced a co-financing deal.\n\n• Project: "${deal.title}" (${deal.type})\n• Producer: ${deal.producer}\n• Ask: ${deal.ask.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}\n• Expected return: +${deal.expectedReturnPct}% (${deal.risk} risk)\n• Production: ${deal.productionWeeks} weeks\n\nOpen World → Bankroll to review the offer sheet and invest. You choose the amount — the offer expires in 6 weeks.`,
@@ -336,9 +377,10 @@ export function investInDeal(
   if (playerMoney < amount) {
     return { success: false, message: `Insufficient funds — you have ${playerMoney.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.` };
   }
+  const maxActive = state.trust >= 80 ? 3 : 2; // TREASURED trust funds a 3rd concurrent project
   const activeCount = state.investments.filter((i) => i.phase !== 'PAID').length;
-  if (activeCount >= 2) {
-    return { success: false, message: 'You already have 2 active bankroll investments — wait for one to pay out.' };
+  if (activeCount >= maxActive) {
+    return { success: false, message: `You already have ${maxActive} active bankroll investments — wait for one to pay out.` };
   }
 
   // INVISIBLE STOPPER: too-aggressive offers kill the deal instantly

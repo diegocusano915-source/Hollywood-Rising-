@@ -2233,7 +2233,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isTv = movie.isTvSeries || movie.category === 'TV Series';
       const currentPart = movie.franchisePart || 1;
       const currentSeason = movie.tvSeason || 1;
-      const maxPart = movie.isFranchise ? 5 : 1;
+      // ANY film can start a franchise: Part 1 earns Part 2 at the box office,
+      // and the chain is hard-capped at Part 5 (currentPart >= 5 ends it)
+      const maxPart = 5;
       const maxSeason = (movie as any).maxTvSeason || 15;
       if (movie.sequelOffered) return movie;
       if (!isTv && movie.roleType !== 'Lead' && movie.roleType !== 'Principal') return movie;
@@ -2244,8 +2246,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (checks > 20) return movie; // greenlight decision window closed
 
       const baseBudget = movie.budget || 1500000;
-      const targetMet =
-        (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8;
+      // FILMS: purely money-driven — the studio watches the theatrical run for
+      // at least 6 weeks, then greenlights Part N+1 when worldwide gross clears
+      // 1.8x the budget. SERIES: keep the original rating + gross target.
+      const targetMet = isTv
+        ? (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8
+        : checks >= 6 && (movie.worldwideGross || 0) > baseBudget * 1.8;
       if (!targetMet) return { ...movie, sequelCheckWeeks: checks };
 
       // TARGET MET — GREENLIGHT TIME (studio offer, or manager-negotiated offer)
