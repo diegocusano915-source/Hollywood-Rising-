@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { EmpireFullState, EmpireAchievement } from '../../types/empire';
+import { FAME_XP_MULTIPLIER } from '../../services/fameService';
 import { Award, Trophy, Lock, CheckCircle2, Sparkles, Star, Search, Filter } from 'lucide-react';
 
 interface Props {
@@ -49,7 +50,7 @@ export const AchievementsView: React.FC<Props> = ({ empireState, onBack }) => {
 
   const totalFameXpEarned = allAchievements
     .filter((a) => a.isUnlocked)
-    .reduce((acc, a) => acc + (a.rewardFameXp || 0), 0);
+    .reduce((acc, a) => acc + Math.floor((a.rewardFameXp || 0) * FAME_XP_MULTIPLIER), 0);
 
   return (
     <div className="space-y-6">
@@ -206,7 +207,7 @@ export const AchievementsView: React.FC<Props> = ({ empireState, onBack }) => {
 
                 <div className="flex items-center justify-between text-[10px] font-bold text-amber-300 mt-3 pt-2 border-t border-white/5">
                   <span>Reward: +${ach.rewardCash.toLocaleString()}</span>
-                  <span>+{ach.rewardFameXp} Fame XP</span>
+                  <span>+{Math.max(1, Math.floor(ach.rewardFameXp * FAME_XP_MULTIPLIER))} Fame XP</span>
                 </div>
               </div>
             );

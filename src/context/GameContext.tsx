@@ -56,7 +56,7 @@ import { BoxOfficeEngineService } from '../services/boxOfficeEngineService';
 import { RoyaltyEngineService } from '../services/royaltyService';
 import { AwardsService } from '../services/awardsService';
 import { AwardCeremonyResult } from '../types/game';
-import { FameService } from '../services/fameService';
+import { FameService, FAME_XP_MULTIPLIER } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
 import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
@@ -280,13 +280,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Centralized XP & Level Progression Engine
   const addFameXp = useCallback((amount: number, reason: string) => {
     if (!amount || amount <= 0) return;
-    // SLOW BURN: instant XP (red carpet, level-ups) also runs at half speed
-    const halfAmount = Math.max(1, Math.floor(amount * 0.5));
+    // SLOW BURN: ALL instant XP (releases, red carpet, level-ups, signings)
+    // pays the same global fraction — no source bypasses the rule
+    const scaledAmount = Math.max(1, Math.floor(amount * FAME_XP_MULTIPLIER));
 
     setSaveData((prevSave) => {
       const currentXp = prevSave.player.fameXp || 0;
       const oldLevelInfo = FameService.getFameLevelDetails(currentXp);
-      const newXp = currentXp + halfAmount;
+      const newXp = currentXp + scaledAmount;
       const newLevelInfo = FameService.getFameLevelDetails(newXp);
 
       const updatedPlayer: Player = {
@@ -343,7 +344,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addToast('Success', `LEVEL UP! Lvl ${newLevelInfo.level}`, `Reached ${newLevelInfo.title}! +$${rewardCash.toLocaleString()} Bonus Cash!`);
       } else {
-        addToast('Information', `+${amount} Fame XP`, reason);
+        addToast('Information', `+${scaledAmount} Fame XP`, reason);
       }
 
       const updatedSave: SaveData = {
@@ -1324,7 +1325,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((empireResult as any).achievementsCash > 0) {
       achievementRewardCash = (empireResult as any).achievementsCash || 0;
       achievementRewardXp = (empireResult as any).achievementsXp || 0;
-      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${achievementRewardXp} Fame XP`);
+      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER))} Fame XP`);
     }
     // Empire weekly yield is ONE real number covering businesses + commercial
     // real estate + acting academy net. It always counts — owning only a film
@@ -1358,6 +1359,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // REAL GRADUATION XP: reduced rate (~50%) — course completion pays
           // fame XP scaled by talent gain + course length, capped at 60
           const courseXp = Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5));
+          const courseXpApplied = Math.max(1, Math.floor(courseXp * FAME_XP_MULTIPLIER));
           fameGainedThisWeek += courseXp;
 
           completedCourseIds.push(course.courseId);
@@ -1372,7 +1374,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completionYear: newYear,
           });
 
-          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()}, +${courseXp} Fame XP)`);
+          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()}, +${courseXpApplied} Fame XP)`);
 
           newInboxMessages.unshift({
             id: `msg_course_done_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1381,7 +1383,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             senderRole: 'Dean of Studies',
             senderAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
             subject: `COURSE GRADUATION: ${course.name}`,
-            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.\n\nFame XP earned: +${courseXp}`,
+            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.\n\nFame XP earned: +${courseXpApplied}`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -2003,7 +2005,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           newReleasedMovies.unshift(newReleasedMovie);
 
           careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office! (Star Rating: ${starRatingPct}%)`);
-          careerTraining.push(`🌟 +${releaseFame} Fame XP - Theatrical Release of '${book.movieTitle}'`);
+          careerTraining.push(`🌟 +${Math.max(1, Math.floor(releaseFame * FAME_XP_MULTIPLIER))} Fame XP - Theatrical Release of '${book.movieTitle}'`);
 
           newTimelineEvents.push({
             id: `tl_rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -2393,8 +2395,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
         const fee = Math.floor(2000 + (p.fameXp || 0) * 2);
         const fameGain = Math.floor(15 + (p.fameXp || 0) * 0.02);
+        const fameGainApplied = Math.max(1, Math.floor(fameGain * FAME_XP_MULTIPLIER));
         const fanGain = Math.floor(200 + (p.fans || 0) * 0.002);
-        mgrActivity.push(`🎙️ Booked a TV/Radio interview — fee $${fee.toLocaleString()} paid, +${fameGain} XP, +${fanGain.toLocaleString()} fans`);
+        mgrActivity.push(`🎙️ Booked a TV/Radio interview — fee $${fee.toLocaleString()} paid, +${fameGainApplied} XP, +${fanGain.toLocaleString()} fans`);
         interviewFeeIncomeThisWeek += fee; // lands via weekly reconciliation (real)
         fameGainedThisWeek += fameGain;
         fansGainedThisWeek = (fansGainedThisWeek || 0) + fanGain;
@@ -2405,7 +2408,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           senderRole: signedMgr.company,
           senderAvatar: signedMgr.avatarUrl,
           subject: '🎙️ INTERVIEW BOOKED BY YOUR MANAGER',
-          body: `Your manager ${signedMgr.name} (${signedMgr.company}) booked you on a major TV/Radio interview this week.\n\n• Appearance Fee: $${fee.toLocaleString()} (deposited)\n• Fame: +${fameGain} XP\n• Fans: +${fanGain.toLocaleString()}\n\n${signedMgr.name} continues to build your public profile.`,
+          body: `Your manager ${signedMgr.name} (${signedMgr.company}) booked you on a major TV/Radio interview this week.\n\n• Appearance Fee: $${fee.toLocaleString()} (deposited)\n• Fame: +${fameGainApplied} XP\n• Fans: +${fanGain.toLocaleString()}\n\n${signedMgr.name} continues to build your public profile.`,
           date: dateInfo.fullDateText,
           read: false,
         });
@@ -2713,18 +2716,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const netWeeklyChange = totalWeeklyIncome - endOfWeekExpensesThisWeek;
 
-    // SLOW BURN: fame grows at half speed across ALL weekly sources
-    // (courses, releases, interviews, awards, appearances).
-    fameGainedThisWeek = Math.floor((fameGainedThisWeek || 0) * 0.5);
+    // SLOW BURN: ALL weekly fame sources (courses, releases, interviews,
+    // awards, appearances) pay the same global fraction, floor 1 XP.
+    const rawWeeklyFame = fameGainedThisWeek || 0;
+    fameGainedThisWeek = rawWeeklyFame > 0 ? Math.max(1, Math.floor(rawWeeklyFame * FAME_XP_MULTIPLIER)) : 0;
 
     // Apply exact single-source-of-truth values to Player
     p.money = Math.max(0, startMoney + netWeeklyChange);
     p.fans = startFans + fansGainedThisWeek;
     p.fameXp = startFame + fameGainedThisWeek;
 
-    // Achievement rewards are REAL income — paid on top of the weekly total
+    // Achievement rewards are REAL income — paid on top of the weekly total,
+    // at the same global slow-burn fraction as everything else
     if (achievementRewardCash > 0) p.money = (p.money || 0) + achievementRewardCash;
-    if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + achievementRewardXp;
+    if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER));
 
     // Year-end tax filing settles (refund deposited / balance due + audit penalty collected)
     if (taxFilingAdjustment !== 0) {
@@ -3117,8 +3122,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Add to releasedMovies
     const updatedReleased = [newReleasedMovie, ...(saveData.releasedMovies || [])];
 
-    // Award Fame XP - balanced (halved)
-    const releaseFame = proj.roleType === 'Lead' ? 35 : proj.roleType === 'Principal' ? 28 : 18;
+    // Award Fame XP - unified base values with the weekly auto-release path
+    // (Lead 45 / Principal 32 / Supporting 20, then global slow-burn applies)
+    const releaseFame = proj.roleType === 'Lead' ? 45 : proj.roleType === 'Principal' ? 32 : 20;
 
     // Timeline event & inbox message
     const dateInfo = formatCalendarDate(saveData.player.dateYear, saveData.player.dateWeek);

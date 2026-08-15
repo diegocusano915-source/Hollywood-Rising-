@@ -7,6 +7,7 @@
 
 import { TvQuestion, TvStationType, TvInterviewResult, TvAnswerChoice } from '../types/world';
 import { Player } from '../types/game';
+import { FAME_XP_MULTIPLIER } from './fameService';
 
 export interface TvInterviewContext {
   player: Player;
@@ -151,7 +152,9 @@ export function computeInterviewResult(
   // interview, veterans grow at square-root pace (4x fame = 2x fans).
   const fansBase = Math.floor(400 + Math.sqrt(fame) * 10); // per question
   const cash = Math.floor((station?.viewerBase || 2000000) * 0.0012 + Math.sqrt(fame) * 60);
-  const fameTotalRaw = Math.floor(8 + fame * 0.004);
+  // Interview fame respects the GLOBAL SLOW BURN like every other source —
+  // scaled here at the source so payouts and on-screen "+X XP" always match
+  const fameTotalRaw = Math.max(1, Math.floor((8 + fame * 0.004) * FAME_XP_MULTIPLIER));
 
   let fans = 0, rep = 0, fameTotal = 0, scandal = false, cashFinal = cash;
   const reactions: string[] = [];

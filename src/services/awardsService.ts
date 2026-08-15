@@ -19,6 +19,7 @@ import {
   AwardCategoryResult,
   AwardCeremonyResult,
 } from '../types/game';
+import { FAME_XP_MULTIPLIER } from './fameService';
 import { BoxOfficeEngineService } from './boxOfficeEngineService';
 import { BoxOfficeItem } from '../types/world';
 import { AWARD_ACTOR_POOL } from '../database/representationDatabase';
@@ -396,7 +397,7 @@ export class AwardsService {
           senderRole: 'Academy',
           senderAvatar: player.avatarUrl,
           subject: `🏆 WINNER: ${category}!`,
-          body: `Congratulations! You won the ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". Your trophy has been added to your Trophy Room! (+${def.baseXp} Fame XP)`,
+          body: `Congratulations! You won the ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". Your trophy has been added to your Trophy Room! (+${Math.max(1, Math.floor(def.baseXp * FAME_XP_MULTIPLIER))} Fame XP)`,
           date: `W52, ${year}`,
           dateWeek: 52,
           dateYear: year,
@@ -441,7 +442,7 @@ export class AwardsService {
           senderRole: 'Academy',
           senderAvatar: player.avatarUrl,
           subject: `✨ NOMINATED: ${category}!`,
-          body: `You were nominated for ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". ${winner.name} took the trophy for "${winner.movieTitle}" this year. (+${nomXp} Fame XP)`,
+          body: `You were nominated for ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". ${winner.name} took the trophy for "${winner.movieTitle}" this year. (+${Math.max(1, Math.floor(nomXp * FAME_XP_MULTIPLIER))} Fame XP)`,
           date: `W52, ${year}`,
           dateWeek: 52,
           dateYear: year,
@@ -487,7 +488,9 @@ export class AwardsService {
       playerNominations,
       newTrophies,
       newRecords,
-      fameGained,
+      // display value: what the player actually receives after the global
+      // slow burn (the raw fameGained below flows into the weekly pool)
+      fameGained: Math.floor(fameGained * FAME_XP_MULTIPLIER),
       inboxMessages: newInboxMessages,
       newPlayerAwardsWon: playerWins,
       playerEligible,
