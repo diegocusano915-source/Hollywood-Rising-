@@ -219,7 +219,7 @@ export const SettingsModal: React.FC = () => {
                   Offline Notifications
                 </p>
                 <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
-                  Real alerts on your phone when you're away 2+ hours — bids, offers, deadlines. Nothing simulated.
+                  Real alerts on your phone every ~47 minutes while you're away — bids, offers, deadlines, stats. Nothing simulated.
                 </p>
               </div>
               <input

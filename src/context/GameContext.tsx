@@ -418,8 +418,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     notificationService.refreshContext(saveData);
   }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData]);
 
-  // OFFLINE DIGEST: if the player was away 2+ hours, build a "While you were
-  // away" digest from REAL pending items (offers, bids, deadlines). Runs once.
+  // OFFLINE DIGEST: if the player was away 50+ minutes (matches the ~47-min
+  // phone ping cadence), build a "While you were away" digest from REAL pending
+  // items (offers, bids, deadlines). Runs once per return.
   const digestInitRef = React.useRef(false);
   useEffect(() => {
     if (digestInitRef.current) return;
@@ -431,7 +432,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = Date.now();
       const lastActive = Number(localStorage.getItem('HR_LAST_ACTIVE_TS') || 0);
       localStorage.setItem('HR_LAST_ACTIVE_TS', String(now));
-      if (lastActive > 0 && now - lastActive >= 2 * 3600 * 1000) {
+      if (lastActive > 0 && now - lastActive >= 50 * 60 * 1000) {
         setSaveData((prev) => {
           const digest = collectDigestItems(prev).slice(0, 6);
           const nc = prev.notificationCenter || { digest: [], seenTags: [] };

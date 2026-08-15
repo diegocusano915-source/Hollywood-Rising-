@@ -444,3 +444,88 @@ export function buildRepeatSummary(save: SaveData): string {
   if (parts.length === 0) return `Your career is still live — Week ${save.player?.dateWeek || 1}, ${save.player?.dateYear || 2026}. Come back and keep it moving.`;
   return `Still waiting for you: ${parts.join(', ')}. Come online before they expire.`;
 }
+
+/**
+ * ROTATING OFFLINE BATCH (every 46-50 min while away).
+ * Builds `count` DIFFERENT notifications from a pool of real-event messages,
+ * rotating the starting point each time the player leaves so no two batches
+ * look the same. Everything derives from the player's real state.
+ */
+export function buildBatchMessages(save: SaveData, count: number, offset: number = 0): { title: string; body: string }[] {
+  const items = collectNotificationItems(save);
+  const p = save.player;
+  const counts = getPendingCounts(save);
+  const name = p?.firstName || 'Star';
+  const weekRef = `Week ${p?.dateWeek || 1}, ${p?.dateYear || 2026}`;
+  const fame = p?.fameXp || 0;
+  const pool: { title: string; body: string }[] = [];
+
+  // 1. Top urgent real item (bid/offer/deadline)
+  const top = items.find((i) => i.urgency === 'high') || items[0];
+  if (top) pool.push({ title: `📬 ${top.icon} ${top.title}`, body: `Come online — ${top.body}` });
+
+  // 2. Real pending counts
+  if (counts.deadlines > 0) {
+    pool.push({
+      title: `📬 ${counts.deadlines} thing${counts.deadlines === 1 ? '' : 's'} waiting for you`,
+      body: `${counts.bids} bid${counts.bids === 1 ? '' : 's'}, ${counts.auditions} audition${counts.auditions === 1 ? '' : 's'}${counts.sequels ? `, ${counts.sequels} sequel offer${counts.sequels === 1 ? '' : 's'}` : ''} still on the table. ${weekRef}.`,
+    });
+  }
+
+  // 3. Real current stats
+  pool.push({
+    title: `⭐ ${name}, your numbers right now`,
+    body: `Fame ${fame.toLocaleString()} · Cash $${(p?.money || 0).toLocaleString()} · ${(p?.fans || 0).toLocaleString()} fans · ${weekRef}.`,
+  });
+
+  // 4. Next box-office fame tier (real threshold)
+  const nextTier = FAME_TIERS.find((t) => fame < t.min);
+  if (nextTier) {
+    pool.push({
+      title: `🚀 ${(nextTier.min - fame).toLocaleString()} fame to ${nextTier.mult}× box office`,
+      body: `Cross ${nextTier.min.toLocaleString()} fame to multiply your theatrical power. ${weekRef}.`,
+    });
+  }
+
+  // 5. Week is live
+  pool.push({
+    title: `🎬 ${name}, the cameras are waiting`,
+    body: `${weekRef} is live — your next big break is one decision away.`,
+  });
+
+  // 6. Movie still in theaters (real run)
+  const inCinemas = (save.releasedMovies || []).filter((m) => m.inCinemas);
+  if (inCinemas.length > 0) {
+    pool.push({
+      title: `🎥 "${inCinemas[0].movieTitle}" still in theaters`,
+      body: `Week ${inCinemas[0].weeksInCinemas || 1} of its run — lifetime $${(inCinemas[0].worldwideGross || 0).toLocaleString()}. ${weekRef}.`,
+    });
+  }
+
+  // 7. Career progress (real counts)
+  pool.push({
+    title: `🏆 ${p?.moviesCompleted || 0} film${(p?.moviesCompleted || 0) === 1 ? '' : 's'} completed`,
+    body: `${p?.leadRolesCount || 0} lead roles · ${p?.principalRolesCount || 0} principal roles — keep building. ${weekRef}.`,
+  });
+
+  // 8. Fans
+  pool.push({
+    title: `👥 ${(p?.fans || 0).toLocaleString()} fans and counting`,
+    body: `Your audience is growing — give them something to cheer. ${weekRef}.`,
+  });
+
+  // Build the batch, rotating through the pool from `offset`, no repeats until
+  // the pool is exhausted (then honest "still waiting" reminders).
+  const result: { title: string; body: string }[] = [];
+  const used: number[] = [];
+  for (let i = 0; i < count; i++) {
+    let idx = (offset + i) % pool.length;
+    if (used.includes(idx)) {
+      result.push({ title: '📬 Still waiting for you', body: buildRepeatSummary(save) });
+      continue;
+    }
+    used.push(idx);
+    result.push(pool[idx]);
+  }
+  return result;
+}

@@ -160,7 +160,7 @@ export const NotificationCenterModal: React.FC = () => {
                 style={{ borderColor: theme.borderDark, backgroundColor: 'rgba(255,255,255,0.02)' }}
               >
                 <p className="text-[11px] text-gray-400">
-                  No missed alerts. Leave for 2+ hours and real pending items (offers, bids, deadlines) will
+                  No missed alerts. Leave for ~50 minutes and real pending items (offers, bids, deadlines) will
                   show up here when you return.
                 </p>
               </div>
