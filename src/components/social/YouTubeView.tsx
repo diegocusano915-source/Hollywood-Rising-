@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, youtubeAlgorithmViews, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, Home, Compass, PlaySquare, Clock, ThumbsUp, ThumbsDown, MessageCircle, Share, MoreVertical, Clapperboard, Crown, BarChart3, Radio } from 'lucide-react';
-import { PremiumPanel, CreatorStudioPanel } from './HubPanels';
+import { PremiumPanel, CreatorStudioPanel, WriterSheet } from './HubPanels';
 
 export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, releasedMovies } = useGame();
@@ -79,6 +79,7 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } as any);
     state.youtubeAlgorithm = { lifetimeVideos: algo.lifetimeVideos + 1, discovered: algo.discovered };
     if (state.youtubeAlgorithm.lifetimeVideos >= 55) state.youtubeAlgorithm.discovered = true;
+    SocialsService.notePlayerPost('youtube');
     SocialsService.saveState(state);
     setState({ ...state });
     setVideoTitle('');
@@ -172,7 +173,7 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">▶ YouTube</span>
-        <div className="flex items-center gap-2 text-gray-500"><Compass className="w-4 h-4" /><Clock className="w-4 h-4" /></div>
+        <WriterSheet state={state} platform="youtube" onRefresh={() => setState({ ...SocialsService.getState() })} />
       </div>
 
 

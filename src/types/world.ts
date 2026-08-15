@@ -307,6 +307,7 @@ export interface HiredWriter {
   minLeadRoles?: number;
   bio?: string;
   avatar?: string;
+  platform?: string; // lowercase platform id this writer is retained for (e.g. 'twitter')
 }
 
 export type AwardPrestige = 'Local' | 'Regional' | 'National' | 'International' | 'Global' | 'Legendary';

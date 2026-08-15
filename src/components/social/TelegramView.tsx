@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, Send, MessageCircle, Users, Megaphone, Camera, Check, Crown, Radio, Search } from 'lucide-react';
-import { PremiumPanel } from './HubPanels';
+import { PremiumPanel, WriterSheet } from './HubPanels';
 
 export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, releasedMovies, saveData, updateSave } = useGame();
@@ -39,6 +39,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     });
     const growth = Math.floor(1 + (player.fameXp || 0) * 0.15);
     state.telegramChannelSubs = subs + growth;
+    SocialsService.notePlayerPost('telegram');
     SocialsService.saveState(state);
     setState({ ...state });
     setChannelDraft('');
@@ -186,7 +187,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">✈️ Telegram</span>
-        <Search className="w-4 h-4 text-gray-500" />
+        <WriterSheet state={state} platform="telegram" onRefresh={() => setState({ ...SocialsService.getState() })} />
       </div>
 
       {tab === 'CHATS' && (

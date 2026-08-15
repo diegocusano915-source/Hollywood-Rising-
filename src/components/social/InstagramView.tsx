@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, Heart, MessageCircle, Send, Bookmark, Plus, Grid, Clapperboard, User, Search, Compass, Home, Image as ImageIcon, Sparkles } from 'lucide-react';
-import { PremiumPanel } from './HubPanels';
+import { PremiumPanel, WriterSheet } from './HubPanels';
 
 export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, saveData, updateSave, releasedMovies } = useGame();
@@ -136,6 +136,7 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       timestamp: 'Just now',
       isPlayer: true,
     } as any);
+    SocialsService.notePlayerPost('instagram');
     SocialsService.saveState(state);
     setState({ ...state });
     setCaption('');
@@ -179,7 +180,7 @@ export const InstagramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">📸 Instagram</span>
-        <div className="flex items-center gap-2 text-gray-500"><Send className="w-4 h-4" /><Heart className="w-4 h-4" /></div>
+        <WriterSheet state={state} platform="instagram" onRefresh={() => setState({ ...SocialsService.getState() })} />
       </div>
 
       {tab === 'HOME' && (

@@ -82,13 +82,14 @@ export const PremiumPanel: React.FC<{ state: SocialsState; onRefresh: () => void
   );
 };
 
-export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void }> = ({ state, onRefresh }) => {
+export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void; platform?: string }> = ({ state, onRefresh, platform = 'twitter' }) => {
   const { player, saveData, updateSave } = useGame();
   const [fb, setFb] = useState<string | null>(null);
-  const hired = state.writers.find((w) => w.hired);
+  const platformLabel = SocialsService.PLATFORM_LABEL[platform] || platform;
+  const hired = state.writers.find((w) => w.hired && (w.platform || 'twitter') === platform);
 
   const hire = (id: string) => {
-    const res = hireSocialWriter(state, id, player.money || 0);
+    const res = hireSocialWriter(state, id, player.money || 0, platform);
     if (res.success) updateSave({ ...saveData, player: { ...player, money: res.newMoney } });
     SocialsService.saveState(state);
     setFb(res.message);
@@ -96,7 +97,7 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
     onRefresh();
   };
   const fire = () => {
-    const res = fireSocialWriter(state, player.money || 0);
+    const res = fireSocialWriter(state, player.money || 0, platform);
     if (res.success) updateSave({ ...saveData, player: { ...player, money: res.newMoney } });
     SocialsService.saveState(state);
     setFb(res.message);
@@ -108,20 +109,22 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <PenTool className="w-4 h-4 text-purple-400" />
-        <h3 className="text-sm font-black uppercase tracking-wider text-purple-200">Your Writer (1 max · 30 wks)</h3>
+        <h3 className="text-sm font-black uppercase tracking-wider text-purple-200">{platformLabel} Writer (1 max · 30 wks)</h3>
       </div>
+      <p className="text-[9px] text-gray-500">Separate writer per platform — posts ONLY on {platformLabel}. Other platforms need their own writers.</p>
       {fb && <p className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/30 p-2 rounded-xl">{fb}</p>}
       {hired ? (
         <div className="p-3 rounded-2xl border border-purple-400/40 bg-purple-500/10 space-y-1">
-          <p className="text-xs font-black text-white">{hired.name} <span className="text-purple-300">✍️ HIRED</span></p>
+          <p className="text-xs font-black text-white">{hired.name} <span className="text-purple-300">✍️ HIRED · {platformLabel}</span></p>
           <p className="text-[10px] text-gray-400">{hired.agencyName} · ${hired.weeklyCost.toLocaleString()}/wk · {hired.contractWeeksRemaining} wks left</p>
-          <p className="text-[10px] text-gray-400">Auto-posts on all 7 platforms about your real events.</p>
+          <p className="text-[10px] text-gray-400">Auto-posts {Math.min(4, Math.max(1, Math.floor(hired.postsPerWeek / 2)))}×/week on {platformLabel} about your real events.</p>
           <button onClick={fire} className="mt-1 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[10px] font-black cursor-pointer">✕ Cancel Contract</button>
         </div>
       ) : (
         <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
           {SOCIAL_WRITER_POOL.map((w) => {
             const locked = (player.fameXp || 0) < w.minFame;
+            const busy = state.writers.find((h) => h.hired && h.id === w.id && (h.platform || 'twitter') !== platform);
             return (
               <div key={w.id} className="p-3 rounded-2xl border border-white/10 bg-black/40 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -129,7 +132,9 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
                   <p className="text-[9px] text-gray-400 truncate">{w.tierLabel} · {w.specialty}</p>
                   <p className="text-[9px] text-gray-500 truncate">{w.agencyName} · ${w.weeklyCost}/wk · {w.postsPerWeek} posts/wk</p>
                 </div>
-                {locked ? (
+                {busy ? (
+                  <span className="text-[9px] text-sky-300 shrink-0">On {SocialsService.PLATFORM_LABEL[busy.platform || 'twitter'] || 'other'}</span>
+                ) : locked ? (
                   <span className="text-[9px] text-gray-500 shrink-0">🔒 {w.minFame.toLocaleString()} XP</span>
                 ) : (
                   <button onClick={() => hire(w.id)} className="px-3 py-1.5 rounded-lg bg-purple-500 text-white text-[10px] font-black shrink-0 cursor-pointer">Hire</button>
@@ -143,8 +148,39 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
   );
 };
 
-export const CreatorStudioPanel: React.FC<{ state: SocialsState }> = ({ state }) => {
-  const premium = state.premium || { tier: 'none' as const };
+/** Drop-in writer section for platform views: ✍️ button + bottom-sheet panel */
+export const WriterSheet: React.FC<{ state: SocialsState; platform: string; onRefresh: () => void }> = ({ state, platform, onRefresh }) => {
+  const [open, setOpen] = useState(false);
+  const hired = state.writers.find((w) => w.hired && (w.platform || 'twitter') === platform);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer border ${hired ? 'bg-purple-500/20 border-purple-400/50 text-purple-200' : 'bg-white/10 border-white/10 text-white'}`}
+      >
+        <PenTool className="w-4 h-4" /> WRITER{hired ? ' ✓' : ''}
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div
+            className="w-full max-w-lg max-h-[80vh] overflow-y-auto p-4 rounded-t-3xl bg-[#12121a] border-t border-purple-400/30 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between sticky top-0">
+              <span className="text-xs font-black uppercase tracking-wider text-purple-200">Hire a writer</span>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg bg-white/10 cursor-pointer"><X className="w-4 h-4 text-white" /></button>
+            </div>
+            <WritersPanel state={state} platform={platform} onRefresh={onRefresh} />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export const CreatorStudioPanel: React.FC<{ state: SocialsState }> = ({ state }) => {  const premium = state.premium || { tier: 'none' as const };
   const totalPosts = Object.values(state.playerPosts || {}).reduce((a: number, arr: any[]) => a + (arr?.length || 0), 0);
   const impressions = state.creatorStudio?.totalImpressions || 0;
   const adRevenue = state.creatorStudio?.totalAdRevenue || 0;

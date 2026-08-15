@@ -309,6 +309,9 @@ export interface SocialsState {
   marqueeConnections: number;
   facebookFriends: number;
   creatorStudio: { totalImpressions: number; totalAdRevenue: number; weeklyAdRevenue: number };
+  // SOCIAL ACCOUNTS V3: separate account creation per platform + per-platform weekly activity
+  socialAccounts?: Record<string, { handle: string; createdWeek: number; createdYear: number }>;
+  postsThisWeekByPlatform?: Record<string, number>;
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -559,6 +562,8 @@ export class SocialsService {
           if (!this.state.youtubeAlgorithmStatus) this.state.youtubeAlgorithmStatus = 'Observing New Creator';
           if (!this.state.youtubeChannelHealth) this.state.youtubeChannelHealth = 'Good Standing';
           if (!this.state.npcYouTubeChannels) this.state.npcYouTubeChannels = DEFAULT_NPC_YOUTUBE_CHANNELS;
+          if (!this.state.socialAccounts) this.state.socialAccounts = {};
+          if (!this.state.postsThisWeekByPlatform) this.state.postsThisWeekByPlatform = {};
         }
         return this.state!;
       }
@@ -853,6 +858,8 @@ export class SocialsService {
       marqueeConnections: 0,
       facebookFriends: 0,
       creatorStudio: { totalImpressions: 0, totalAdRevenue: 0, weeklyAdRevenue: 0 },
+      socialAccounts: {},
+      postsThisWeekByPlatform: {},
       analyticsHistory: [],
       trendingTopics: ['#HollywoodRising', '#BoxOfficeRecord', '#OscarBuzz', '#SAGAwards', '#CaliforniaFilm'],
     };
@@ -868,6 +875,92 @@ export class SocialsService {
     } catch (e) {
       console.error('Failed to save Socials state', e);
     }
+  }
+
+  // ============================================================
+  // SOCIAL ACCOUNTS V3 — separate account creation per platform
+  // ============================================================
+  public static readonly PLATFORM_IDS = ['twitter', 'instagram', 'youtube', 'facebook', 'marquee', 'reddit', 'telegram'] as const;
+  public static readonly PLATFORM_LABEL: Record<string, string> = {
+    twitter: 'Twitter / X',
+    instagram: 'Instagram',
+    youtube: 'YouTube',
+    facebook: 'Facebook',
+    marquee: 'The Marquee',
+    reddit: 'Reddit',
+    telegram: 'Telegram',
+  };
+  // Platforms with a writer-postable feed (Marquee is a professional network — no ghostwriters)
+  public static readonly WRITER_PLATFORMS = ['twitter', 'instagram', 'youtube', 'facebook', 'reddit', 'telegram'] as const;
+
+  private static pidToFeed(pid: string): PlatformType | null {
+    const map: Record<string, PlatformType> = {
+      twitter: 'Twitter', instagram: 'Instagram', youtube: 'YouTube',
+      facebook: 'Facebook', reddit: 'Reddit', telegram: 'Telegram',
+    };
+    return map[pid] || null;
+  }
+
+  private static legacyActive(state: SocialsState, pid: string): boolean {
+    const feed = SocialsService.pidToFeed(pid);
+    if (feed && (state.followers[feed] || 0) > 0) return true;
+    if (feed && state.createdPlatforms && state.createdPlatforms[feed]) return true;
+    if (pid === 'marquee' && (state.marqueeConnections || 0) > 0) return true;
+    return false;
+  }
+
+  /** Does the player have a created account on this platform? Legacy saves with
+   *  existing progress are auto-materialized with a default handle. */
+  public static hasAccount(pid: string, player?: any): boolean {
+    const state = this.getState();
+    if (!state.socialAccounts) state.socialAccounts = {};
+    if (!state.socialAccounts[pid] && player && this.legacyActive(state, pid)) {
+      state.socialAccounts[pid] = {
+        handle: `@${String(player.firstName || 'player').toLowerCase()}${String(player.lastName || '').toLowerCase()}`,
+        createdWeek: player.dateWeek || 1,
+        createdYear: player.dateYear || 2026,
+      };
+      this.saveState(state);
+    }
+    return !!state.socialAccounts[pid];
+  }
+
+  public static getHandle(pid: string, player: any): string {
+    const acc = this.getState().socialAccounts?.[pid];
+    if (acc) return acc.handle;
+    return `@${String(player?.firstName || 'player').toLowerCase()}${String(player?.lastName || '').toLowerCase()}`;
+  }
+
+  /** Create (open) a social account with the player's chosen handle. */
+  public static createAccount(
+    pid: string,
+    handle: string,
+    player: any
+  ): { success: boolean; message: string; handle: string } {
+    const state = this.getState();
+    if (!state.socialAccounts) state.socialAccounts = {};
+    if (state.socialAccounts[pid]) return { success: false, message: `You already have a ${SocialsService.PLATFORM_LABEL[pid] || pid} account.`, handle: state.socialAccounts[pid].handle };
+
+    let clean = String(handle || '').trim().replace(/\s+/g, '_');
+    if (!clean) return { success: false, message: 'Choose a name for your account first.', handle: '' };
+    if (!clean.startsWith('@') && (pid === 'twitter' || pid === 'instagram' || pid === 'reddit' || pid === 'telegram' || pid === 'youtube' || pid === 'marquee')) clean = `@${clean}`;
+    if (clean.length < 3) return { success: false, message: 'Account name must be at least 3 characters.', handle: '' };
+
+    state.socialAccounts[pid] = {
+      handle: clean.slice(0, 24),
+      createdWeek: player?.dateWeek || 1,
+      createdYear: player?.dateYear || 2026,
+    };
+    this.saveState(state);
+    return { success: true, message: `${SocialsService.PLATFORM_LABEL[pid] || pid} account created — welcome, ${clean}!`, handle: clean };
+  }
+
+  /** Track that the player (or their writer) posted on a platform this week. */
+  public static notePlayerPost(pid: string): void {
+    const state = this.getState();
+    if (!state.postsThisWeekByPlatform) state.postsThisWeekByPlatform = {};
+    state.postsThisWeekByPlatform[pid] = (state.postsThisWeekByPlatform[pid] || 0) + 1;
+    this.saveState(state);
   }
 
   /**
@@ -974,11 +1067,12 @@ export class SocialsService {
   } {
     const state = this.getState();
 
-    // 1. Reset Weekly Posts
+    // 1. Reset Weekly Posts — posting quota bonus from your best writer
     let baseWeeklyPosts = 2;
-    const hiredWriter = state.writers.find((w) => w.hired);
-    if (hiredWriter) {
-      baseWeeklyPosts += Math.min(10, Math.floor(hiredWriter.postsPerWeek / 2));
+    const hiredWriters = state.writers.filter((w) => w.hired);
+    const bestWriter = hiredWriters.slice().sort((a, b) => b.postsPerWeek - a.postsPerWeek)[0];
+    if (bestWriter) {
+      baseWeeklyPosts += Math.min(10, Math.floor(bestWriter.postsPerWeek / 2));
     }
 
     const spentPostsThisWeek = Math.max(0, baseWeeklyPosts - state.postsRemainingThisWeek);
@@ -991,129 +1085,127 @@ export class SocialsService {
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
 
-    // 2. Process PR Writers (Automated posting & Engagement boost)
+    // 2. Process PR Writers — SEPARATE WRITERS PER PLATFORM: each hired writer
+    // auto-posts ONLY on the platform they were retained for
     let writerPostCount = 0;
-    if (hiredWriter) {
+    const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
+    const realTitle = latestRealMovie?.movieTitle || '';
+    const realGross = latestRealMovie?.worldwideGross || 0;
+    const realAud = latestRealMovie?.audienceRating || 0;
+    const realAwards = (player as any).awardsWon || 0;
+    const writerPostTemplates = [
+      realTitle
+        ? `'${realTitle}' is IN THEATERS NOW! ${realGross > 0 ? `Already past $${(realGross / 1000000).toFixed(1)}M worldwide ` : ''}— thank you to every single fan who showed up! 🎬🍿 #${realTitle.replace(/[^a-zA-Z0-9]/g, '')}`
+        : `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
+      realTitle
+        ? `The critics are loving '${realTitle}' (${realAud}% audience score)! This is only the beginning of the ride. 🔥`
+        : `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
+      realAwards > 0
+        ? `What a season it's been — ${realAwards} award(s) and counting. Grateful beyond words. ❤️🏆`
+        : `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
+      `On set preparing for a demanding role. The hustle never stops in Los Angeles! Stay tuned! 🎭✨`,
+    ];
+
+    for (const hiredWriter of hiredWriters) {
       hiredWriter.postsThisWeek = 0;
       if (hiredWriter.contractWeeksRemaining > 0) {
         hiredWriter.contractWeeksRemaining -= 1;
       }
+      if (hiredWriter.contractWeeksRemaining <= 0) {
+        hiredWriter.hired = false;
+        socialPosts.push(`📄 ${hiredWriter.name}'s ${SocialsService.PLATFORM_LABEL[hiredWriter.platform || 'twitter'] || ''} retainer expired.`);
+        continue;
+      }
 
-      if (player.money >= hiredWriter.weeklyCost) {
-        writerWeeklyCost = hiredWriter.weeklyCost;
-        writerPostCount = Math.min(4, Math.max(1, Math.floor(hiredWriter.postsPerWeek / 2)));
+      const pid = hiredWriter.platform || 'twitter';
+      const feed = SocialsService.pidToFeed(pid);
+      if (!feed || !this.hasAccount(pid, player)) continue;
+      if (player.money < writerWeeklyCost + hiredWriter.weeklyCost) continue; // can't afford this writer this week
 
-        // Ghostwriter posts on player feed — references REAL events (releases, box office, awards)
-        const mainPlatform: PlatformType = 'Twitter';
-        if (state.createdPlatforms[mainPlatform]) {
-          const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
-          const realTitle = latestRealMovie?.movieTitle || '';
-          const realGross = latestRealMovie?.worldwideGross || 0;
-          const realAud = latestRealMovie?.audienceRating || 0;
-          const realAwards = (player as any).awardsWon || 0;
-          const writerPostTemplates = [
-            realTitle
-              ? `'${realTitle}' is IN THEATERS NOW! ${realGross > 0 ? `Already past $${(realGross / 1000000).toFixed(1)}M worldwide ` : ''}— thank you to every single fan who showed up! 🎬🍿 #${realTitle.replace(/[^a-zA-Z0-9]/g, '')}`
-              : `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
-            realTitle
-              ? `The critics are loving '${realTitle}' (${realAud}% audience score)! This is only the beginning of the ride. 🔥`
-              : `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
-            realAwards > 0
-              ? `What a season it's been — ${realAwards} award(s) and counting. Grateful beyond words. ❤️🏆`
-              : `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
-            `On set preparing for a demanding role. The hustle never stops in Los Angeles! Stay tuned! 🎭✨`,
-          ];
+      writerWeeklyCost += hiredWriter.weeklyCost;
+      const count = Math.min(4, Math.max(1, Math.floor(hiredWriter.postsPerWeek / 2)));
+      writerPostCount += count;
 
-          for (let i = 0; i < writerPostCount; i++) {
-            const autoPostText = writerPostTemplates[i % writerPostTemplates.length];
-            const currentFollowers = state.followers[mainPlatform] || 100;
-            const eng = this.calculatePostEngagement(
-              currentFollowers,
-              state.verification[mainPlatform] || 'NONE',
-              player,
-              true
-            );
+      const playerHandle = SocialsService.getHandle(pid, player);
+      for (let i = 0; i < count; i++) {
+        const autoPostText = writerPostTemplates[(i + writerPostCount) % writerPostTemplates.length];
+        const currentFollowers = state.followers[feed] || 100;
+        const eng = this.calculatePostEngagement(currentFollowers, state.verification[feed] || 'NONE', player, true);
 
-            // Writer quality boost
-            const boostFactor = 1 + (hiredWriter.qualityBoost || 15) / 100;
-            eng.likes = Math.floor(eng.likes * boostFactor);
-            eng.shares = Math.floor(eng.shares * boostFactor);
-            eng.followerGain = Math.floor(eng.followerGain * boostFactor);
+        const boostFactor = 1 + (hiredWriter.qualityBoost || 15) / 100;
+        eng.likes = Math.floor(eng.likes * boostFactor);
+        eng.shares = Math.floor(eng.shares * boostFactor);
+        eng.followerGain = Math.floor(eng.followerGain * boostFactor);
 
-            const newPost: SocialPost = {
-              id: `post_auto_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
-              authorName: `${player.firstName} ${player.lastName}`,
-              authorHandle: `@${player.firstName.toLowerCase()}${player.lastName.toLowerCase()}`,
-              authorAvatar: player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
-              platform: mainPlatform,
-              tab: 'PLAYER_FEED',
-              text: autoPostText,
-              likes: eng.likes,
-              comments: eng.commentsCount,
-              retweets: eng.shares,
-              shares: eng.shares,
-              timestamp: 'Just now',
-              isPlayer: true,
-              isNpc: false,
-              sentiment: 'Positive',
-              generatedByWriter: true,
-            };
+        const newPost: SocialPost = {
+          id: `post_auto_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+          authorName: `${player.firstName} ${player.lastName}`,
+          authorHandle: playerHandle,
+          authorAvatar: player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
+          platform: feed,
+          tab: 'PLAYER_FEED',
+          text: autoPostText,
+          likes: eng.likes,
+          comments: eng.commentsCount,
+          retweets: eng.shares,
+          shares: eng.shares,
+          timestamp: 'Just now',
+          isPlayer: true,
+          isNpc: false,
+          sentiment: 'Positive',
+          generatedByWriter: true,
+        };
 
-            const autoComments = this.generateNpcCommentsForPost(newPost.id, autoPostText, 35, player);
-            newPost.comments = autoComments.length;
+        const autoComments = this.generateNpcCommentsForPost(newPost.id, autoPostText, 35, player);
+        newPost.comments = autoComments.length;
 
-            state.playerPosts[mainPlatform].unshift(newPost);
-            state.postComments[newPost.id] = autoComments;
+        state.playerPosts[feed].unshift(newPost);
+        state.postComments[newPost.id] = autoComments;
 
-            // Add real follower gains directly to platform and total fans
-            state.followers[mainPlatform] = (state.followers[mainPlatform] || 0) + eng.followerGain;
-            fanGrowth += eng.followerGain;
-          }
+        // Separate fans: gains land ONLY on this writer's platform
+        state.followers[feed] = Math.min(500000000000, (state.followers[feed] || 0) + eng.followerGain);
+        fanGrowth += eng.followerGain;
+      }
 
-          socialPosts.push(`✍️ Ghostwriter ${hiredWriter.name} published ${writerPostCount} strategic posts on your feed (+${fanGrowth.toLocaleString()} new followers).`);
-        }
+      // writer activity counts as platform activity for organic growth
+      if (!state.postsThisWeekByPlatform) state.postsThisWeekByPlatform = {};
+      state.postsThisWeekByPlatform[pid] = (state.postsThisWeekByPlatform[pid] || 0) + count;
+
+      socialPosts.push(`✍️ ${hiredWriter.name} published ${count} strategic posts on ${SocialsService.PLATFORM_LABEL[pid] || pid}.`);
+    }
+
+    // 3. SEPARATE PER-PLATFORM ORGANIC GROWTH — each platform grows only from
+    // ITS OWN activity (your posts + your writer there). Inactive platforms
+    // are stagnant. No account = no growth at all.
+    const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
+    const platformWeights: Record<string, number> = { twitter: 0.35, instagram: 0.40, youtube: 0.15, facebook: 0.05, reddit: 0.03, telegram: 0.02 };
+    const growthLines: string[] = [];
+    for (const pid of SocialsService.WRITER_PLATFORMS) {
+      const feed = SocialsService.pidToFeed(pid)!;
+      if (!this.hasAccount(pid, player)) continue;
+      const posts = state.postsThisWeekByPlatform?.[pid] || 0;
+      if (posts <= 0) continue;
+
+      const activityMultiplier = 1.2 + Math.min(1.2, posts * 0.15);
+      const weight = platformWeights[pid] || 0.1;
+      const g = Math.floor(fameFactor * activityMultiplier * weight * (0.8 + Math.random() * 0.4));
+      if (g > 0) {
+        const capped = Math.min(500000000000, (state.followers[feed] || 0) + g);
+        const actual = capped - (state.followers[feed] || 0);
+        state.followers[feed] = capped;
+        fanGrowth += actual;
+        growthLines.push(`+${actual.toLocaleString()} on ${SocialsService.PLATFORM_LABEL[pid] || pid}`);
       }
     }
 
-    // 3. Process Organic Follower Growth (ONLY IF ACTIVE)
-    const hasActiveMovieInTheaters = (saveData?.releasedMovies || []).some((m: any) => (m.weeksInTheaters || 0) > 0);
-    const hasRecentMovieRelease = (saveData?.releasedMovies || []).some((m: any) => (m.weeksInTheaters || 0) <= 4);
-    const playerPostedActive = spentPostsThisWeek > 0;
-
-    let organicGrowth = 0;
-    // FIXED: No fake simulation - only real posting/writer activity gives followers, different per platform, max 500B, all start at 0
-    if (playerPostedActive || writerPostCount > 0) {
-      const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
-      const activityMultiplier = playerPostedActive ? 1.5 : 1.2;
-
-      organicGrowth = Math.floor(fameFactor * activityMultiplier * (0.6 + Math.random() * 0.4));
-      if (organicGrowth > 0) {
-        fanGrowth += organicGrowth;
-
-        // Distribute with DIFFERENT followers per platform (not equal) - organic, max 500B cap
-        const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter(
-          (p) => state.createdPlatforms[p]
-        );
-
-        if (activePlatforms.length > 0) {
-          const platformWeights: Record<string, number> = { Twitter: 0.35, Instagram: 0.40, YouTube: 0.15, Facebook: 0.05, Reddit: 0.03, Telegram: 0.02 };
-          const totalWeight = activePlatforms.reduce((sum, plat) => sum + (platformWeights[plat] || 0.1), 0);
-          activePlatforms.forEach((plat) => {
-            const weight = (platformWeights[plat] || 0.1) / totalWeight;
-            const platformGrowth = Math.floor(organicGrowth * weight * (0.8 + Math.random() * 0.4));
-            const capped = Math.min(500000000000, (state.followers[plat] || 0) + platformGrowth);
-            const actualGain = capped - (state.followers[plat] || 0);
-            state.followers[plat] = capped;
-            // Cap total at 500B per platform
-            if ((state.followers[plat] || 0) > 500000000000) state.followers[plat] = 500000000000;
-          });
-        }
-        socialPosts.push(`📈 Gained +${organicGrowth.toLocaleString()} organic followers from active Hollywood visibility.`);
-      }
+    if (growthLines.length > 0) {
+      socialPosts.push(`📈 Separate platform growth: ${growthLines.join(' · ')}.`);
     } else {
-      // Inactive week - ZERO passive growth!
-      socialPosts.push(`📲 No social media posts or film releases this week. Organic follower growth was stagnant.`);
+      socialPosts.push(`📲 No platform-specific activity this week — every account was stagnant. Post on a platform (or hire a writer there) to grow it.`);
     }
+
+    // weekly activity counters reset
+    state.postsThisWeekByPlatform = {};
 
     player.fans = (player.fans || 0) + fanGrowth;
 
@@ -2033,18 +2125,23 @@ export function youtubeAlgorithmViews(lifetimeVideos: number, fameXp: number, di
   return Math.floor(2000 + fameXp * 60 + Math.random() * fameXp * 20);
 }
 
-// ---------- WRITERS (hire 1, max 30 weeks, cancel fee) ----------
+// ---------- WRITERS (SEPARATE per platform: 1 each, max 30 weeks, cancel fee) ----------
 export function hireSocialWriter(
   state: SocialsState,
   writerId: string,
-  money: number
+  money: number,
+  platform?: string
 ): { success: boolean; message: string; newMoney: number } {
-  const existing = state.writers.find((w) => w.hired);
-  if (existing) return { success: false, message: 'You already have a hired writer. Cancel their contract first.', newMoney: money };
+  const pid = platform || 'twitter';
+  const label = SocialsService.PLATFORM_LABEL[pid] || pid;
+  const existing = state.writers.find((w) => w.hired && (w.platform || 'twitter') === pid);
+  if (existing) return { success: false, message: `${label} already has a writer (${existing.name}). Cancel that contract first.`, newMoney: money };
+  const busyElsewhere = state.writers.find((w) => w.hired && w.id === writerId);
+  if (busyElsewhere) return { success: false, message: `${busyElsewhere.name} is already retained for ${SocialsService.PLATFORM_LABEL[busyElsewhere.platform || 'twitter'] || 'another platform'}.`, newMoney: money };
   const w = SOCIAL_WRITER_POOL.find((x) => x.id === writerId);
   if (!w) return { success: false, message: 'Writer not found.', newMoney: money };
   if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, newMoney: money };
-  state.writers = state.writers.map((wr) => wr.hired ? wr : wr);
+  state.writers = state.writers.filter((wr) => !(wr.hired && (wr.platform || 'twitter') === pid));
   state.writers.push({
     id: w.id,
     name: w.name,
@@ -2059,18 +2156,21 @@ export function hireSocialWriter(
     minFame: w.minFame,
     bio: w.bio,
     avatar: w.avatar,
+    platform: pid,
   });
-  return { success: true, message: `${w.name} (${w.agencyName}) hired for ${w.maxContractWeeks} weeks!`, newMoney: money };
+  return { success: true, message: `${w.name} (${w.agencyName}) hired for ${label} — ${w.maxContractWeeks} weeks!`, newMoney: money };
 }
 
-export function fireSocialWriter(state: SocialsState, money: number): { success: boolean; message: string; newMoney: number } {
-  const existing = state.writers.find((w) => w.hired);
-  if (!existing) return { success: false, message: 'No writer hired.', newMoney: money };
+export function fireSocialWriter(state: SocialsState, money: number, platform?: string): { success: boolean; message: string; newMoney: number } {
+  const pid = platform || 'twitter';
+  const label = SocialsService.PLATFORM_LABEL[pid] || pid;
+  const existing = state.writers.find((w) => w.hired && (w.platform || 'twitter') === pid);
+  if (!existing) return { success: false, message: `No writer hired for ${label}.`, newMoney: money };
   const pool = SOCIAL_WRITER_POOL.find((w) => w.id === existing.id);
   const fee = pool ? pool.cancelFee : 1000;
   if (money < fee) return { success: false, message: `Insufficient funds for cancellation fee ($${fee}).`, newMoney: money };
-  state.writers = state.writers.filter((w) => w.id !== existing.id);
-  return { success: true, message: `${existing.name} fired. Paid $${fee} cancellation fee.`, newMoney: money - fee };
+  state.writers = state.writers.filter((w) => w !== existing);
+  return { success: true, message: `${existing.name} dropped from ${label}. Paid $${fee} cancellation fee.`, newMoney: money - fee };
 }
 
 

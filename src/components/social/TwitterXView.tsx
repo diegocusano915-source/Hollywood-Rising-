@@ -69,6 +69,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       sentiment: 'Positive' as const,
     };
     state.playerPosts.Twitter = [post, ...playerPosts];
+    SocialsService.notePlayerPost('twitter');
     SocialsService.saveState(state);
     setState({ ...state });
     setDraft('');
@@ -154,7 +155,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const BottomNav = (
     <div className="grid grid-cols-5 gap-1 pt-2 border-t border-white/10">
-      {([['HOME', Home], ['SEARCH', Search], ['CREATOR', BarChart2], ['PREMIUM', Crown], ['PROFILE', Star]] as const).map(([id, Icon]) => (
+      {([['HOME', Home], ['SEARCH', Search], ['CREATOR', BarChart2], ['PREMIUM', Crown], ['WRITERS', PenTool], ['PROFILE', Star]] as const).map(([id, Icon]) => (
         <button key={id} onClick={() => setSubView(id)} className={`flex flex-col items-center py-1.5 rounded-xl cursor-pointer ${subView === id ? 'text-amber-400' : 'text-gray-500 hover:text-white'}`}>
           <Icon className="w-4 h-4" />
           <span className="text-[8px] font-black">{id === 'CREATOR' ? 'STUDIO' : id}</span>
@@ -250,7 +251,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {subView === 'PREMIUM' && <PremiumPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
       {subView === 'CREATOR' && <CreatorStudioPanel state={state} />}
-      {subView === 'WRITERS' && <WritersPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
+      {subView === 'WRITERS' && <WritersPanel state={state} platform="twitter" onRefresh={() => setState({ ...SocialsService.getState() })} />}
 
       {BottomNav}
     </div>

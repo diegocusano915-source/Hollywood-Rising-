@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, ArrowUp, ArrowDown, MessageCircle, Award, Search, Home, Compass, Crown, Share2 } from 'lucide-react';
-import { PremiumPanel } from './HubPanels';
+import { PremiumPanel, WriterSheet } from './HubPanels';
 
 const SUBREDDITS: { name: string; members: number; verified: boolean }[] = [
   { name: 'r/HollywoodRising', members: 100000000, verified: true },
@@ -163,6 +163,7 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
+    SocialsService.notePlayerPost('reddit');
     SocialsService.saveState(state);
     setState({ ...state });
     setTitleDraft('');
@@ -213,7 +214,7 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">🔴 Reddit</span>
-        <Search className="w-4 h-4 text-gray-500" />
+        <WriterSheet state={state} platform="reddit" onRefresh={() => setState({ ...SocialsService.getState() })} />
       </div>
 
       {tab === 'HOME' && (
