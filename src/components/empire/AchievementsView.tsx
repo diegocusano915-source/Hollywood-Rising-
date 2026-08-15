@@ -46,7 +46,7 @@ export const AchievementsView: React.FC<Props> = ({ empireState, onBack }) => {
 
   const totalCashEarned = allAchievements
     .filter((a) => a.isUnlocked)
-    .reduce((acc, a) => acc + (a.rewardCash || 0), 0);
+    .reduce((acc, a) => acc + Math.floor((a.rewardCash || 0) * 0.5), 0);
 
   const totalFameXpEarned = allAchievements
     .filter((a) => a.isUnlocked)
@@ -206,7 +206,7 @@ export const AchievementsView: React.FC<Props> = ({ empireState, onBack }) => {
                 )}
 
                 <div className="flex items-center justify-between text-[10px] font-bold text-amber-300 mt-3 pt-2 border-t border-white/5">
-                  <span>Reward: +${ach.rewardCash.toLocaleString()}</span>
+                  <span>Reward: +${Math.floor(ach.rewardCash * 0.5).toLocaleString()}</span>
                   <span>+{Math.max(1, Math.floor(ach.rewardFameXp * FAME_XP_MULTIPLIER))} Fame XP</span>
                 </div>
               </div>

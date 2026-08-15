@@ -1325,7 +1325,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((empireResult as any).achievementsCash > 0) {
       achievementRewardCash = (empireResult as any).achievementsCash || 0;
       achievementRewardXp = (empireResult as any).achievementsXp || 0;
-      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER))} Fame XP`);
+      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${Math.floor(achievementRewardCash * 0.5).toLocaleString()} cash & +${Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER))} Fame XP`);
     }
     // Empire weekly yield is ONE real number covering businesses + commercial
     // real estate + acting academy net. It always counts — owning only a film
@@ -2738,8 +2738,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     p.fameXp = startFame + fameGainedThisWeek;
 
     // Achievement rewards are REAL income — paid on top of the weekly total,
-    // at the same global slow-burn fraction as everything else
-    if (achievementRewardCash > 0) p.money = (p.money || 0) + achievementRewardCash;
+    // at reduced rates: fame at the global slow-burn fraction, cash at half
+    if (achievementRewardCash > 0) p.money = (p.money || 0) + Math.floor(achievementRewardCash * 0.5);
     if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER));
 
     // Year-end tax filing settles (refund deposited / balance due + audit penalty collected)
