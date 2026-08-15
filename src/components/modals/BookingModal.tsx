@@ -74,6 +74,12 @@ export const BookingModal: React.FC = () => {
   // Active project data or fallback default
   const currentProject = bookedProjects.find((b) => b.id === selectedProjectId) || bookedProjects[0];
 
+  // PRODUCTION HUB CAPACITY: max 3 active productions, only one series at a time
+  const activeProductions = bookedProjects.filter(
+    (b) => !b.isFilmingComplete && (b.status || '') !== 'Pending Negotiation'
+  );
+  const hubSlotsUsed = activeProductions.length;
+
   // Local state per project session for interactive features
   const [localFeedback, setLocalFeedback] = useState<string | null>(null);
   const [showRedCarpet, setShowRedCarpet] = useState(false);
@@ -385,6 +391,13 @@ export const BookingModal: React.FC = () => {
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-black">
                   OFFICIAL FILMING CENTER
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                  hubSlotsUsed >= 3
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                    : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                }`}>
+                  {hubSlotsUsed}/3 SLOTS
                 </span>
               </div>
               <p className="text-xs text-gray-400 hidden sm:block">

@@ -592,6 +592,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       appliedYear: saveData.player.dateYear,
       studio: proj.studio,
       director: proj.director,
+      category: proj.category,
+      isTvSeries: (proj as any).isTvSeries,
     };
 
     const updatedAuditions = [newAudition, ...saveData.auditions];
@@ -1451,10 +1453,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         else if (aud.roleType === 'Support') requiredScore = 20;
 
         const isAccepted = (score + Math.random() * 20) >= requiredScore;
+        // PRODUCTION HUB CAP: max 3 active productions (3 movies, or 2 movies + 1 series),
+        // and only ONE series at a time. If the hub is full, the studio moves on.
+        const activeProds = newBookings.filter(
+          (b) => !b.isFilmingComplete && (b.status || '') !== 'Pending Negotiation'
+        );
+        const isSeriesRole = aud.category === 'TV Series' || (aud as any).isTvSeries === true;
+        const seriesInProd = activeProds.some((b) => b.isTvSeries || b.category === 'TV Series');
+        const hubFull = activeProds.length >= 3;
+        const blockedReason = hubFull
+          ? `Your Production Hub is full (${activeProds.length}/3) \u2014 you can't start another project until one wraps.`
+          : isSeriesRole && seriesInProd
+            ? 'A series is already in production \u2014 only one series can film at a time.'
+            : null;
         const studioName = aud.studio || 'Paramount Pictures';
         const directorName = aud.director || 'Denis Villeneuve';
 
         if (isAccepted) {
+          if (blockedReason) {
+            careerCastingResults.push(`REJECTED: '${aud.movieTitle}' (${aud.roleType}) \u2014 ${blockedReason}`);
+            newInboxMessages.unshift({
+              id: `msg_hub_full_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+              category: 'CAREER',
+              sender: `${studioName} Casting`,
+              senderRole: 'Production Scheduling Office',
+              senderAvatar: aud.posterUrl,
+              subject: `PRODUCTION HUB FULL: ${aud.movieTitle} (${aud.roleType})`,
+              body: `Your audition impressed us \u2014 but your production schedule is at capacity.\n\n${blockedReason}\n\nFinish an active project and we'll keep you in mind for future roles.`,
+              date: dateInfo.fullDateText,
+              read: false,
+            });
+          } else {
           // 39 DIFFERENT ACCEPTANCE REASONS - not repetitive
           const acceptancePool = [
             `• Outstanding acting performance during audition screen tests (Acting score: ${p.talents.acting}/100)`,
@@ -1548,6 +1577,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             studio: studioName,
             director: directorName,
             agentPitched: aud.agentPitched,
+            category: aud.category,
+            isTvSeries: (aud as any).isTvSeries,
           });
 
           newTimelineEvents.push({
@@ -1558,6 +1589,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: `Role Accepted: ${aud.movieTitle}`,
             description: `Cast as ${aud.roleType} in "${aud.movieTitle}" under ${studioName}. Contract value: $${aud.salary.toLocaleString()}.`,
           });
+          }
         } else {
           // 39 DIFFERENT REJECTION REASONS - not repetitive
           const rejectionPool = [

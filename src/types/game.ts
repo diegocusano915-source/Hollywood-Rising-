@@ -262,6 +262,8 @@ export interface AuditionApplication {
   agentPitched?: boolean;
   studio?: string;
   director?: string;
+  category?: ProjectCategory;
+  isTvSeries?: boolean;
 }
 
 export type ProductionStage =
