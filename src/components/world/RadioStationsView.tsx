@@ -8,6 +8,7 @@ import { useGame } from '../../context/GameContext';
 import { RadioStation } from '../../types/world';
 import { INITIAL_RADIO_STATIONS } from '../../database/worldDatabase';
 import { buildQuestions, mergeRadioOffersIntoStations, completeRadioOffer } from '../../services/tvInterviewEngine';
+import { RepresentationService } from '../../services/representationService';
 import { TvInterviewModal } from '../modals/TvInterviewModal';
 import {
   Radio,
@@ -101,11 +102,17 @@ export const RadioStationsView: React.FC<RadioStationsViewProps> = ({ onBack }) 
 
     const newAsked = [...askedIds, ...interviewQuestions.map((q: any) => q.id)].slice(-20);
     persistAsked(newAsked);
+
+    // REAL scandal: the clipped soundbite becomes a MINOR PR scandal to resolve
+    if (result.scandalTriggered) {
+      try { RepresentationService.addInterviewScandal(player, result.stationName); } catch {}
+    }
+
     updateSave({ ...saveData, player: p });
 
     setFeedback(
       `🎙️ Radio interview complete on ${result.stationName}! +$${result.cashEarned.toLocaleString()} · +${result.fansGained.toLocaleString()} fans · +${result.fameXpGained} XP` +
-      (result.scandalTriggered ? ' · ⚠️ tabloid attention!' : '')
+      (result.scandalTriggered ? ' · 📰 Soundbite scandal! Check Representation → PR' : '')
     );
     setActiveInterview(null);
     setTimeout(() => setFeedback(null), 6000);

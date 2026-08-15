@@ -235,11 +235,12 @@ export class RepresentationService {
     player: Player,
     bookedProjects: BookedProject[] = [],
     releasedMovies: ReleasedMovie[] = []
-  ): { weeklyEarnings: number; weeklyExpenses: number; notifications: string[]; prWeeklyCost?: number; lawWeeklyCost?: number; fanClubDues?: number; merchProfit?: number } {
+  ): { weeklyEarnings: number; weeklyExpenses: number; notifications: string[]; prWeeklyCost?: number; lawWeeklyCost?: number; fanClubDues?: number; merchProfit?: number; newScandal?: ScandalItem | null } {
     const state = this.getState();
     let weeklyEarnings = 0;
     let weeklyExpenses = 0;
     const notifications: string[] = [];
+    let newScandal: ScandalItem | null = null;
 
     // 1. Deduct PR Retainer Fee
     if (state.pr.hiredAgencyTier !== 'None' && state.pr.weeklyRetainerFee > 0) {
@@ -438,13 +439,31 @@ export class RepresentationService {
     if (scandalGen.scandal) {
       state.pr.scandals.unshift(scandalGen.scandal);
       notifications.push(`📰 SCANDAL: ${scandalGen.scandal.title}`);
+      if (!scandalGen.scandal.resolved) newScandal = scandalGen.scandal;
       if (scandalGen.fansGained) {
         player.fans = (player.fans || 0) + scandalGen.fansGained;
         notifications.push(`💪 Smear campaign exposed — fans rallied: +${scandalGen.fansGained.toLocaleString()} fans!`);
       }
     }
 
-    // SCANDAL CONSEQUENCES (weekly while unresolved)
+    // 7b-2. SCANDALS FADE — unhandled coverage eventually dies down on its own
+    // (MINOR 4w / MODERATE 5w / CRITICAL 6w) with a small lasting reputation scar
+    const nowAbs = (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
+    state.pr.scandals.forEach((sc) => {
+      if (sc.resolved) return;
+      const ageWeeks = nowAbs - ((sc.yearOccurred || 2026) * 52 + (sc.weekOccurred || 1));
+      const fadeAt = sc.severity === 'CRITICAL' ? 6 : sc.severity === 'MODERATE' ? 5 : 4;
+      if (ageWeeks >= fadeAt) {
+        sc.resolved = true;
+        sc.resolutionStrategy = 'FADED';
+        sc.resolutionNote = 'The news cycle moved on — coverage died down without a formal response. Some reputation damage lingers.';
+        state.reputation.publicReputation = Math.max(0, (state.reputation.publicReputation || 0) - 2);
+        notifications.push(`🗞️ Coverage faded: "${sc.title}" left the headlines (lingering reputation scar).`);
+      }
+    });
+
+    // SCANDAL CONSEQUENCES (weekly while unresolved) — NAME the scandal so the
+    // player knows exactly what is bleeding fans and where to respond
     const unresolvedScandals = state.pr.scandals.filter((sc) => !sc.resolved);
     if (unresolvedScandals.length > 0) {
       const hasCritical = unresolvedScandals.some((sc) => sc.severity === 'CRITICAL');
@@ -452,7 +471,8 @@ export class RepresentationService {
       const lost = Math.floor((player.fans || 0) * bleedRate);
       if (lost > 0) {
         player.fans = Math.max(0, (player.fans || 0) - lost);
-        notifications.push(`📉 ${lost.toLocaleString()} fans unfollowed due to active scandal coverage.`);
+        const names = unresolvedScandals.map((sc) => `"${sc.title}"`).join(', ');
+        notifications.push(`📉 ${lost.toLocaleString()} fans unfollowed — active scandal${unresolvedScandals.length > 1 ? 's' : ''}: ${names}. Respond in Representation → Public Relations.`);
       }
       state.reputation.publicReputation = Math.max(0, (state.reputation.publicReputation || 0) - unresolvedScandals.length * 1.2);
       state.reputation.publicTrust = Math.max(0, (state.reputation.publicTrust || 0) - unresolvedScandals.length * 1.0);
@@ -555,7 +575,7 @@ export class RepresentationService {
 
     this.saveState(state);
 
-    return { weeklyEarnings, weeklyExpenses, prWeeklyCost, lawWeeklyCost, fanClubDues, merchProfit, notifications };
+    return { weeklyEarnings, weeklyExpenses, prWeeklyCost, lawWeeklyCost, fanClubDues, merchProfit, notifications, newScandal };
   }
 
   // Generate realistic Brand Offers based on player stats
@@ -732,6 +752,28 @@ export class RepresentationService {
     } catch {
       return [];
     }
+  }
+
+  /** Interview soundbites clipped out of context become a REAL MINOR scandal */
+  public static addInterviewScandal(player: Player, stationName: string): ScandalItem {
+    const state = this.getState();
+    const week = player.dateWeek || 1;
+    const year = player.dateYear || 2026;
+    const scandal: ScandalItem = {
+      id: `scandal_int_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: `Soundbite Taken Out of Context: ${stationName} Interview`,
+      cause: `A controversial answer on ${stationName} was clipped by tabloid outlets`,
+      severity: 'MINOR',
+      reputationDamage: 8,
+      weekOccurred: week,
+      yearOccurred: year,
+      resolved: false,
+      story: `Your answer on ${stationName} was edited into a provocative headline clip. Tabloids are running it without context and fans are arguing about what you "really meant."`,
+      source: 'INTERVIEW',
+    };
+    state.pr.scandals.unshift(scandal);
+    this.saveState(state);
+    return scandal;
   }
 
   private static maybeGenerateScandal(

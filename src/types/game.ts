@@ -475,6 +475,7 @@ export type InboxCategory =
   | 'PERSONAL'
   | 'SYSTEM'
   | 'EVENTS'
+  | 'CRISIS'
   // Legacy mappings
   | 'CASTING'
   | 'RELATIONSHIPS'

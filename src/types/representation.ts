@@ -61,7 +61,7 @@ export interface ScandalItem {
   resolved: boolean;
   resolutionStrategy?: string;
   story?: string;
-  source?: 'EVENT' | 'NPC_ATTACK' | 'PLAYER_ACTION';
+  source?: 'EVENT' | 'NPC_ATTACK' | 'PLAYER_ACTION' | 'INTERVIEW';
   instigator?: string;
   fansLost?: number;
   resolutionNote?: string;

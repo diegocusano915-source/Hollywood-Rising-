@@ -63,6 +63,7 @@ import { collectNotificationItems, collectDigestItems } from '../services/notifi
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
 import { ActiveJob, TransactionRecord } from '../types/network';
+import { ScandalItem } from '../types/representation';
 
 
 type MainTab = 'HOME' | 'TALENT' | 'WORLD' | 'NETWORK' | 'EMPIRE' | 'REPRESENTATION';
@@ -1337,6 +1338,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (repResult.notifications && repResult.notifications.length > 0) {
       repPr.push(...repResult.notifications);
+    }
+
+    // SCANDAL BREAKING NEWS: a fresh scandal gets a full inbox story so the
+    // player always SEES it — not just a cryptic fan-loss line in the recap
+    const newScandal = (repResult as any).newScandal as ScandalItem | null | undefined;
+    if (newScandal) {
+      const sevColor = newScandal.severity === 'CRITICAL' ? '🚨 CRITICAL' : newScandal.severity === 'MODERATE' ? '⚠️ MODERATE' : 'MINOR';
+      newInboxMessages.unshift({
+        id: `msg_scandal_${newScandal.id}`,
+        category: 'CRISIS',
+        sender: 'Hollywood Tabloid Circuit',
+        senderRole: 'Breaking News Desk',
+        senderAvatar: p.avatarUrl,
+        subject: `📰 ${sevColor} SCANDAL: ${newScandal.title}`,
+        body: `BREAKING COVERAGE\n\n${newScandal.story || newScandal.cause}\n\nSEVERITY: ${newScandal.severity}\nIMMEDIATE REPUTATION DAMAGE: -${newScandal.reputationDamage}\n\nWHILE UNRESOLVED (every week):\n• Fans unfollow (0.6% weekly, 1.5% for CRITICAL)\n• Public Reputation & Trust drain\n${newScandal.severity === 'CRITICAL' ? '• Sponsor payouts PAUSED + casting scores hurt\n' : ''}• Unhandled coverage fades on its own in ${newScandal.severity === 'CRITICAL' ? 6 : newScandal.severity === 'MODERATE' ? 5 : 4} weeks (with a lingering scar)\n\nHOW TO RESPOND:\nOpen Representation → Public Relations and choose a strategy: Lawyers, PR Offensive, Apologize, or Deny & Ride It Out.`,
+        date: dateInfo.fullDateText,
+        read: false,
+      });
     }
 
     // 4. Process Active Acting School Courses
