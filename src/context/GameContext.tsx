@@ -1375,9 +1375,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newTalentVal = Math.min(100, currentTalentVal + course.talentReward.amount);
           p.talents[talentCategory] = newTalentVal;
 
-          // REAL GRADUATION XP: reduced rate (~50%) — course completion pays
-          // fame XP scaled by talent gain + course length, capped at 60
-          const courseXp = Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5));
+          // REAL GRADUATION XP: halved course payouts — fame XP scales by
+          // talent gain + course length, capped at 60 then cut 50%
+          const courseXp = Math.floor(Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5)) * 0.5);
           const courseXpApplied = Math.max(1, Math.floor(courseXp * FAME_XP_MULTIPLIER));
           fameGainedThisWeek += courseXp;
 
