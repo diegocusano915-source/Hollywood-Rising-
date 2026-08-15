@@ -30,7 +30,7 @@ interface BankrollViewProps {
 }
 
 export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
-  const { player, settings } = useGame();
+  const { player, settings, persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [opportunities, setOpportunities] = useState<BankrollOpportunity[]>(INITIAL_BANKROLL_OPPORTUNITIES);
@@ -61,6 +61,8 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
       })
     );
 
+    player.money -= opp.budget;
+    persistNow();
     setFeedback(`SUCCESSFULLY BANKROLLED "${opp.title}" for $${opp.budget.toLocaleString()}! Production underway.`);
     setTimeout(() => setFeedback(null), 4000);
   };

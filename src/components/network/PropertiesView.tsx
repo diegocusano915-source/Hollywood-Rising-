@@ -35,7 +35,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   networkState,
   onUpdateState,
 }) => {
-  const { player, settings } = useGame();
+  const { player, settings, persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTierFilter, setActiveTierFilter] = useState<PropertyTier | 'ALL' | 'OWNED'>('ALL');
@@ -69,6 +69,8 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= property.price;
+    persistNow();
 
     setFeedback(`CONGRATULATIONS! You bought ${property.name} cash for $${property.price.toLocaleString()}!`);
     setTimeout(() => setFeedback(null), 3500);
@@ -100,6 +102,8 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= property.downPayment;
+    persistNow();
 
     setFeedback(`MORTGAGE APPROVED! Down payment $${property.downPayment.toLocaleString()} paid for ${property.name}.`);
     setTimeout(() => setFeedback(null), 3500);
@@ -183,6 +187,8 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money += sellPrice;
+    persistNow();
 
     setFeedback(`SOLD ${property.name} for $${sellPrice.toLocaleString()}!`);
     setTimeout(() => setFeedback(null), 3500);
@@ -214,6 +220,8 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= cost;
+    persistNow();
 
     setFeedback(`RENOVATED ${property.name}! Value +$35,000, Rent +$300/wk.`);
     setTimeout(() => setFeedback(null), 3500);
@@ -245,6 +253,8 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= cost;
+    persistNow();
 
     setFeedback(`UPGRADED ${property.name}! Value +$70,000, Rent +$600/wk.`);
     setTimeout(() => setFeedback(null), 3500);

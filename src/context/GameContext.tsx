@@ -1192,6 +1192,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    // Security personnel salaries (real weekly cost, matches UI "$/wk")
+    (networkState.securityPersonnel || []).forEach((pers) => {
+      if (pers.isHired && pers.weeklySalary) {
+        securityExpensesThisWeek += pers.weeklySalary;
+        networkSecurity.push(`Security Team: -$${pers.weeklySalary.toLocaleString()} (${pers.name})`);
+      }
+    });
+
     // Itemized Bank Loans Repayment & Savings Interest
     if (networkState.bankAccount) {
       if (networkState.bankAccount.savingsBalance > 0) {

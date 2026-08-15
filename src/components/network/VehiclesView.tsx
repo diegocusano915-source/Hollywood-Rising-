@@ -32,7 +32,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
   networkState,
   onUpdateState,
 }) => {
-  const { player, settings } = useGame();
+  const { player, settings, persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTierFilter, setActiveTierFilter] = useState<VehicleTier | 'ALL' | 'GARAGE'>('ALL');
@@ -68,6 +68,8 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= vehicle.price;
+    persistNow();
 
     setFeedback(`PURCHASED ${vehicle.name} for $${vehicle.price.toLocaleString()}! Delivered to your garage.`);
     setTimeout(() => setFeedback(null), 3500);

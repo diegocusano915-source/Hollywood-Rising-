@@ -11,7 +11,7 @@ import { GlowButton } from '../common/GlowButton';
 import { RepresentationService } from '../../services/representationService';
 
 export const RepresentationModal: React.FC = () => {
-  const { player, setActiveModal } = useGame();
+  const { player, setActiveModal, persistNow } = useGame();
   const [repState, setRepState] = useState(() => RepresentationService.getState());
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -30,6 +30,8 @@ export const RepresentationModal: React.FC = () => {
       ...currentState,
       regionalAgencies: updatedAgencies,
     });
+    player.money -= fee;
+    persistNow();
 
     setRepState(RepresentationService.getState());
     setFeedback({ success: true, message: `Successfully signed with ${agencyName}!` });

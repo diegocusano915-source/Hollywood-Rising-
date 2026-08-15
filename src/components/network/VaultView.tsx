@@ -33,7 +33,7 @@ export const VaultView: React.FC<VaultViewProps> = ({
   networkState,
   onUpdateState,
 }) => {
-  const { player, settings } = useGame();
+  const { player, settings, persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTab, setActiveTab] = useState<'VAULT' | 'AUCTION'>('VAULT');
@@ -99,8 +99,10 @@ export const VaultView: React.FC<VaultViewProps> = ({
 
     NetworkService.saveState(nextState);
     onUpdateState(nextState);
+    player.money -= lot.currentBid;
+    persistNow();
 
-    setFeedback(`LOT CLAIMED! Added ${lot.item.name} to your Vault.`);
+    setFeedback(`LOT CLAIMED! Paid $${lot.currentBid.toLocaleString()} for ${lot.item.name} — added to your Vault.`);
     setTimeout(() => setFeedback(null), 3500);
   };
 

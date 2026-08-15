@@ -67,7 +67,7 @@ export const EstatePlanningView: React.FC<EstatePlanningViewProps> = ({
   networkState,
   onUpdateState,
 }) => {
-  const { player, settings } = useGame();
+  const { player, settings, persistNow } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeTab, setActiveTab] = useState<
@@ -239,6 +239,8 @@ export const EstatePlanningView: React.FC<EstatePlanningViewProps> = ({
       return;
     }
 
+    player.money -= lawyer.fee;
+    persistNow();
     const nextPlan: EstatePlan = {
       ...estatePlan,
       selectedLawyerId: lawyer.id,
