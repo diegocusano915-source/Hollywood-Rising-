@@ -30,7 +30,7 @@ import {
   TimelineEvent,
   ReleaseConfig,
 } from '../types/game';
-import { formatCalendarDate } from '../utils/calendar';
+import { formatCalendarDate, monthOfWeek, closingMonthOfWeek } from '../utils/calendar';
 import {
   StorageService,
   DEFAULT_PLAYER,
@@ -2718,6 +2718,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accountantTier: empireNow?.taxState?.accountantTier || 'None',
         incorporated: !!empireNow?.holdingCompany?.isFormed,
         lawyerActive: (repNow?.lawFirm?.hiredFirmTier || 'None') !== 'None',
+        currentMonth: monthOfWeek(p.dateWeek),
+        monthEnd: closingMonthOfWeek(p.dateWeek, newYear > p.dateYear),
       });
       taxesPaidThisWeek = taxResult.withheld || 0;
       endOfWeekExpensesThisWeek += taxesPaidThisWeek;
@@ -2740,6 +2742,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           read: false,
         });
         empireBusinesses.push(`🏛️ ${f.subject} — ${f.auditNote}`);
+      }
+
+      // Month-end statement: real monthly close + possible field audit penalty
+      if (taxResult.monthly) {
+        const m = taxResult.monthly;
+        if (m.penalty && m.penalty > 0) taxFilingAdjustment -= m.penalty;
+        newInboxMessages.unshift({
+          id: `msg_tax_month_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'FINANCE',
+          sender: 'Tax Authority',
+          senderRole: 'Monthly Compliance Office',
+          senderAvatar: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=100',
+          subject: m.subject,
+          body: m.body,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+        empireBusinesses.push(`📜 ${m.month} closed: $${m.monthIncome.toLocaleString()} income / $${m.monthWithheld.toLocaleString()} withheld — ${m.auditNote}`);
       }
 
       // Keep empire taxState in sync with the REAL engine (dashboard + achievements)

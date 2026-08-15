@@ -40,6 +40,16 @@ export interface TaxWeeklyEntry {
   withheld: number;
 }
 
+export interface TaxMonthlyBucket {
+  month: string;
+  income: number;
+  withheld: number;
+  closed: boolean;
+  audited?: boolean;
+  auditPenalty?: number;
+  auditNote?: string;
+}
+
 export interface TaxYearRecord {
   year: number;
   income: number;
@@ -58,6 +68,7 @@ export interface TaxYearRecord {
   auditNote?: string;
   filedWeek?: number;
   weekly: TaxWeeklyEntry[];
+  monthly: TaxMonthlyBucket[];
 }
 
 export interface TaxState {
@@ -109,8 +120,10 @@ export function getTaxRecord(state: TaxState, year: number): TaxYearRecord {
       effectiveRate: 0,
       filingStatus: 'IN_PROGRESS',
       weekly: [],
+      monthly: [],
     };
   }
+  if (!state.years[year].monthly) state.years[year].monthly = [];
   return state.years[year];
 }
 
@@ -152,6 +165,10 @@ export interface TaxWeekInput {
   accountantTier: string;
   incorporated: boolean;
   lawyerActive: boolean;
+  /** Calendar month this week belongs to (drives monthly tax buckets). */
+  currentMonth?: string;
+  /** Month name when this week CLOSES a month (monthly statement + audit roll). */
+  monthEnd?: string | null;
 }
 
 export interface TaxWeekResult {
@@ -162,6 +179,19 @@ export interface TaxWeekResult {
     balanceDue?: number;
     penalty?: number;
     audited: boolean;
+    auditNote?: string;
+    subject: string;
+    body: string;
+  };
+  monthly?: {
+    month: string;
+    monthIncome: number;
+    monthWithheld: number;
+    ytdIncome: number;
+    ytdWithheld: number;
+    ytdLiability: number;
+    audited: boolean;
+    penalty?: number;
     auditNote?: string;
     subject: string;
     body: string;
@@ -231,6 +261,57 @@ export function processTaxWeek(input: TaxWeekInput): TaxWeekResult {
   record.weekly.push({ week: input.week, income: totalIncome, withheld });
   record.effectiveRate = taxable > 0 ? Math.round((liability / taxable) * 1000) / 10 : 0;
 
+  // ============ MONTHLY BUCKETS + MONTH-END COMPLIANCE CHECK ============
+  record.monthly = record.monthly || [];
+  const currentMonth = input.currentMonth || 'January';
+  let bucket = record.monthly.find((m) => m.month === currentMonth && !m.closed);
+  if (!bucket) {
+    bucket = { month: currentMonth, income: 0, withheld: 0, closed: false };
+    record.monthly.push(bucket);
+  }
+  bucket.income += totalIncome;
+  bucket.withheld += withheld;
+
+  let monthly: TaxWeekResult['monthly'];
+  if (input.monthEnd) {
+    bucket.closed = true;
+    // MONTH-END FIELD AUDIT: under-withholding gets flagged mid-year.
+    // Needs real money on the table (liability > $20K) and a gap >15% of it.
+    const ytdGap = liability - record.withheld; // >0 = under-withheld so far
+    let audited = false;
+    let penalty: number | undefined;
+    let auditNote = '✔ No audit — month-end review passed.';
+    if (liability > 20000 && ytdGap > liability * 0.15) {
+      const chance = (AUDIT_CHANCE[input.accountantTier] ?? 0.45) * 0.5;
+      if (Math.random() < chance) {
+        audited = true;
+        penalty = Math.max(2500, Math.floor(ytdGap * 0.08));
+        if (input.lawyerActive && Math.random() < 0.7) {
+          penalty = 0;
+          auditNote = '⚠️ MONTH-END FIELD AUDIT — your lawyer fought the assessment and it was dismissed.';
+        } else {
+          auditNote = `⚠️ MONTH-END FIELD AUDIT — under-withholding flagged. Penalty of $${penalty.toLocaleString()} assessed (8% of the shortfall).`;
+        }
+      }
+    }
+    bucket.audited = audited;
+    bucket.auditPenalty = penalty || 0;
+    bucket.auditNote = auditNote;
+    monthly = {
+      month: currentMonth,
+      monthIncome: bucket.income,
+      monthWithheld: bucket.withheld,
+      ytdIncome: record.income,
+      ytdWithheld: record.withheld,
+      ytdLiability: liability,
+      audited,
+      penalty: penalty || undefined,
+      auditNote,
+      subject: `📜 ${currentMonth} Tax Statement — Month Closed (${input.year})`,
+      body: `MONTH-END COMPLIANCE REVIEW — ${currentMonth} ${input.year}\n\n• ${currentMonth} income: $${bucket.income.toLocaleString()}\n• ${currentMonth} tax withheld: $${bucket.withheld.toLocaleString()}\n• Year-to-date income: $${record.income.toLocaleString()}\n• Year-to-date withheld: $${record.withheld.toLocaleString()}\n• Estimated liability to date: $${liability.toLocaleString()}\n\n${auditNote}`,
+    };
+  }
+
   state.lastProcessedWeek = input.week;
   state.lastProcessedYear = input.year;
   state.lastCharityTotal += charityDeduction;
@@ -246,22 +327,31 @@ export function processTaxWeek(input: TaxWeekInput): TaxWeekResult {
     if (diff >= 0) refund = diff;
     else balanceDue = -diff;
 
-    // AUDIT: only triggered by REAL underpayment (owed >20% of liability and >$50K)
+    // AUDIT — two real triggers at filing:
+    // (1) UNDERPAYMENT: owed >10% of liability on any liability >$10K
+    // (2) RANDOM COMPLIANCE SWEEP: small base chance even for clean filers,
+    //     heavily reduced by better accountants
     let audited = false;
     let penalty = 0;
     let auditNote = 'No audit — your filings were within tolerance.';
-    if (balanceDue && balanceDue > 0 && balanceDue > liability * 0.2 && liability > 50000) {
-      const chance = AUDIT_CHANCE[input.accountantTier] ?? 0.45;
-      if (Math.random() < chance) {
-        audited = true;
-        penalty = Math.floor(balanceDue * 0.15);
-        if (input.lawyerActive && Math.random() < 0.7) {
-          penalty = 0;
-          auditNote = '⚠️ You were audited for underpayment — your lawyer fought it and the penalty was dismissed.';
-        } else {
-          auditNote = `⚠️ AUDITED for underpayment — penalty of $${penalty.toLocaleString()} assessed (15% of balance due).`;
-        }
-      }
+    const underpaid = !!balanceDue && balanceDue > 0 && balanceDue > liability * 0.10 && liability > 10000;
+    const roll = Math.random();
+    const sweepChance = input.accountantTier === 'Elite Offshore Tax Attorneys' ? 0.02
+      : input.accountantTier === 'Boutique Firm' ? 0.05
+      : input.accountantTier === 'Standard CPA' ? 0.08
+      : 0.12;
+    if (underpaid && roll < (AUDIT_CHANCE[input.accountantTier] ?? 0.45)) {
+      audited = true;
+      penalty = Math.floor((balanceDue || 0) * 0.15);
+      auditNote = `⚠️ AUDITED for underpayment — penalty of $${penalty.toLocaleString()} assessed (15% of balance due).`;
+    } else if (!underpaid && roll < sweepChance) {
+      audited = true;
+      penalty = Math.max(5000, Math.floor(liability * 0.02));
+      auditNote = `⚠️ RANDOM COMPLIANCE AUDIT — books checked, penalty of $${penalty.toLocaleString()} assessed (2% of liability).`;
+    }
+    if (audited && input.lawyerActive && Math.random() < 0.7) {
+      penalty = 0;
+      auditNote = '⚠️ You were audited — your lawyer fought it and the penalty was dismissed.';
     }
 
     record.filingStatus = 'FILED';
@@ -290,7 +380,7 @@ export function processTaxWeek(input: TaxWeekInput): TaxWeekResult {
     saveTaxState(state);
   }
 
-  return { withheld, taxesPaid: withheld, filing };
+  return { withheld, taxesPaid: withheld, filing, monthly };
 }
 
 /**
