@@ -61,6 +61,7 @@ import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
 import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
+import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
 import { ActiveJob, TransactionRecord } from '../types/network';
 
 
@@ -968,6 +969,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let studioIncomeThisWeek = 0;
     let hubIncomeThisWeek = 0;
     let interviewFeeIncomeThisWeek = 0;
+    let bankrollIncomeThisWeek = 0;
     let taxesPaidThisWeek = 0;
     let taxFilingAdjustment = 0;
 
@@ -2502,6 +2504,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Personal studio weekly processing error:', e);
     }
 
+    // 7f3. MANAGER BANKROLL ENGINE (real deal sourcing, production countdowns, payouts)
+    try {
+      const bankState = loadBankrollState();
+      ensureBankrollInit(bankState, p);
+      const bankResult = processBankrollWeek(bankState, p, newWeek, newYear);
+      bankrollIncomeThisWeek = bankResult.moneyDelta || 0;
+      bankResult.messages.forEach((m) => {
+        newInboxMessages.unshift({
+          ...m,
+          id: `msg_bank_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'BUSINESS',
+          sender: m.sender,
+          senderRole: 'Bankroll & Financing',
+          senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+      });
+      saveBankrollState(bankState);
+    } catch (e) {
+      console.error('Bankroll weekly processing error:', e);
+    }
+
     // 8. Refill & Age Callboard (NPC Actor Competition & Mandatory Failsafe Role Guarantee)
     const remainingCallboard: CallboardProject[] = [];
     saveData.callboard.forEach(project => {
@@ -2589,7 +2614,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       streamingIncomeThisWeek +
       studioIncomeThisWeek +
       hubIncomeThisWeek +
-      interviewFeeIncomeThisWeek;
+      interviewFeeIncomeThisWeek +
+      bankrollIncomeThisWeek;
 
     // Calculate real mid-week expenses incurred from transaction history during current week
     const midWeekExpensesThisWeek = (networkState.bankAccount?.transactionHistory || [])
@@ -2625,6 +2651,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         streaming: streamingIncomeThisWeek,
         studio: studioIncomeThisWeek,
         media: hubIncomeThisWeek + interviewFeeIncomeThisWeek,
+        investment: bankrollIncomeThisWeek,
       };
       const empireNow = empireResult?.updatedState;
       const repNow = RepresentationService.getState();
