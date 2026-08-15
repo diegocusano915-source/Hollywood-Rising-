@@ -289,6 +289,26 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
               {/* DEVELOPMENT */}
               {stageTab === 'Development' && (
                 <div className="space-y-3">
+                  {/* PRODUCTION CAPACITY BANNER */}
+                  {(() => {
+                    const inProd = studio.projects.filter((p) => p.stage === 'Production');
+                    const seriesInProd = inProd.some((p) => p.type === 'Series');
+                    const full = inProd.length >= 3;
+                    return (
+                      <div className={`p-3 rounded-2xl border ${full ? 'border-rose-500/40 bg-rose-500/10' : 'border-sky-500/30 bg-sky-500/5'}`}>
+                        <p className="text-[11px] font-black text-white">
+                          Production Hub: <span className={full ? 'text-rose-400' : 'text-sky-300'}>{inProd.length} / 3</span> slots
+                        </p>
+                        <p className="text-[9px] text-gray-400 mt-0.5">
+                          {full
+                            ? 'Hub is full — finish or move a project out before starting another.'
+                            : seriesInProd
+                              ? 'A series is already in production — only one series at a time (movies still allowed).'
+                              : 'Max 3 projects in production · only one series at a time.'}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   {ownedScripts.length === 0 && <p className="text-center text-xs text-gray-500 py-8">No scripts owned. Buy one in Launch Content → Scripts first.</p>}
                   {ownedScripts.map((sc: StudioScript) => {
                     const existing = studio.projects.find((p) => p.scriptId === sc.id && p.status === 'ACTIVE');
@@ -520,7 +540,26 @@ export const PersonalStudioView: React.FC<PersonalStudioViewProps> = ({ onBack }
               <p className="text-[10px] text-gray-400 uppercase font-bold">Total Budget ($2M min · $10B max)</p>
               <input type="number" min={MIN_BUDGET} max={MAX_BUDGET} step={1000000} value={budget} onChange={(e) => setBudget(Number(e.target.value))} className="w-full mt-1 px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-xs outline-none" />
             </div>
-            <button onClick={handleSetBudget} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-black font-black text-xs uppercase tracking-wider shadow-xl cursor-pointer">SET BUDGET → PRODUCTION</button>
+            {(() => {
+              const inProdCount = studio.projects.filter((p) => p.stage === 'Production').length;
+              const prodFull = inProdCount >= 3;
+              const seriesConflict = devProject?.type === 'Series' && studio.projects.some((p) => p.stage === 'Production' && p.type === 'Series');
+              const blockReason = prodFull
+                ? `Production hub is full (${inProdCount}/3) — finish a project first.`
+                : seriesConflict
+                  ? 'A series is already in production — only one series at a time.'
+                  : null;
+              if (blockReason) {
+                return (
+                  <div className="p-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-center">
+                    <p className="text-[11px] font-black text-rose-300">{blockReason}</p>
+                  </div>
+                );
+              }
+              return (
+                <button onClick={handleSetBudget} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 text-black font-black text-xs uppercase tracking-wider shadow-xl cursor-pointer">SET BUDGET → PRODUCTION</button>
+              );
+            })()}
           </div>
         </div>
       )}

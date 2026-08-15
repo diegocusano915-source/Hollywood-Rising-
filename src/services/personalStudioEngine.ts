@@ -245,6 +245,17 @@ export function setBudgetAndToProduction(state: PersonalStudioState, projectId: 
   const total = (alloc.principalCast || 0) + (alloc.distributionMarketing || 0) + (alloc.postProduction || 0) + (alloc.locationSet || 0);
   if (budget < MIN_BUDGET || budget > MAX_BUDGET) return { success: false, message: `Budget must be between $2M and $10B.` };
   if (Math.abs(total - 100) > 0.01) return { success: false, message: `Allocation must total exactly 100% (currently ${total}%).` };
+
+  // PRODUCTION CAP: max 3 projects in production at once, and only ONE series.
+  // Prevents an overcrowded hub — you can run 3 movies, or 2 movies + 1 series.
+  const inProduction = state.projects.filter((p) => p.stage === 'Production');
+  if (inProduction.length >= 3) {
+    return { success: false, message: `Production hub is full (${inProduction.length}/3). Finish a project before starting another.` };
+  }
+  if (proj.type === 'Series' && inProduction.some((p) => p.type === 'Series')) {
+    return { success: false, message: 'A series is already in production — only one series at a time.' };
+  }
+
   proj.totalBudget = budget;
   proj.allocations = { ...alloc };
   proj.stage = 'Production';
