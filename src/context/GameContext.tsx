@@ -2125,10 +2125,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         awardsTrophies = awardsResult.newTrophies;
         awardsRecords = awardsResult.newRecords;
         awardsInbox = awardsResult.newInboxMessages;
-        // Apply fame and awards to player
+        // Apply fame, awards, and REAL award-night fans to player
         p.fameXp = awardsResult.updatedPlayer.fameXp;
         p.awardsWon = awardsResult.updatedPlayer.awardsWon;
         fameGainedThisWeek += awardsResult.fameGained;
+        if (awardsResult.fanGained > 0) fansGainedThisWeek += awardsResult.fanGained;
         // Queue inbox and world logs
         awardsInbox.forEach(msg => newInboxMessages.unshift(msg));
         awardsRecords.forEach(rec => {

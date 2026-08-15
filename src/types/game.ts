@@ -785,6 +785,10 @@ export interface AwardCeremonyResult {
   newTrophies: TrophyItem[];
   newRecords: AwardRecord[];
   fameGained: number;
+  /** REAL fans gained from wins + nominations this ceremony (paid on close). */
+  fanGained?: number;
+  /** Broadcast opener: estimated live viewers derived from real fame/fans. */
+  viewersBase?: number;
   inboxMessages: InboxMessage[];
   newPlayerAwardsWon: number;
   playerEligible: boolean;
