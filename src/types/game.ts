@@ -402,6 +402,7 @@ export interface ReleasedMovie {
   audienceScore?: number;
   boxOfficeGross?: number;
   sequelCheckWeeks?: number;
+  sequelEligibleAfter?: number;
   sequelOffered?: boolean;
   sequelOfferedPart?: number;
   sequelTarget?: number;

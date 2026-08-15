@@ -2008,6 +2008,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             director: book.director || 'Denis Villeneuve',
             genre: book.genre || 'Drama',
             sequelCheckWeeks: 0,
+            // Studios don't rush franchise calls: 12–20 weeks of watching the run
+            sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
             sequelOffered: false,
             sequelTarget: Math.floor(baseBudget * 1.8),
             budget: book.budget || baseBudget,
@@ -2250,9 +2252,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 7c. SEQUEL & RENEWAL GREENLIGHT TRACKER — weekly check while the movie is in the box
-    // office AND up to 20 weeks after (even after it leaves theaters). No instant greenlight.
-    // Studio offers when the target is met. If a Manager is signed, the Manager negotiates
-    // better terms with the studio and sends the full offer to your Inbox.
+    // office AND up to 40 weeks after (even after it leaves theaters). No instant greenlight:
+    // every release secretly rolls a 12–20 week studio watch period before any sequel or
+    // season offer can arrive. Studio offers when the target is met after that week.
+    // If a Manager is signed, the Manager negotiates better terms with the studio
+    // and sends the full offer to your Inbox.
     const finalReleasedMovies = updatedReleasedMovies.map((movie) => {
       const isTv = movie.isTvSeries || movie.category === 'TV Series';
       const currentPart = movie.franchisePart || 1;
@@ -2267,16 +2271,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isTv && currentSeason >= maxSeason) return movie;
 
       const checks = (movie.sequelCheckWeeks || 0) + 1;
-      if (checks > 20) return movie; // greenlight decision window closed
+      if (checks > 40) return movie; // greenlight decision window closed
 
+      // Releases from old saves roll their studio watch period here (12–20 weeks)
+      const eligibleAfter = movie.sequelEligibleAfter || 12 + Math.floor(Math.random() * 9);
       const baseBudget = movie.budget || 1500000;
-      // FILMS: purely money-driven — the studio watches the theatrical run for
-      // at least 6 weeks, then greenlights Part N+1 when worldwide gross clears
-      // 1.8x the budget. SERIES: keep the original rating + gross target.
+      // FILMS: purely money-driven — the studio watches the full theatrical run
+      // for the rolled 12–20 weeks, then greenlights Part N+1 when worldwide
+      // gross clears 1.8x the budget. SERIES: same watch period plus the
+      // original rating + gross target.
       const targetMet = isTv
-        ? (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8
-        : checks >= 6 && (movie.worldwideGross || 0) > baseBudget * 1.8;
-      if (!targetMet) return { ...movie, sequelCheckWeeks: checks };
+        ? checks >= eligibleAfter && (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8
+        : checks >= eligibleAfter && (movie.worldwideGross || 0) > baseBudget * 1.8;
+      if (!targetMet) return { ...movie, sequelCheckWeeks: checks, sequelEligibleAfter: eligibleAfter };
 
       // TARGET MET — GREENLIGHT TIME (studio offer, or manager-negotiated offer)
       const managerSigned = !!p.representation?.manager?.signed;
@@ -2285,7 +2292,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (isTv) {
         const nextSeason = currentSeason + 1;
-        const studioSalary = Math.floor((movie.playerEarnings || 2500000) * 1.35);
+        // Renewal pay scales with the SHOW's budget, not just the old paycheck:
+        // 35% raise over last season, floored at 2% of the production budget
+        const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2500000) * 1.35), Math.floor(baseBudget * 0.02));
         const salary = managerSigned ? Math.floor(studioSalary * 1.2) : studioSalary;
         const shootWeeks = 6 + Math.floor(Math.random() * 3);
         const renewedProject: BookedProject = {
@@ -2320,8 +2329,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? `🤝 MANAGER NEGOTIATED: "${movie.parentMovieTitle || movie.movieTitle}" Season ${nextSeason}`
             : `SERIES RENEWED! "${movie.movieTitle}" Greenlit for Season ${nextSeason}!`,
           body: managerSigned
-            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its renewal target (${movie.audienceRating}% audience rating, $${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the network'}.\n\nNEGOTIATED RENEWAL TERMS:\n• Next Season Salary: $${salary.toLocaleString()}\n• Backend: ${renewedProject.backendPercent}% | Profit Share: ${renewedProject.profitSharePercent}%\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
-            : `CONGRATULATIONS!\n\nDue to stellar viewership (${movie.audienceRating}% audience rating), the network has officially renewed "${movie.parentMovieTitle || movie.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${salary.toLocaleString()} (+35% pay raise)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
+            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter ${checks} weeks on air, "${movie.movieTitle}" met its renewal target (${movie.audienceRating}% audience rating, $${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the network'}.\n\nNEGOTIATED RENEWAL TERMS:\n• Next Season Salary: $${salary.toLocaleString()}\n• Backend: ${renewedProject.backendPercent}% | Profit Share: ${renewedProject.profitSharePercent}%\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+            : `CONGRATULATIONS!\n\nAfter ${checks} weeks of stellar viewership (${movie.audienceRating}% audience rating), the network has officially renewed "${movie.parentMovieTitle || movie.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${salary.toLocaleString()} (+35% raise or better)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
           date: dateInfo.fullDateText,
           read: false,
         });
@@ -2331,7 +2340,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           week: newWeek,
           category: 'RELEASE',
           title: `${movie.movieTitle} renewed for Season ${nextSeason}`,
-          description: `${movie.movieTitle} met its renewal target and was greenlit for Season ${nextSeason}.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+          description: `After ${checks} weeks, ${movie.movieTitle} met its renewal target and was greenlit for Season ${nextSeason}.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
         });
         return { ...movie, sequelOffered: true, sequelOfferedPart: nextSeason, sequelCheckWeeks: checks };
       }
@@ -2341,7 +2350,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
       const nextFranchiseTitle = `${movie.parentMovieTitle || movie.movieTitle} (Part ${nextPart}: ${subtitle})`;
       const nextBudget = Math.floor(baseBudget * 1.4);
-      const studioSalary = Math.floor((movie.playerEarnings || 2000000) * 1.5);
+      // Sequel pay scales with the FRANCHISE's budget, not just the old paycheck:
+      // 50% raise over the original, floored at 3% of the (bigger) sequel budget
+      const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2000000) * 1.5), Math.floor(nextBudget * 0.03));
       const salary = managerSigned ? Math.floor(studioSalary * 1.25) : studioSalary;
       const shootWeeks = 6 + Math.floor(Math.random() * 4);
       const backend = managerSigned ? 5.0 : 3.5;
@@ -2378,9 +2389,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subject: managerSigned
           ? `🤝 MANAGER NEGOTIATED: "${nextFranchiseTitle}" deal ready for review`
           : `FRANCHISE SEQUEL GREENLIT: "${nextFranchiseTitle}"!`,
-        body: managerSigned
-          ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross vs $${(baseBudget * 1.8 / 1000000).toFixed(1)}M target), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the studio'}.\n\nNEGOTIATED TERMS:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Salary: $${salary.toLocaleString()} (+25% over standard studio offer)\n• Backend: ${sequelProject.backendPercent}% | Profit Share: ${sequelProject.profitSharePercent}%\n• Box Office Bonus: $${sequelProject.boxOfficeBonus.toLocaleString()}\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
-          : `BREAKING STUDIO GREENLIGHT!\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide gross, ${movie.audienceRating}% audience rating), ${movie.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${salary.toLocaleString()} (+50% raise)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
+          body: managerSigned
+            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter ${checks} weeks at the box office, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross vs $${(baseBudget * 1.8 / 1000000).toFixed(1)}M target), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the studio'}.\n\nNEGOTIATED TERMS:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Salary: $${salary.toLocaleString()} (+25% over standard studio offer)\n• Backend: ${sequelProject.backendPercent}% | Profit Share: ${sequelProject.profitSharePercent}%\n• Box Office Bonus: $${sequelProject.boxOfficeBonus.toLocaleString()}\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+            : `BREAKING STUDIO GREENLIGHT!\n\nAfter ${checks} weeks at the box office, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide gross, ${movie.audienceRating}% audience rating), ${movie.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${salary.toLocaleString()} (+50% raise or better)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
         date: dateInfo.fullDateText,
         read: false,
       });
@@ -2390,7 +2401,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         week: newWeek,
         category: 'RELEASE',
         title: `Sequel Greenlit: ${nextFranchiseTitle}`,
-        description: `"${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross) and Part ${nextPart} was greenlit.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+        description: `After ${checks} weeks, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross) and Part ${nextPart} was greenlit.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
       });
       return { ...movie, sequelOffered: true, sequelOfferedPart: nextPart, sequelCheckWeeks: checks };
     });
@@ -3142,6 +3153,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       director: proj.director,
       genre: proj.genre,
       budget: proj.budget,
+      sequelCheckWeeks: 0,
+      sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
+      sequelOffered: false,
+      sequelTarget: Math.floor(baseBudget * 1.8),
       releaseWeek: saveData.player.dateWeek + (config.releaseWeekOffset || 0),
       releaseYear: saveData.player.dateYear,
     };
