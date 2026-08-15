@@ -147,10 +147,10 @@ export function computeInterviewResult(
 ): TvInterviewResult {
   const p = ctx.player;
   const fame = p.fameXp || 0;
-  // Fans scale with REAL career progress (NOT station size). New players land
-  // ~4k-10k per interview; veterans with high fame earn far more as they rise.
-  const fansBase = Math.floor(700 + fame * 0.35); // per question
-  const cash = Math.floor((station?.viewerBase || 2000000) * 0.0012 + fame * 0.8);
+  // Fans scale SUB-LINEARLY with career progress: new players ~4-10k per
+  // interview, veterans grow at square-root pace (4x fame = 2x fans).
+  const fansBase = Math.floor(400 + Math.sqrt(fame) * 10); // per question
+  const cash = Math.floor((station?.viewerBase || 2000000) * 0.0012 + Math.sqrt(fame) * 60);
   const fameTotalRaw = Math.floor(8 + fame * 0.004);
 
   let fans = 0, rep = 0, fameTotal = 0, scandal = false, cashFinal = cash;

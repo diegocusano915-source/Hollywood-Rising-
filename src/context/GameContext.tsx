@@ -280,11 +280,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Centralized XP & Level Progression Engine
   const addFameXp = useCallback((amount: number, reason: string) => {
     if (!amount || amount <= 0) return;
+    // SLOW BURN: instant XP (red carpet, level-ups) also runs at half speed
+    const halfAmount = Math.max(1, Math.floor(amount * 0.5));
 
     setSaveData((prevSave) => {
       const currentXp = prevSave.player.fameXp || 0;
       const oldLevelInfo = FameService.getFameLevelDetails(currentXp);
-      const newXp = currentXp + amount;
+      const newXp = currentXp + halfAmount;
       const newLevelInfo = FameService.getFameLevelDetails(newXp);
 
       const updatedPlayer: Player = {
@@ -1941,11 +1943,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? (1.2 + (starRatingPct - 70) * 0.04)
             : (0.35 + (starRatingPct / 100) * 0.65);
 
-          // STAR-POWER SCALING: gross grows with fame (new player = low, legend = massive).
-          // Deterministic curve, no fake simulation - star power draws audiences.
-          const fameMult = p.fameXp >= 100000 ? 100 : p.fameXp >= 50000 ? 50 : p.fameXp >= 25000 ? 25 : p.fameXp >= 10000 ? 12 : p.fameXp >= 5000 ? 6 : p.fameXp >= 2000 ? 3 : p.fameXp >= 500 ? 1.5 : 1;
+          // STAR-POWER SCALING (SLOW BURN): sub-linear — fame's draw grows at
+          // square-root pace (4x fame = 2x power, not 4x). Deterministic curve.
+          const fameVal = p.fameXp || 0;
+          const fameMult = Math.min(25, 1 + Math.sqrt(fameVal / 1000) * 0.5);
           const baseOpening = Math.max(1500000, Math.floor(
-            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + (p.fameXp * 5000)
+            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + (Math.sqrt(fameVal) * 100000)
           ));
           const MAX_PLAYER_GROSS = 500000000000; // up to $500B for legends
           const worldwideGross = Math.min(MAX_PLAYER_GROSS, Math.floor(baseOpening * (2.5 + Math.random() * 2) * fameMult * (0.7 + performanceMultiplier)));
@@ -2708,6 +2711,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const netWeeklyChange = totalWeeklyIncome - endOfWeekExpensesThisWeek;
+
+    // SLOW BURN: fame grows at half speed across ALL weekly sources
+    // (courses, releases, interviews, awards, appearances).
+    fameGainedThisWeek = Math.floor((fameGainedThisWeek || 0) * 0.5);
 
     // Apply exact single-source-of-truth values to Player
     p.money = Math.max(0, startMoney + netWeeklyChange);
