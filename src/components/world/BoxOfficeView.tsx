@@ -415,11 +415,11 @@ export const BoxOfficeView: React.FC<BoxOfficeViewProps> = ({ onBack }) => {
                           Dom: ${(dom / 1000000).toFixed(1)}M | Intl: ${(intl / 1000000).toFixed(1)}M
                         </div>
                         {item.isPlayerMovie && item.inTheaters && (() => {
-                          const runMax = (item as any).extendedRun ? 26 : 20;
+                          const runMax = 15;
                           const runWeek = item.weeksReleased || 1;
                           return (
                             <div className="text-[9px] text-amber-300/80 font-bold">
-                              Run: W{runWeek}/{runMax} {(item as any).extendedRun ? '🦵 LEGS' : ''} {(item as any).awardBoostWeeks ? '🏆 Boost' : ''}
+                              Run: W{runWeek}/{runMax} {(item as any).awardBoostWeeks ? '🏆 Boost' : ''}
                             </div>
                           );
                         })()}

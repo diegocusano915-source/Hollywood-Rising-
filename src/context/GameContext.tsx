@@ -52,7 +52,7 @@ import { SocialsService, processSocialHubWeek } from '../services/socialsService
 import { ToastMessage, ToastCategory } from '../components/common/ToastContainer';
 import { MarketEngineService } from '../services/marketEngineService';
 import { NetworkService } from '../services/networkService';
-import { BoxOfficeEngineService } from '../services/boxOfficeEngineService';
+import { BoxOfficeEngineService, PLAYER_MAX_WEEKS } from '../services/boxOfficeEngineService';
 import { RoyaltyEngineService } from '../services/royaltyService';
 import { AwardsService } from '../services/awardsService';
 import { AwardCeremonyResult } from '../types/game';
@@ -2172,7 +2172,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const nextWeeks = chartItem.weeksReleased || movie.weeksInCinemas + 1;
-        const nextInCinemas = nextWeeks >= 20 ? false : (chartItem.inTheaters ?? movie.inCinemas);
+        const nextInCinemas = nextWeeks >= PLAYER_MAX_WEEKS ? false : (chartItem.inTheaters ?? movie.inCinemas);
 
         const currentWorldwide = movie.worldwideGross || movie.boxOfficeGross || 0;
         const currentDomestic = movie.domesticGross || 0;
@@ -2185,8 +2185,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const finalDomestic = Math.min(MAX_CAP * 0.45, Math.max(currentDomestic, chartDomestic));
         const finalInternational = Math.max(0, finalWorldwide - finalDomestic);
 
-        // If movie completes its 15th week in cinemas, send official theatrical conclusion report to Inbox!
-        if (nextWeeks >= 15 && movie.inCinemas) {
+        // Theatrical conclusion report fires the week the movie ACTUALLY leaves
+        // theaters — floor death or the 15-week cap, whichever comes first
+        if (movie.inCinemas && !nextInCinemas) {
           newInboxMessages.unshift({
             id: `msg_theatrical_end_${movie.id}_${Date.now()}`,
             category: 'CAREER',
@@ -2194,7 +2195,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             senderRole: 'VP Theatrical Distribution',
             senderAvatar: movie.posterUrl,
             subject: `THEATRICAL RUN CONCLUDED: "${movie.movieTitle}"`,
-            body: `THEATRICAL RUN CONCLUSION REPORT\n\nMovie: "${movie.movieTitle}"\nRole: ${movie.roleType}\n\nAfter a long run of 15 weeks in cinemas, "${movie.movieTitle}" has officially concluded its theatrical exhibition run!\n\nFINAL BOX OFFICE TOTALS:\n• Lifetime Worldwide Gross: $${(finalWorldwide / 1000000).toFixed(1)}M\n• Domestic Box Office: $${(finalDomestic / 1000000).toFixed(1)}M\n• International Box Office: $${(finalInternational / 1000000).toFixed(1)}M\n• Final Rotten Tomatoes Rating: ${movie.audienceRating}%\n\nThe feature has now transitioned into permanent home streaming, digital licensing, and syndication catalogs. Weekly residuals and streaming royalties will continue to accrue automatically in your IMDb Releases tab!`,
+            body: `THEATRICAL RUN CONCLUSION REPORT\n\nMovie: "${movie.movieTitle}"\nRole: ${movie.roleType}\n\nAfter a run of ${nextWeeks} weeks in cinemas, "${movie.movieTitle}" has officially concluded its theatrical exhibition run!\n\nFINAL BOX OFFICE TOTALS:\n• Lifetime Worldwide Gross: $${(finalWorldwide / 1000000).toFixed(1)}M\n• Domestic Box Office: $${(finalDomestic / 1000000).toFixed(1)}M\n• International Box Office: $${(finalInternational / 1000000).toFixed(1)}M\n• Final Rotten Tomatoes Rating: ${movie.audienceRating}%\n\nThe feature has now transitioned into permanent home streaming, digital licensing, and syndication catalogs. Weekly residuals and streaming royalties will continue to accrue automatically in your IMDb Releases tab!`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -2213,12 +2214,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
+      // Movie not on the active chart anymore — keep totals, but kill stale
+      // weekly numbers so the Releases tab matches the weekly recap exactly
       const fallbackWeeks = movie.weeksInCinemas + 1;
       const fallbackGross = movie.worldwideGross || movie.boxOfficeGross || 0;
+      const fallbackStillRunning = fallbackWeeks < PLAYER_MAX_WEEKS && movie.inCinemas;
       return {
         ...movie,
         weeksInCinemas: fallbackWeeks,
-        inCinemas: fallbackWeeks >= 20 ? false : movie.inCinemas,
+        inCinemas: fallbackStillRunning,
+        weeklyGross: fallbackStillRunning ? ((movie as any).weeklyGross || 0) : 0,
         worldwideGross: fallbackGross,
         boxOfficeGross: fallbackGross,
         sequelCheckWeeks: movie.sequelCheckWeeks,
