@@ -1091,7 +1091,6 @@ export class SocialsService {
 
     // 2. Process PR Writers — SEPARATE WRITERS PER PLATFORM: each hired writer
     // auto-posts ONLY on the platform they were retained for
-    let writerPostCount = 0;
     const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
     const realTitle = latestRealMovie?.movieTitle || '';
     const realGross = latestRealMovie?.worldwideGross || 0;
@@ -1105,36 +1104,78 @@ export class SocialsService {
     const realRole = latestRealMovie?.roleType === 'Lead' ? 'leading' : latestRealMovie?.roleType === 'Principal' ? 'principal' : 'supporting';
     const tag = realTitle ? realTitle.replace(/[^a-zA-Z0-9]/g, '') : '';
     const mM = (v: number) => `$${(v / 1000000).toFixed(1)}M`;
+    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    // Movie-driven posts (only used when a released movie exists) — detailed, varied copy
-    const movieTemplates = realTitle ? [
-      `'${realTitle}' is officially IN THEATERS! ${realOpening > 0 ? `We opened to ${mM(realOpening)} in our first weekend ` : ''}and I still can't believe this day is here. Three years of work, rehearsals, night shoots and rewrites — all for this moment. Thank you to every single person buying a ticket. 🎬🍿 #${tag}`,
-      `The numbers are in: '${realTitle}' has now crossed ${mM(realGross)} worldwide. ${realPosition > 0 && realPosition <= 3 ? `Sitting at #${realPosition} on the box office chart, ` : ''}and it's all because audiences keep showing up week after week. This business is nothing without the fans. Grateful forever. ❤️ #${tag}`,
-      `Critics score: ${realCritic}%. Audience score: ${realAud}%. I'll be honest — reading the reviews has been an out-of-body experience. Some of these write-ups understood the character better than I did while playing ${realRole === 'leading' ? 'the lead' : `the ${realRole} role`}. This one came from the heart. 🔥`,
-      `Playing a ${realRole} role in '${realTitle}' demanded everything I had. Six weeks of dialect coaching, stunt rehearsals every morning, and one 19-hour night shoot I will never forget. When you see that scene — you'll know the one — I hope you feel every second of it. 🎭 #${tag}`,
-      `Saw '${realTitle}' with a packed audience tonight and heard people gasping, laughing, cheering at the screen. That's why we make movies. Not for the numbers — for that room full of strangers feeling the same thing at the same time. Thank you for having us. 🍿❤️`,
-      `A word for the crew of '${realTitle}': the gaffers who lit those night exteriors, the sound team who caught every whisper, the editors who shaped this thing into what it is. ${realWeeks > 1 ? `${realWeeks} weeks in theaters and counting — ` : ''}this movie belongs to hundreds of people. I was just lucky enough to be on the call sheet. 🎬`,
-      ...(realAwards > 0 ? [
-        `Awards tally so far: ${realAwards} win${realAwards === 1 ? '' : 's'} this season. I keep being told to act casual about this. I cannot. Every trophy on that shelf represents a crew that bet on a ${realRole} performance and a fanbase that never let the buzz die. This is ours, not mine. 🏆❤️`,
-      ] : []),
-      ...(realIntl > 0 ? [
-        `'${realTitle}' has now earned ${mM(realIntl)} internationally. Seeing fans in different countries, different languages, all posting about the same scenes — cinema really is a universal language. World tour next time? I think we've earned it. 🌍🎬 #${tag}`,
-      ] : []),
-    ] : [];
-
-    // General career posts — used when there's no released movie yet, mixed in occasionally otherwise
-    const generalTemplates = [
-      `Development week. Three scripts on the desk, one I can't stop thinking about. It's the kind of role that scares me a little — which is exactly how I know it's the right one. Meetings all week, decisions soon. Stay close. 📖✨`,
-      `Spent the morning with a dialect coach and the afternoon in stunt training. My body hates me, my craft loves me. This next character is going to be unlike anything you've seen from me. That's a promise. 🎭💪`,
-      `Grateful post: a few years ago I was auditioning in rooms where nobody knew my name. Today I read your messages and I genuinely cannot believe this community. Whatever comes next, we built this together. Thank you. ❤️`,
-      `Los Angeles at 5AM. Table read in six hours, gym bag packed, script annotated to death. People see the premiere lights — they don't see the 5AM call times. I wouldn't trade a single one of them. That's the honest truth. 🌅🎬`,
-      `Something is coming. I wish I could say more — contracts and embargoes being what they are — but the next announcement is going to be worth the wait. Keep an eye on this feed this month. 👀🔥`,
-      `On craft: the scene you're proudest of is never the loudest one. It's the quiet moment where the audience finally understands why the character stayed. That's the scene I chase in every script I read. 🎬`,
-      `Ask me anything below — about the process, the roles, the failures, all of it. The best part of this job is this community, and I learn more from your questions than from any director's note. Drop them now. 💬⬇️`,
-      `Industry thought: awards season is heating up and the trades are full of speculation. One thing I've learned — buzz is loud in October and silence is loud in February. Keep your head down, do the work, let the work answer. 🎥`,
+    // Combinatorial writer copy — OPEN × BODY × BODY × CLOSE slots with real
+    // data baked into the bodies produce thousands of unique posts, so a
+    // writer's feed never reads the same two texts week after week.
+    const openers: string[] = realTitle ? [
+      `Quick '${realTitle}' update from the press road:`,
+      `Numbers just came in from the studio —`,
+      `I keep re-reading the reviews for '${realTitle}' and shaking my head:`,
+      `Someone pinched me on set today:`,
+      `Note from the '${realTitle}' publicity desk:`,
+      `Alright, you've earned some real news:`,
+      `Catching my breath between interviews to tell you:`,
+      `The trades called this morning. Here's the truth:`,
+      `Sitting in the editing bay thinking about this:`,
+      `To everyone who showed up for '${realTitle}' this month:`,
+    ] : [
+      `Catching you up from my corner of Hollywood:`,
+      `Note from the desk this morning:`,
+      `Real talk before the day starts:`,
+      `Something I've been sitting on all week:`,
+      `Alright, time for a proper update:`,
+      `From today's production meeting:`,
+      `Quick career note before it gets loud:`,
+      `The kind of week that deserves a real post:`,
     ];
 
-    const writerPostTemplates = realTitle ? [...movieTemplates, ...generalTemplates] : generalTemplates;
+    const bodies: string[] = [];
+    if (realTitle) {
+      if (realGross > 0) bodies.push(`'${realTitle}' is now at ${mM(realGross)} worldwide and still climbing.`);
+      if (realOpening > 0) bodies.push(`we opened at ${mM(realOpening)} — above every projection the studio showed me.`);
+      if (realPosition > 0 && realPosition <= 3) bodies.push(`we're sitting at #${realPosition} on the box office chart right now.`);
+      if (realAud > 0) bodies.push(`the audience score is holding strong at ${realAud}%.`);
+      if (realCritic > 0) bodies.push(`critics have us at ${realCritic}% — the write-ups have been surreal.`);
+      if (realIntl > 0) bodies.push(`${mM(realIntl)} of the total comes from overseas — this movie is traveling the world.`);
+      if (realWeeks > 1) bodies.push(`${realWeeks} weeks in theaters and people are STILL buying tickets.`);
+      if (realAwards > 0) bodies.push(`the trophy case grew by ${realAwards} this season.`);
+      bodies.push(`playing a ${realRole} role took everything I had — dialect coaches, stunt weeks, 4AM call times.`);
+      bodies.push(`the crew behind this one is the real story: gaffers, editors, sound — hundreds of artists.`);
+    } else {
+      bodies.push(`three scripts on the desk, one I genuinely can't stop thinking about.`);
+      bodies.push(`the next role scares me a little, which is how I know it's the right one.`);
+      bodies.push(`training is stacking up — dialect sessions in the morning, stunt work in the afternoon.`);
+      bodies.push(`development meetings all week, real decisions coming soon.`);
+      bodies.push(`reading, training, auditioning — the unglamorous engine of this career.`);
+      bodies.push(`the character I'm building right now is unlike anything you've seen from me.`);
+    }
+
+    const closers = [
+      `Thank you for being on this ride with me. ❤️`,
+      `More news very soon — stay close. 👀`,
+      `This is all yours, not mine. 🙏`,
+      `Keep showing up and I'll keep earning it. 🎬`,
+      `Details when the embargo lifts. 🔒`,
+      `Drop your predictions below. 💬`,
+      `Grateful beyond words tonight. ✨`,
+      `We're just getting started. 🔥`,
+      `Tell me where you're watching from. 🌍`,
+      `#${tag || 'HollywoodRising'}`,
+    ];
+
+    const usedWriterTexts = new Set<string>();
+    const buildWriterPost = (): string => {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const t = `${pick(openers)} ${pick(bodies)} ${pick(bodies)} ${pick(closers)}`;
+        if (!usedWriterTexts.has(t)) {
+          usedWriterTexts.add(t);
+          return t;
+        }
+      }
+      return `${pick(openers)} ${pick(bodies)} ${pick(closers)}`;
+    };
 
     for (const hiredWriter of hiredWriters) {
       hiredWriter.postsThisWeek = 0;
@@ -1153,12 +1194,13 @@ export class SocialsService {
       if (player.money < writerWeeklyCost + hiredWriter.weeklyCost) continue; // can't afford this writer this week
 
       writerWeeklyCost += hiredWriter.weeklyCost;
-      const count = 2; // every writer posts exactly 2 detailed posts per week on their platform
-      writerPostCount += count;
+      // 2 posts every week; a 3rd "bonus" post can land while the movie is
+      // still in theaters (fresh numbers = fresh news worth posting)
+      const count = 2 + (realTitle && (latestRealMovie as any)?.inCinemas && Math.random() < 0.4 ? 1 : 0);
 
       const playerHandle = SocialsService.getHandle(pid, player);
       for (let i = 0; i < count; i++) {
-        const autoPostText = writerPostTemplates[(i + writerPostCount) % writerPostTemplates.length];
+        const autoPostText = buildWriterPost();
         const currentFollowers = state.followers[feed] || 100;
         const eng = this.calculatePostEngagement(currentFollowers, state.verification[feed] || 'NONE', player, true);
 
@@ -1755,6 +1797,50 @@ export class SocialsService {
     FILM_COMMENT_POOL.forEach((c) => positivePool.push(c));
     BUSINESS_COMMENT_POOL.forEach((c) => positivePool.push(c));
 
+    // --- NPC Comment Deduplication ---
+    // Modifiers that get appended to base comments to create unique variants.
+    // With ~50 base texts × ~18 modifiers = ~900 unique combos per pool.
+    const COMMENT_MODIFIERS = [
+      '', '', '', '', // empty = use base text (5/18 chance)
+      ' 💯', ' 🔥', ' ❤️', ' 👏', ' 🙌', ' ✨',
+      ' So real for this.', ' No cap.', ' Huge!',
+      ' Just facts.', ' This is it.', ' Underrated take.',
+      ' People need to hear this.', ' Preach!', ' Speaks volumes.',
+      ' Can\'t argue with that.', ' Well said.', ' Big facts.',
+    ];
+    const usedTexts = new Set<string>();
+
+    // Shuffle a pool so we cycle through all items before repeating any
+    const shuffleArray = (arr: string[]): string[] => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const shuffledPositive = shuffleArray(positivePool);
+    const shuffledNeutral = shuffleArray(neutralPool);
+    const shuffledNegative = shuffleArray(negativePool);
+    let posIdx = 0, neuIdx = 0, negIdx = 0;
+
+    const pickUniqueText = (pool: string[], shuffled: string[], idxRef: { value: number }): string => {
+      // Try base text from shuffled pool first (cycle through all before repeating)
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const base = shuffled[idxRef.value % shuffled.length];
+        idxRef.value++;
+        const mod = COMMENT_MODIFIERS[Math.floor(Math.random() * COMMENT_MODIFIERS.length)];
+        const text = `${base}${mod}`;
+        if (!usedTexts.has(text)) {
+          usedTexts.add(text);
+          return text;
+        }
+      }
+      // Fallback: random from full pool with a numeric suffix
+      const base = pool[Math.floor(Math.random() * pool.length)];
+      return `${base} (${Math.floor(Math.random() * 9999) + 1})`;
+    };
+
     // NPC Handle Generator Arrays (Guarantees NO duplicate handles per post)
     const usedHandles = new Set<string>();
     const FIRST_NAMES = [
@@ -1790,8 +1876,9 @@ export class SocialsService {
       // 10% chance to insert VIP / Verified Accounts if player has high fame
       if (player.fameXp > 80 && Math.random() < 0.10 && VIP_VERIFIED_COMMENTS.length > 0) {
         const vip = VIP_VERIFIED_COMMENTS[Math.floor(Math.random() * VIP_VERIFIED_COMMENTS.length)];
-        if (!usedHandles.has(vip.handle)) {
+        if (!usedHandles.has(vip.handle) && !usedTexts.has(vip.text)) {
           usedHandles.add(vip.handle);
+          usedTexts.add(vip.text);
           comments.push({
             id: `cmt_vip_${postId}_${i}_${Math.random().toString(36).substring(2, 6)}`,
             postId,
@@ -1826,14 +1913,22 @@ export class SocialsService {
       const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
 
       // Pick reaction sentiment: 62% Positive, 20% Neutral, 18% Negative
+      // Uses deduplication — same text never appears twice within a post
       const roll = Math.random();
       let text = '';
       if (roll < 0.62) {
-        text = positivePool[Math.floor(Math.random() * positivePool.length)];
+        text = pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
+        posIdx++;
       } else if (roll < 0.82) {
-        text = neutralPool.length > 0 ? neutralPool[Math.floor(Math.random() * neutralPool.length)] : positivePool[Math.floor(Math.random() * positivePool.length)];
+        text = neutralPool.length > 0
+          ? pickUniqueText(neutralPool, shuffledNeutral, { value: neuIdx })
+          : pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
+        neuIdx++;
       } else {
-        text = negativePool.length > 0 ? negativePool[Math.floor(Math.random() * negativePool.length)] : positivePool[Math.floor(Math.random() * positivePool.length)];
+        text = negativePool.length > 0
+          ? pickUniqueText(negativePool, shuffledNegative, { value: negIdx })
+          : pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
+        negIdx++;
       }
 
       // Realistic timestamps spread throughout the last few hours
