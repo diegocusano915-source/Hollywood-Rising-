@@ -1317,6 +1317,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // IG mini-bank payouts that CLEARED this week — credit wallet + inbox.
+    if ((socialsResult as any).igPayoutArrivals && (socialsResult as any).igPayoutArrivals.length > 0) {
+      for (const arrival of (socialsResult as any).igPayoutArrivals) {
+        p.money += arrival.net;
+        newInboxMessages.unshift({
+          id: `msg_ig_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'FINANCE',
+          sender: 'Instagram Creator Payouts',
+          senderRole: 'Creator Bonus Desk',
+          subject: `💰 Instagram payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
+          body: `Your Gram Bank transfer has cleared.\n\n• Requested: $${arrival.gross.toLocaleString()}\n• Tax withheld (20%): −$${arrival.tax.toLocaleString()}\n• NET CREDITED: $${arrival.net.toLocaleString()}\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''}\n\nYour remaining Gram Bank balance stays on Instagram, accruing Creator Bonus revenue every week your posts earn reach.`,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+
     // Writer contracts that ran out this week — send formal goodbye to Inbox
     if (socialsResult.expiredWriters && socialsResult.expiredWriters.length > 0) {
       for (const ex of socialsResult.expiredWriters) {

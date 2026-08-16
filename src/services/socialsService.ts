@@ -165,6 +165,99 @@ export const YT_SLOTS = [
 
 export const YT_PAYOUT_TAX_PCT = 0.2; // 20% withheld at transfer request
 
+// ============================================================
+// GRAM CREATOR HQ — Instagram reach-tier system. NO fake
+// followers, NO fake simulation: reach is tier-capped, converts
+// to REAL followers (state.followers.Instagram) at a small rate,
+// and bonus revenue accrues to the IG mini-bank only.
+// ============================================================
+
+/** An Instagram creator post (scheduled → published into the real feed) */
+export interface InstagramCreatorPost {
+  id: string;
+  caption: string;
+  postType: 'PHOTO' | 'CAROUSEL' | 'REEL' | 'STORY' | 'COLLAB' | 'BTS';
+  slotBoost: number;
+  slotLabel: string;
+  algoScore: number;
+  publishWeek: number;
+  publishYear: number;
+  createdWeek: number;
+  createdYear: number;
+  /** Set when published — graded by real reach */
+  published?: boolean;
+  reach?: number;
+  likes?: number;
+  saves?: number;
+  followersGained?: number;
+  revenue?: number;
+}
+
+/** IG reach tiers — HARD weekly reach ceilings per authority tier */
+export const IG_AUTHORITY_TIERS = [
+  { tier: 1, name: 'Test Audience',    minXp: 0,    weeklyReachCap: 2500,   rpm: 0 },
+  { tier: 2, name: 'Explore Batches',  minXp: 120,  weeklyReachCap: 20000,  rpm: 1.8 },
+  { tier: 3, name: 'Featured Gram',    minXp: 400,  weeklyReachCap: 140000, rpm: 2.8 },
+  { tier: 4, name: 'Viral Candidate',  minXp: 900,  weeklyReachCap: 700000, rpm: 3.8 },
+  { tier: 5, name: 'Gram Elite',       minXp: 1600, weeklyReachCap: 2000000, rpm: 4.8 },
+] as const;
+
+export function igAuthorityTier(xp: number): (typeof IG_AUTHORITY_TIERS)[number] {
+  let t: (typeof IG_AUTHORITY_TIERS)[number] = IG_AUTHORITY_TIERS[0];
+  for (const tier of IG_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
+  return t;
+}
+
+/** IG audience slots with real reach multipliers */
+export const IG_SLOTS = [
+  { id: 'mon_11am', label: 'Weekday 11AM', boost: 1.05, hint: 'late-morning scroll' },
+  { id: 'wed_2pm', label: 'Weekday 2PM', boost: 1.09, hint: 'lunch-scroll wave' },
+  { id: 'fri_8pm', label: 'Friday 8PM', boost: 1.11, hint: 'pre-weekend night scroll' },
+  { id: 'sat_7pm', label: 'Saturday 7PM PRIME', boost: 1.15, hint: 'your audience peak' },
+] as const;
+
+export const IG_PAYOUT_TAX_PCT = 0.2; // 20% withheld at IG transfer request
+
+/** IG pre-flight algorithm score (caption hook, type fit, slot, authority) */
+export function computeIgAlgoScore(input: {
+  caption: string;
+  postType: InstagramCreatorPost['postType'];
+  slotBoost: number;
+  authorityXp: number;
+  hasActiveMovie: boolean;
+}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
+  const c = input.caption.trim();
+  let capScore = 30;
+  if (c.length >= 15) capScore += 10;
+  if (/\d/.test(c)) capScore += 14;
+  if (/(day|days|behind|first|secret|truth|set|story|never|last|on set|bts)/i.test(c)) capScore += 18;
+  if (c.length > 0 && c.length < 8) capScore -= 10;
+  if (/[?!]/.test(c)) capScore += 6;
+  capScore = Math.max(5, Math.min(100, capScore));
+
+  let typeScore = 55;
+  if (input.postType === 'BTS') typeScore = input.hasActiveMovie ? 92 : 35;
+  else if (input.postType === 'REEL') typeScore = 80;
+  else if (input.postType === 'CAROUSEL') typeScore = 72;
+  else if (input.postType === 'COLLAB') typeScore = 68;
+  else if (input.postType === 'STORY') typeScore = 50;
+  else if (input.postType === 'PHOTO') typeScore = 58;
+
+  const slotScoreC = Math.max(30, Math.min(100, Math.round((input.slotBoost - 1) * 340 + 55)));
+  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
+
+  const score = Math.round(capScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
+  return {
+    score,
+    factors: [
+      { label: 'Caption hook', value: capScore, tip: /\d/.test(c) ? 'Number + emotion detected — saves incoming.' : 'Add a number and emotion in line one for +14.' },
+      { label: 'Save potential', value: typeScore, tip: input.postType === 'BTS' && !input.hasActiveMovie ? 'BTS scores low without a movie in production/theaters.' : 'Type fits your current career state.' },
+      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.13 ? 'Prime window — most of your followers scrolling.' : 'Sat 7PM PRIME adds the biggest first-hour reach.' },
+      { label: 'Account authority', value: authScore, tip: authScore < 40 ? 'Test-audience phase: reach is capped hard. Consistency is the only fix.' : 'Authority raising your reach ceiling.' },
+    ],
+  };
+}
+
 /**
  * Pre-flight algorithm score (0-100) — mirrors what the weekly engine will
  * use. Factors: title strength, category fit (BTS needs a live movie),
@@ -432,6 +525,23 @@ export interface SocialsState {
   youtubeUploadStreak?: number;
   /** Last week/year the weekly processor ran (scheduling anchor) */
   lastProcessedYear?: number;
+  // ---- GRAM CREATOR HQ (Instagram v4) ----
+  /** IG authority XP — drives reach-tier caps */
+  instagramAuthorityXp?: number;
+  /** IG mini-bank: accrued Creator Bonus balance */
+  instagramBalance?: number;
+  /** IG transfers in flight (tax withheld, clear in 1-5 weeks) */
+  instagramPendingPayouts?: YouTubePendingPayout[];
+  /** IG posts scheduled to publish on future weeks */
+  instagramScheduled?: InstagramCreatorPost[];
+  /** Published creator posts (graded by real reach) */
+  instagramCreatorPosts?: InstagramCreatorPost[];
+  /** Lifetime creator posts (consistency tracking) */
+  instagramLifetimePosts?: number;
+  /** Consecutive weeks with at least one creator post */
+  instagramPostStreak?: number;
+  /** Creator Bonus accrued last week (bank display) */
+  instagramAccruedLastWeek?: number;
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -688,6 +798,18 @@ export class SocialsService {
           if (!Array.isArray(this.state.youtubeScheduled)) this.state.youtubeScheduled = [];
           if (typeof this.state.youtubeLifetimeUploads !== 'number') this.state.youtubeLifetimeUploads = this.state.youtubeVideos.length;
           if (typeof this.state.youtubeUploadStreak !== 'number') this.state.youtubeUploadStreak = 0;
+          // ---- GRAM HQ MIGRATION (v4) ----
+          if (typeof this.state.instagramAuthorityXp !== 'number') {
+            // Seed from real account size so existing accounts keep progress
+            const igFollowers = this.state.followers.Instagram || 0;
+            this.state.instagramAuthorityXp = Math.min(1500, Math.floor(igFollowers / 40));
+          }
+          if (typeof this.state.instagramBalance !== 'number') this.state.instagramBalance = 0;
+          if (!Array.isArray(this.state.instagramPendingPayouts)) this.state.instagramPendingPayouts = [];
+          if (!Array.isArray(this.state.instagramScheduled)) this.state.instagramScheduled = [];
+          if (!Array.isArray(this.state.instagramCreatorPosts)) this.state.instagramCreatorPosts = [];
+          if (typeof this.state.instagramLifetimePosts !== 'number') this.state.instagramLifetimePosts = 0;
+          if (typeof this.state.instagramPostStreak !== 'number') this.state.instagramPostStreak = 0;
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
           if (this.state.youtubeCopyrightStrikes === undefined) this.state.youtubeCopyrightStrikes = 0;
@@ -1215,8 +1337,12 @@ export class SocialsService {
     expiredWriters?: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }>;
     /** YT mini-bank payouts that cleared this week → credit + inbox */
     ytPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
+    /** IG mini-bank payouts that cleared this week → credit + inbox */
+    igPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
     /** YT ad revenue ACCRUED to the bank this week (display only — not wallet income) */
     youtubeAccruedToBank?: number;
+    /** IG Creator Bonus ACCRUED to the bank this week (display only) */
+    instagramAccruedToBank?: number;
   } {
     const state = this.getState();
 
@@ -1230,6 +1356,7 @@ export class SocialsService {
     const socialReputation: string[] = [];
     const expiredWriters: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }> = [];
     const ytPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
+    const igPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
     let fanGrowth = 0;
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
@@ -1653,6 +1780,102 @@ export class SocialsService {
       }
     }
 
+    // 7f. GRAM CREATOR HQ — Instagram reach-tier engine. NO fake followers:
+    //     reach is tier-capped, converts at a small real rate into the
+    //     account's TRUE follower count, and bonus revenue only accrues to
+    //     the IG mini-bank once the account passes 10K real followers.
+    let igAccruedThisWeek = 0;
+    if (state.createdPlatforms.Instagram) {
+      const igTier = igAuthorityTier(state.instagramAuthorityXp || 0);
+      const igFollowersNow = state.followers.Instagram || 0;
+      const igBonusActive = igFollowersNow >= 10000;
+
+      // Publish scheduled posts due this week (real feed posts + graded records)
+      const igPublished: InstagramCreatorPost[] = [];
+      state.instagramScheduled = (state.instagramScheduled || []).filter((sched) => {
+        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
+        if (due) { igPublished.push(sched); return false; }
+        return true;
+      });
+      let igNewFollowers = 0;
+      for (const pub of igPublished) {
+        state.instagramCreatorPosts = state.instagramCreatorPosts || [];
+        state.instagramCreatorPosts.unshift({ ...pub, published: true });
+        state.instagramAuthorityXp = (state.instagramAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
+        state.instagramLifetimePosts = (state.instagramLifetimePosts || 0) + 1;
+        state.instagramPostStreak = (state.instagramPostStreak || 0) + 1;
+      }
+      if (igPublished.length === 0 && (state.instagramLifetimePosts || 0) > 0) {
+        state.instagramAuthorityXp = Math.max(0, (state.instagramAuthorityXp || 0) - 4);
+        state.instagramPostStreak = 0;
+      }
+
+      // Reach on active creator posts (last 3 weeks), tier-capped and shared
+      const igActive = (state.instagramCreatorPosts || []).filter(
+        (p) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (p.publishYear * 52 + p.publishWeek) <= 3
+      );
+      const igCapShare = igTier.weeklyReachCap / Math.max(1, Math.min(igActive.length, 4));
+      for (const post of igActive) {
+        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (post.publishYear * 52 + post.publishWeek));
+        let reach = igCapShare * (0.25 + (post.algoScore / 100) * 0.75);
+        if (post.postType === 'REEL') reach *= 1.45;
+        else if (post.postType === 'CAROUSEL' || post.postType === 'BTS') reach *= 1.2;
+        else if (post.postType === 'STORY') reach *= 0.6;
+        reach *= post.slotBoost || 1;
+        reach *= 1 + Math.min(0.5, (player.fameXp || 0) / 3000);
+        const lifeMult = weeksOld === 0 ? 0.45 : weeksOld === 1 ? 1 : Math.pow(0.4, weeksOld - 1);
+        reach *= lifeMult;
+
+        const wkReach = Math.max(0, Math.floor(reach * (0.8 + Math.random() * 0.4)));
+        post.reach = (post.reach || 0) + wkReach;
+
+        // REAL engagement from real reach
+        const likeRate = 0.04 + (post.algoScore / 100) * 0.04;
+        const wkLikes = Math.floor(wkReach * likeRate);
+        const wkSaves = Math.floor(wkReach * (post.postType === 'REEL' || post.postType === 'BTS' ? 0.035 : 0.02));
+        post.likes = (post.likes || 0) + wkLikes;
+        post.saves = (post.saves || 0) + wkSaves;
+
+        // REAL follower conversion — the account's true follower count moves
+        const wkFollowers = Math.floor(wkReach * (0.006 + (post.algoScore / 100) * 0.006));
+        post.followersGained = (post.followersGained || 0) + wkFollowers;
+        igNewFollowers += wkFollowers;
+
+        // Creator Bonus revenue → IG mini-bank (10K+ real followers only)
+        if (igBonusActive && wkReach > 0) {
+          const rev = Math.floor((wkReach / 1000) * (igTier.rpm + Math.random() * 0.6));
+          post.revenue = (post.revenue || 0) + rev;
+          igAccruedThisWeek += rev;
+        }
+      }
+      if (igNewFollowers > 0) {
+        state.followers.Instagram = Math.min(500000000000, igFollowersNow + igNewFollowers);
+        fanGrowth += igNewFollowers;
+      }
+      if (igAccruedThisWeek > 0) {
+        state.instagramBalance = (state.instagramBalance || 0) + igAccruedThisWeek;
+        socialPosts.push(`📸 IG Creator Bonus +$${igAccruedThisWeek.toLocaleString()} → Gram Bank (balance $${(state.instagramBalance || 0).toLocaleString()}).`);
+      }
+      // Engagement authority drip
+      if (igActive.length > 0 && (state.instagramCreatorPosts || [])[0]?.reach) {
+        state.instagramAuthorityXp = (state.instagramAuthorityXp || 0) + Math.min(5, Math.floor(((state.instagramCreatorPosts[0].reach || 0)) / 6000));
+      }
+
+      // IG payout ticks
+      const igArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
+      state.instagramPendingPayouts = (state.instagramPendingPayouts || []).filter((po) => {
+        po.weeksRemaining -= 1;
+        if (po.weeksRemaining <= 0) {
+          igArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
+          return false;
+        }
+        return true;
+      });
+      igPayoutArrivals.push(...igArrivals);
+      state.instagramAccruedLastWeek = igAccruedThisWeek;
+      (state as any).__igAccrued = igAccruedThisWeek;
+    }
+
     const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter((p) => state.createdPlatforms[p]);
 
     // 8. Record Social Analytics Snapshot
@@ -1676,7 +1899,9 @@ export class SocialsService {
     this.saveState(state);
 
     const accruedThisWeek = (state.creatorStudio && (state as any).__ytAccrued) || 0;
+    const igAccrued = ((state as any).__igAccrued) || 0;
     delete (state as any).__ytAccrued;
+    delete (state as any).__igAccrued;
 
     return {
       socialPosts,
@@ -1687,7 +1912,9 @@ export class SocialsService {
       writerWeeklyCost,
       youtubeRevenue: accruedThisWeek,
       ytPayoutArrivals,
+      igPayoutArrivals,
       youtubeAccruedToBank: accruedThisWeek,
+      instagramAccruedToBank: igAccrued,
       expiredWriters,
     };
   }
@@ -1782,6 +2009,104 @@ export class SocialsService {
     return {
       success: true,
       message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears to your wallet in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
+    };
+  }
+
+  /**
+   * GRAM HQ — schedule a creator post for a future week + slot.
+   */
+  public static scheduleInstagramPost(input: {
+    caption: string;
+    postType: InstagramCreatorPost['postType'];
+    slotId: string;
+    weeksFromNow: number;
+    hasActiveMovie: boolean;
+  }): { success: boolean; message: string; score?: number } {
+    const state = this.getState();
+    if (!state.createdPlatforms.Instagram) return { success: false, message: 'Create your Instagram account first.' };
+    const caption = input.caption.trim();
+    if (!caption) return { success: false, message: 'Write a caption — the algorithm scans the first line.' };
+
+    const slot = IG_SLOTS.find((s) => s.id === input.slotId) || IG_SLOTS[0];
+    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
+    const curWeek = state.lastProcessedWeek || 1;
+    const curYear = state.lastProcessedYear || 2026;
+    let targetWeek = curWeek + weeks;
+    let targetYear = curYear;
+    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
+
+    const igFollowers = state.followers.Instagram || 0;
+    if (input.postType === 'COLLAB' && igFollowers < 10000) {
+      return { success: false, message: `Brand Collab posts unlock at 10,000 followers — you have ${igFollowers.toLocaleString()}.` };
+    }
+
+    const { score } = computeIgAlgoScore({
+      caption,
+      postType: input.postType,
+      slotBoost: slot.boost,
+      authorityXp: state.instagramAuthorityXp || 0,
+      hasActiveMovie: input.hasActiveMovie,
+    });
+
+    state.instagramScheduled = state.instagramScheduled || [];
+    if (state.instagramScheduled.length >= 4) {
+      return { success: false, message: 'Max 4 scheduled posts. Let some publish first.' };
+    }
+    state.instagramScheduled.push({
+      id: `igc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      caption,
+      postType: input.postType,
+      slotBoost: slot.boost,
+      slotLabel: slot.label,
+      algoScore: score,
+      publishWeek: targetWeek,
+      publishYear: targetYear,
+      createdWeek: curWeek,
+      createdYear: curYear,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Scheduled — ${slot.label}, Week ${targetWeek}, ${targetYear}. Algorithm score ${score}.`,
+      score,
+    };
+  }
+
+  /**
+   * GRAM HQ — transfer from the IG mini-bank. 20% tax withheld up front;
+   * clears in 1-5 weeks with an inbox notice.
+   */
+  public static requestInstagramPayout(amount: number): { success: boolean; message: string } {
+    const state = this.getState();
+    const igFollowers = state.followers.Instagram || 0;
+    if (igFollowers < 10000) {
+      return { success: false, message: `Creator Bonuses unlock at 10,000 followers — you have ${igFollowers.toLocaleString()}.` };
+    }
+    const amt = Math.floor(amount);
+    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
+    const balance = state.instagramBalance || 0;
+    if (amt > balance) {
+      return { success: false, message: `Insufficient Gram Bank balance — available $${balance.toLocaleString()}.` };
+    }
+    const tax = Math.round(amt * IG_PAYOUT_TAX_PCT);
+    const net = amt - tax;
+    const weeks = 1 + Math.floor(Math.random() * 5);
+    state.instagramBalance = balance - amt;
+    state.instagramPendingPayouts = state.instagramPendingPayouts || [];
+    state.instagramPendingPayouts.push({
+      id: `igp_${Date.now()}`,
+      gross: amt,
+      taxWithheld: tax,
+      net,
+      weeksRemaining: weeks,
+      totalWeeks: weeks,
+      requestedWeek: state.lastProcessedWeek || 1,
+      requestedYear: state.lastProcessedYear || 2026,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
     };
   }
 
