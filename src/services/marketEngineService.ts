@@ -113,6 +113,33 @@ export interface CryptoCoin {
   weakStreak?: number;
   listedWeek?: number;
   listedYear?: number;
+  /** Consecutive weeks of declining health — drives delist votes */
+  delistStreak?: number;
+  /** Formally under delist review — shown to player as warning */
+  delistWarning?: boolean;
+  /** All-time-high price tracker */
+  athPrice?: number;
+  /** Sector emoji icon for the market list */
+  icon?: string;
+}
+
+/** Living crypto market regime — bull runs, bears, pumps, crashes */
+export interface CryptoRegime {
+  type: 'NEUTRAL' | 'BULL' | 'BEAR' | 'PUMP' | 'CRASH' | 'RECOVERY';
+  weeksRemaining: number;
+  weeksTotal: number;
+  strength: number; // 0.5 – 1.5 intensity multiplier
+}
+
+/** Exchange wire event — listings, delists, pumps, regime shifts */
+export interface CryptoWireEvent {
+  id: string;
+  week: number;
+  year: number;
+  kind: 'LISTING' | 'DELIST_VOTE' | 'DELISTED' | 'PUMP' | 'DUMP' | 'REGIME' | 'WHALE';
+  symbol?: string;
+  title: string;
+  sub: string;
 }
 
 export interface MarketTransaction {
@@ -173,6 +200,16 @@ export interface EconomyMarketState {
   transactions: MarketTransaction[];
   playerCustomIposCount: number;
   playerCustomCryptosCount: number;
+  /** Living crypto market regime (bull/bear/pump/crash cycles) */
+  cryptoRegime?: CryptoRegime;
+  /** Exchange wire — listings, delists, pumps, regime shifts (newest first) */
+  cryptoWire?: CryptoWireEvent[];
+  /** Absolute week (year*52+week) when the next new coin lists */
+  nextCryptoListingWeek?: number;
+  /** Realized crypto gains this week, fed to the tax engine (taxable) */
+  pendingCryptoGains?: number;
+  /** Realized crypto losses this week, offset gains before taxing */
+  pendingCryptoLosses?: number;
 }
 
 const LOCAL_STORAGE_KEY = 'HOLLYWOOD_RISING_MARKET_ENGINE_V2';
@@ -727,6 +764,100 @@ const INITIAL_WHALES: NpcWhale[] = [
   },
 ];
 
+// ============================================================
+// ENDLESS COIN GENERATOR — real-market style. Hundreds of
+// possible names/symbols; coins list with real market caps,
+// drift with regime + events, and can be delisted for dying.
+// ============================================================
+const COIN_NAME_A = ['Star', 'Neon', 'Velvet', 'Lunar', 'Apex', 'Nova', 'Golden', 'Silver', 'Echo', 'Prime', 'Hyper', 'Crimson', 'Astro', 'Metro', 'Pulse', 'Zenith', 'Orbit', 'Rogue', 'Titan', 'Mirage', 'Sable', 'Vertex', 'Halo', 'Crown', 'Marquee', 'Reel', 'Spotlight', 'Backlot', 'Casting', 'Premiere', 'Sundance', 'Cannes', 'Tabloid', 'Limelight', 'Silver Screen', 'Cameo', 'Encore'];
+const COIN_NAME_B = ['Coin', 'Token', 'Chain', 'DAO', 'Pay', 'Verse', 'Link', 'Fi', 'Cash', 'Swap', 'Labs', 'Protocol', 'Stake', 'Inu', 'Dust', 'Vault', 'Ledger', 'Guild'];
+const COIN_SECTORS: Array<{ sector: string; icon: string; risk: CryptoCoin['risk']; vol: VolatilityRating; desc: string[] }> = [
+  { sector: 'Entertainment Utility', icon: '🎬', risk: 'Medium', vol: 'Moderate', desc: ['Powers studio financing rails and box-office settlement.', 'Utility rail for ticketing, premieres and VIP experiences.'] },
+  { sector: 'Meme & Gossip', icon: '🎲', risk: 'Extreme Degen', vol: 'Extreme Degen', desc: ['Pure degen meme coin driven by paparazzi cycles.', 'Community rumor market with zero fundamentals and pure vibes.'] },
+  { sector: 'AI Compute & VFX', icon: '🤖', risk: 'High', vol: 'High', desc: ['GPU compute credits for AI rendering and de-aging VFX.', 'Decentralized render farm token for streaming pipelines.'] },
+  { sector: 'Film DAO Financing', icon: '🎥', risk: 'Medium', vol: 'Moderate', desc: ['DAO governance over indie script greenlights and profit splits.', 'Treasury coin funding mid-budget features via community vote.'] },
+  { sector: 'Event Access', icon: '🎪', risk: 'High', vol: 'High', desc: ['Backstage passes, festival queues and red-carpet NFT gates.', 'VIP access token for premieres and award-season events.'] },
+  { sector: 'Payment & Ticketing', icon: '🎟️', risk: 'Low', vol: 'Low', desc: ['Theater-chain payment rail with staking rebates on tickets.', 'Global cinema loyalty and settlement network.'] },
+  { sector: 'Talent Discovery', icon: '🦈', risk: 'High', vol: 'High', desc: ['Scouting marketplace where holders back unsigned talent.', 'Reputation stakes for casting-call verdicts.'] },
+  { sector: 'Streaming Rights', icon: '📺', risk: 'Medium', vol: 'Moderate', desc: ['Fractional streaming licensing and residual distribution.', 'Rights vault coin paying weekly residual yield.'] },
+  { sector: 'Celebrity Fan Token', icon: '👑', risk: 'High', vol: 'High', desc: ['Official fan-governance token with meet-and-greet lotteries.', 'Fan club currency for merch drops and polls.'] },
+  { sector: 'Real Estate & Studios', icon: '🏢', risk: 'Low', vol: 'Low', desc: ['Fractional soundstage ownership with rental yield.', 'Tokenized LA studio lots paying weekly rent.'] },
+];
+
+const coinTicker = (name: string): string => {
+  const words = name.replace(/[^a-zA-Z ]/g, '').split(' ').filter(Boolean);
+  if (words.length >= 2) {
+    const t = (words[0].slice(0, 2) + words[1].slice(0, 2)).toUpperCase();
+    return t.length >= 3 ? t.slice(0, 4) : `${t}X`;
+  }
+  return `${words[0].slice(0, 3).toUpperCase()}X`;
+};
+
+/** Generate one fully-formed coin. Market cap between minCap..maxCap (log scale). */
+const generateCoin = (usedSymbols: Set<string>, minCap: number, maxCap: number, week: number, year: number): CryptoCoin => {
+  let name = '';
+  let symbol = '';
+  let tries = 0;
+  do {
+    const a = COIN_NAME_A[Math.floor(Math.random() * COIN_NAME_A.length)];
+    const b = COIN_NAME_B[Math.floor(Math.random() * COIN_NAME_B.length)];
+    name = `${a} ${b}`;
+    symbol = `$${coinTicker(name)}${Math.random() < 0.3 ? Math.floor(Math.random() * 90 + 10) : ''}`;
+    tries++;
+  } while ((usedSymbols.has(symbol) || symbol.length > 6) && tries < 80);
+  usedSymbols.add(symbol);
+
+  const sec = COIN_SECTORS[Math.floor(Math.random() * COIN_SECTORS.length)];
+  // log-uniform market cap
+  const t = Math.random();
+  const marketCap = Math.round(minCap * Math.pow(maxCap / minCap, t));
+  const price = Math.max(
+    0.0001,
+    Math.round((marketCap / (50000000 + Math.random() * 150000000)) * (marketCap < 20000000 ? 0.001 + Math.random() * 0.9 : 0.5 + Math.random() * 30) * 10000) / 10000
+  );
+  const supply = Math.max(1000000, Math.round(marketCap / Math.max(0.0001, price)));
+  const riskRoll = Math.random();
+  const risk = sec.risk === 'Extreme Degen' ? 'Extreme Degen' : riskRoll < 0.5 ? sec.risk : riskRoll < 0.8 ? 'High' : 'Extreme Degen';
+
+  return {
+    id: `coin_gen_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    symbol,
+    price,
+    prevPrice: price,
+    change24h: 0,
+    change7d: 0,
+    marketCap,
+    circulatingSupply: supply,
+    volume24h: Math.round(marketCap * (0.05 + Math.random() * 0.25)),
+    popularity: 30 + Math.floor(Math.random() * 55),
+    communityStrength: 35 + Math.floor(Math.random() * 55),
+    volatility: risk === 'Extreme Degen' ? 'Extreme Degen' : risk === 'High' ? 'High' : sec.vol,
+    sector: sec.sector,
+    risk,
+    techDescription: sec.desc[Math.floor(Math.random() * sec.desc.length)],
+    sparkline: [price],
+    news: '',
+    status: 'Active',
+    playerHoldings: 0,
+    playerAvgBuyPrice: 0,
+    weeksSinceListing: 0,
+    listedWeek: week,
+    listedYear: year,
+    delistStreak: 0,
+    athPrice: price,
+    icon: sec.icon,
+  };
+};
+
+/** Build a fresh batch of coins (used at init top-up and weekly listings). */
+const generateCoinBatch = (count: number, minCap: number, maxCap: number, existing: CryptoCoin[], week: number, year: number): CryptoCoin[] => {
+  const used = new Set(existing.map((c) => c.symbol));
+  const out: CryptoCoin[] = [];
+  for (let i = 0; i < count; i++) out.push(generateCoin(used, minCap, maxCap, week, year));
+  return out;
+};
+
 export class MarketEngineService {
   private static state: EconomyMarketState | null = null;
 
@@ -749,6 +880,7 @@ export class MarketEngineService {
             whales: Array.isArray(parsed.whales) ? parsed.whales : INITIAL_WHALES,
             transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
             news: Array.isArray(parsed.news) ? parsed.news : [],
+            cryptoWire: Array.isArray((parsed as any).cryptoWire) ? (parsed as any).cryptoWire : [],
             industryStrengths: parsed.industryStrengths || {
               'Entertainment Conglomerate': 85,
               'Streaming Giant': 88,
@@ -762,6 +894,33 @@ export class MarketEngineService {
               'Energy & Infrastructure': 80,
             },
           };
+          // ---- LIVING MARKET MIGRATION (v3) ----
+          // Top up legacy 12-coin saves into the endless pool (55 coins)
+          const live = this.state.cryptoCoins.filter((c) => c.status === 'Active' || c.status === 'TopLeader');
+          if (live.length < 40) {
+            this.state.cryptoCoins = [
+              ...this.state.cryptoCoins,
+              ...generateCoinBatch(55 - live.length, 4000000, 900000000, this.state.cryptoCoins, this.state.currentWeek || 1, this.state.currentYear || 2026),
+            ];
+          }
+          if (!this.state.cryptoRegime) {
+            this.state.cryptoRegime = { type: 'NEUTRAL', weeksRemaining: 6, weeksTotal: 6, strength: 1 };
+          }
+          if (typeof this.state.nextCryptoListingWeek !== 'number') {
+            this.state.nextCryptoListingWeek = (this.state.currentYear || 2026) * 52 + (this.state.currentWeek || 1) + 10 + Math.floor(Math.random() * 3);
+          }
+          if (typeof this.state.pendingCryptoGains !== 'number') this.state.pendingCryptoGains = 0;
+          if (typeof this.state.pendingCryptoLosses !== 'number') this.state.pendingCryptoLosses = 0;
+          // Tag legacy coins with sector icons once
+          this.state.cryptoCoins.forEach((c) => {
+            if (!c.icon) {
+              const sec = COIN_SECTORS.find((s) => s.sector === c.sector);
+              c.icon = sec ? sec.icon : '🪙';
+            }
+            if (typeof c.weeksSinceListing !== 'number') c.weeksSinceListing = 30 + Math.floor(Math.random() * 40);
+            if (typeof c.delistStreak !== 'number') c.delistStreak = 0;
+            if (typeof c.athPrice !== 'number') c.athPrice = c.price;
+          });
           return this.state;
         }
       }
@@ -792,7 +951,16 @@ export class MarketEngineService {
       },
       stocks: INITIAL_STOCKS,
       ipos: INITIAL_IPOS,
-      cryptoCoins: INITIAL_CRYPTO,
+      cryptoCoins: [
+        ...INITIAL_CRYPTO,
+        // Endless pool: new games launch with a full market of 55 coins
+        ...generateCoinBatch(55 - INITIAL_CRYPTO.length, 4000000, 900000000, INITIAL_CRYPTO, 1, 2026),
+      ],
+      cryptoRegime: { type: 'BULL', weeksRemaining: 8, weeksTotal: 8, strength: 1.1 },
+      cryptoWire: [],
+      nextCryptoListingWeek: 2026 * 52 + 1 + 11,
+      pendingCryptoGains: 0,
+      pendingCryptoLosses: 0,
       whales: INITIAL_WHALES,
       news: [
         {
@@ -839,6 +1007,10 @@ export class MarketEngineService {
   public static processEndWeek(playerWeek: number, playerYear: number, playerMoney: number): {
     updatedState: EconomyMarketState;
     headlineNews: string[];
+    /** Structured crypto events (listings, delists, regimes) → inbox messages */
+    cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
+    /** Forced-liquidation proceeds credited to the player this week */
+    delistPayouts: number;
   } {
     const s = this.getMarketState();
     s.currentWeek = playerWeek;
@@ -958,41 +1130,220 @@ export class MarketEngineService {
       };
     });
 
-    // 3. PROCESS CRYPTOCURRENCY MARKET
+    // 3. PROCESS CRYPTOCURRENCY MARKET — LIVING MARKET EDITION
+    //    Regime cycles (bull/bear/pump/crash), per-coin events (pumps, dumps,
+    //    hacks, partnerships), delist votes, and ATH tracking. Everything
+    //    drifts — nothing is static.
+    const cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
+    const wire: CryptoWireEvent[] = s.cryptoWire || [];
+    const pushWire = (e: Omit<CryptoWireEvent, 'id' | 'week' | 'year'>) => {
+      wire.unshift({ ...e, id: `wire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, week: playerWeek, year: playerYear });
+    };
+    if (wire.length > 60) wire.length = 60;
+
+    // ---- 3a. REGIME LIFECYCLE ----
+    if (!s.cryptoRegime) s.cryptoRegime = { type: 'NEUTRAL', weeksRemaining: 6, weeksTotal: 6, strength: 1 };
+    s.cryptoRegime.weeksRemaining -= 1;
+    if (s.cryptoRegime.weeksRemaining <= 0) {
+      const roll = Math.random();
+      const nextType: CryptoRegime['type'] =
+        roll < 0.32 ? 'NEUTRAL'
+        : roll < 0.57 ? 'BULL'
+        : roll < 0.72 ? 'BEAR'
+        : roll < 0.82 ? 'PUMP'
+        : roll < 0.87 ? 'CRASH'
+        : 'RECOVERY';
+      const short = nextType === 'PUMP' || nextType === 'CRASH';
+      s.cryptoRegime = {
+        type: nextType,
+        weeksRemaining: short ? 2 + Math.floor(Math.random() * 4) : 7 + Math.floor(Math.random() * 10),
+        weeksTotal: 0,
+        strength: 0.6 + Math.random() * 0.9,
+      };
+      s.cryptoRegime.weeksTotal = s.cryptoRegime.weeksRemaining;
+      const labels: Record<CryptoRegime['type'], string> = {
+        NEUTRAL: 'Markets cool off — sideways chop ahead',
+        BULL: '🐂 BULL RUN begins — capital floods into crypto',
+        BEAR: '🐻 BEAR MARKET begins — risk-off across the board',
+        PUMP: '🚀 PUMP CYCLE detected — degens ape everything',
+        CRASH: '💥 MARKET CRASH — liquidations cascade',
+        RECOVERY: '🌱 RECOVERY phase — accumulation resumes',
+      };
+      pushWire({ kind: 'REGIME', title: labels[nextType], sub: `Regime shift · est. ${s.cryptoRegime.weeksTotal} weeks · strength ${(s.cryptoRegime.strength * 100).toFixed(0)}%` });
+      headlineNews.push(`CRYPTO MARKET: ${labels[nextType]} (est. ${s.cryptoRegime.weeksTotal} weeks).`);
+      cryptoEvents.push({
+        kind: 'REGIME',
+        subject: `STAR EXCHANGE MARKET ALERT: ${labels[nextType]}`,
+        body: `The Star Exchange regime has shifted.\n\nNew regime: ${nextType} · expected duration ~${s.cryptoRegime.weeksTotal} weeks · intensity ${(s.cryptoRegime.strength * 100).toFixed(0)}%.\n\n${
+          nextType === 'BULL' ? 'Historically, coins drift upward 1-4% weekly in bull regimes — but so do corrections.'
+          : nextType === 'BEAR' ? 'Expect broad downward drift. Cash is a position — and so is buying the fear.'
+          : nextType === 'PUMP' ? 'Short violent cycles. Meme and degen coins can rip 30-120% — and dump just as fast.'
+          : nextType === 'CRASH' ? 'Everything bleeds this week. Only the strongest communities hold support.'
+          : nextType === 'RECOVERY' ? 'Smart money re-enters. Quality coins bottom first.'
+          : 'Choppy, range-bound price action. Slow grind both ways.'
+        }`,
+        important: nextType === 'CRASH' || nextType === 'PUMP',
+      });
+    }
+
+    // Regime → average weekly drift per coin (%)
+    const regime = s.cryptoRegime;
+    const regimeDrift: Record<CryptoRegime['type'], number> = {
+      NEUTRAL: 0.1,
+      BULL: 1.8 * regime.strength,
+      BEAR: -1.9 * regime.strength,
+      PUMP: 5.5 * regime.strength,
+      CRASH: -6.5 * regime.strength,
+      RECOVERY: 2.4 * regime.strength,
+    };
+    const baseDrift = regimeDrift[regime.type];
+
+    // Pumps concentrate on a few lucky coins
+    const pumpWinners = new Set<string>();
+    if (regime.type === 'PUMP') {
+      const degenCoins = s.cryptoCoins.filter((c) => (c.status === 'Active' || c.status === 'TopLeader') && (c.risk === 'Extreme Degen' || c.risk === 'High'));
+      const n = Math.min(degenCoins.length, 3 + Math.floor(Math.random() * 4));
+      for (let i = 0; i < n; i++) pumpWinners.add(degenCoins[Math.floor(Math.random() * degenCoins.length)]?.id);
+    }
+
     s.cryptoCoins = s.cryptoCoins.map((coin) => {
       if (coin.status !== 'Active' && coin.status !== 'TopLeader') return coin;
 
-      // Crypto is highly sensitive to market cycles & community strength
-      const cryptoCycleMod = cycleMultiplier * 2.5; // crypto fluctuates 2.5x stocks
-      const communityMod = (coin.communityStrength - 50) / 2000;
-      const degenVol = coin.volatility === 'Extreme Degen' ? 0.15 : coin.volatility === 'High' ? 0.08 : 0.04;
-      const randomCryptoVariance = (Math.random() - 0.49) * degenVol;
+      // ---- per-coin movement ----
+      const vol = coin.volatility === 'Extreme Degen' ? 0.16 : coin.volatility === 'High' ? 0.09 : coin.volatility === 'Moderate' ? 0.05 : 0.03;
+      const communityMod = (coin.communityStrength - 50) / 1800;
+      let changePct = baseDrift * (coin.risk === 'Extreme Degen' ? 1.6 : coin.risk === 'High' ? 1.25 : coin.risk === 'Medium' ? 1 : 0.75)
+        + communityMod * 100 * 0.5
+        + (Math.random() - 0.49) * vol * 100;
+      if (pumpWinners.has(coin.id)) changePct += 25 + Math.random() * 85;
 
-      const totalCryptoChangePct = (cryptoCycleMod + communityMod + randomCryptoVariance) * 100;
-      const roundedCryptoChange = Math.round(totalCryptoChangePct * 100) / 100;
-
-      const prevPrice = coin.price;
-      const newPrice = Math.max(0.0001, Math.round(prevPrice * (1 + roundedCryptoChange / 100) * 10000) / 10000);
-      const newMarketCap = Math.round(newPrice * coin.circulatingSupply);
-
-      const newSparkline = [...(coin.sparkline || []), newPrice].slice(-12);
-
-      if (Math.abs(roundedCryptoChange) > 15) {
-        const cNews = `$${coin.symbol} experiences ${roundedCryptoChange > 0 ? 'bullish rally' : 'sharp crash'} of ${roundedCryptoChange}% on high trading volume!`;
-        headlineNews.push(`CRYPTO SURGE: ${cNews}`);
-        coin.news = cNews;
+      // ---- coin events (4% weekly per coin) ----
+      let eventLabel = '';
+      if (Math.random() < 0.04) {
+        const evRoll = Math.random();
+        if (evRoll < 0.3) { changePct += 18 + Math.random() * 35; eventLabel = 'major partnership announced'; }
+        else if (evRoll < 0.55) { changePct -= 18 + Math.random() * 30; eventLabel = 'whale dump detected'; }
+        else if (evRoll < 0.72) { changePct += 35 + Math.random() * 70; eventLabel = 'viral celebrity endorsement'; }
+        else if (evRoll < 0.86) { changePct -= 30 + Math.random() * 45; eventLabel = 'smart contract exploit'; }
+        else { changePct -= 50 + Math.random() * 50; eventLabel = 'RUG PULL ATTEMPT — team wallets moving'; }
       }
+
+      changePct = Math.round(changePct * 100) / 100;
+      const prevPrice = coin.price;
+      const newPrice = Math.max(0.000001, Math.round(prevPrice * (1 + changePct / 100) * 1000000) / 1000000);
+      const newMarketCap = Math.round(newPrice * coin.circulatingSupply);
+      const newSparkline = [...(coin.sparkline || []), newPrice].slice(-12);
+      const newATH = Math.max(coin.athPrice || newPrice, newPrice);
+
+      // volume + community drift with regime
+      const volMult = regime.type === 'PUMP' || regime.type === 'CRASH' ? 1.8 : regime.type === 'BEAR' ? 0.6 : 1;
+      const newVolume = Math.max(1000, Math.round(coin.volume24h * (0.85 + Math.random() * 0.3) * volMult * (1 + changePct / 200)));
+      const newCommunity = Math.max(5, Math.min(100, Math.round(coin.communityStrength + (changePct > 8 ? 2 : changePct < -8 ? -2 : 0) + (Math.random() - 0.5))));
+      const newPopularity = Math.max(5, Math.min(100, Math.round(coin.popularity + (Math.abs(changePct) > 20 ? 4 : 0) + (Math.random() - 0.55))));
+
+      if (eventLabel) {
+        const eNews = `$${coin.symbol} ${eventLabel} — price ${changePct >= 0 ? 'up' : 'down'} ${Math.abs(changePct).toFixed(1)}%!`;
+        coin.news = eNews;
+        headlineNews.push(`CRYPTO: ${eNews}`);
+        pushWire({ kind: changePct >= 0 ? 'PUMP' : 'DUMP', symbol: coin.symbol, title: `${coin.name} ${eventLabel}`, sub: `${coin.symbol} ${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}% this week` });
+      } else if (Math.abs(changePct) > 18) {
+        const cNews = `$${coin.symbol} ${changePct > 0 ? 'rallies' : 'crashes'} ${Math.abs(changePct).toFixed(1)}% on heavy volume.`;
+        coin.news = cNews;
+        headlineNews.push(`CRYPTO: ${cNews}`);
+        pushWire({ kind: changePct > 0 ? 'PUMP' : 'DUMP', symbol: coin.symbol, title: `${coin.name} ${changePct > 0 ? 'rallies' : 'crashes'} ${Math.abs(changePct).toFixed(1)}%`, sub: `${coin.symbol} weekly move · regime ${regime.type}` });
+      }
+
+      // ---- delist health tracking (new coins exempt 8 weeks; player coins & leaders exempt) ----
+      let delistStreak = coin.delistStreak || 0;
+      let delistWarning = coin.delistWarning || false;
+      const age = (coin.weeksSinceListing || 0) + 1;
+      const wasFalling = (coin.change7d || 0) < -5 && changePct < 0;
+      const weak = !coin.isMyCoin && coin.status !== 'TopLeader' && age > 8 && (wasFalling || newVolume < newMarketCap * 0.01);
+      delistStreak = weak ? delistStreak + 1 : 0;
 
       return {
         ...coin,
         prevPrice,
         price: newPrice,
-        change24h: roundedCryptoChange,
-        change7d: roundedCryptoChange * 1.5,
+        change24h: changePct,
+        change7d: Math.round((changePct + (coin.change7d || 0)) / 2 * 100) / 100,
         marketCap: newMarketCap,
+        volume24h: newVolume,
+        popularity: newPopularity,
+        communityStrength: newCommunity,
         sparkline: newSparkline,
+        athPrice: newATH,
+        weeksSinceListing: age,
+        delistStreak,
+        delistWarning,
       };
     });
+
+    // ---- 3b. DELIST VOTES & REMOVALS ----
+    const delistRemovals: Array<{ coin: CryptoCoin; payout: number }> = [];
+    s.cryptoCoins = s.cryptoCoins.filter((coin) => {
+      if ((coin.status !== 'Active' && coin.status !== 'TopLeader') || coin.isMyCoin) return true;
+      const streak = coin.delistStreak || 0;
+      // 6 weak weeks → formal delist vote (warning)
+      if (streak >= 6 && !coin.delistWarning) {
+        coin.delistWarning = true;
+        pushWire({ kind: 'DELIST_VOTE', symbol: coin.symbol, title: `${coin.name} under delist review`, sub: `${coin.symbol} · 6 weeks of declining health · exit now or ride it out` });
+        headlineNews.push(`DELIST REVIEW: $${coin.symbol} (${coin.name}) flagged after 6 weak weeks — holders should review positions.`);
+        cryptoEvents.push({
+          kind: 'DELIST_VOTE',
+          subject: `⚠ DELIST REVIEW: ${coin.name} (${coin.symbol})`,
+          body: `The Star Exchange listing committee has placed ${coin.name} (${coin.symbol}) under formal delist review.\n\nReason: 6 consecutive weeks of declining health (falling price and drying volume).\n\nIf conditions do not improve within 4 weeks, the coin will be REMOVED from the exchange. Any holdings will be auto-liquidated at a 40% discount.\n\nYou currently hold ${(coin.playerHoldings || 0).toFixed(4)} ${coin.symbol}. Consider your position.`,
+          important: (coin.playerHoldings || 0) > 0,
+        });
+      }
+      // Warning active + 4 more weak weeks (streak >= 10) → delisted
+      if (coin.delistWarning && streak >= 10) {
+        const holdings = coin.playerHoldings || 0;
+        const payout = Math.floor(holdings * coin.price * 0.6); // forced liquidation at 40% discount
+        coin.status = 'Delisted';
+        if (holdings > 0) delistRemovals.push({ coin, payout });
+        pushWire({ kind: 'DELISTED', symbol: coin.symbol, title: `${coin.name} DELISTED from Star Exchange`, sub: `${coin.symbol} removed after sustained decline${holdings > 0 ? ` · your ${holdings.toFixed(2)} tokens force-sold at −40%` : ''}` });
+        headlineNews.push(`DELISTED: $${coin.symbol} (${coin.name}) removed from the exchange${holdings > 0 ? ` — holder positions liquidated at 40% discount` : ''}.`);
+        cryptoEvents.push({
+          kind: 'DELISTED',
+          subject: `❌ DELISTED: ${coin.name} (${coin.symbol}) — position liquidated`,
+          body: `${coin.name} (${coin.symbol}) has been removed from the Star Exchange after a sustained decline.\n\nYour ${holdings.toFixed(4)} tokens were auto-liquidated at a 40% delist discount.\nProceeds credited: $${payout.toLocaleString()}\n\nDelist events are part of a living market — cut weak positions early when delist review is announced.`,
+          important: holdings > 0,
+        });
+        return false; // remove from tradable list
+      }
+      // Recovery clears the warning
+      if (coin.delistWarning && streak === 0) coin.delistWarning = false;
+      return true;
+    });
+
+    // Pay out forced liquidations (creditable via GameContext)
+    if (delistRemovals.length > 0) {
+      (s as any)._delistPayouts = delistRemovals.reduce((a, r) => a + r.payout, 0);
+    }
+
+    // ---- 3c. NEW LISTINGS — every 10-12 weeks, GOOD market caps ----
+    if (typeof s.nextCryptoListingWeek !== 'number') {
+      s.nextCryptoListingWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
+    }
+    if (playerYear * 52 + playerWeek >= s.nextCryptoListingWeek) {
+      const freshCoins = generateCoinBatch(1 + Math.floor(Math.random() * 2), 40000000, 350000000, s.cryptoCoins, playerWeek, playerYear);
+      s.cryptoCoins.push(...freshCoins);
+      for (const fc of freshCoins) {
+        pushWire({ kind: 'LISTING', symbol: fc.symbol, title: `${fc.name} (${fc.symbol}) JUST LISTED`, sub: `${fc.sector} · market cap $${(fc.marketCap / 1000000).toFixed(0)}M · entry $${fc.price < 1 ? fc.price.toFixed(4) : fc.price.toFixed(2)}` });
+        headlineNews.push(`NEW LISTING: ${fc.name} (${fc.symbol}) lists on the Star Exchange at a $${(fc.marketCap / 1000000).toFixed(0)}M market cap!`);
+        cryptoEvents.push({
+          kind: 'LISTING',
+          subject: `🆕 NEW LISTING: ${fc.name} (${fc.symbol}) is now tradable`,
+          body: `A new coin just listed on the Star Exchange.\n\n• Name: ${fc.name} (${fc.symbol})\n• Sector: ${fc.sector}\n• Listing market cap: $${fc.marketCap.toLocaleString()}\n• Entry price: $${fc.price < 1 ? fc.price.toFixed(4) : fc.price.toFixed(2)}\n• Risk: ${fc.risk} · Volatility: ${fc.volatility}\n\n${fc.techDescription}\n\nNew listings are volatile — early movers can catch the listing pump, and late ones the dump. Trade accordingly.`,
+          important: false,
+        });
+      }
+      // schedule the next listing 10-12 weeks out
+      s.nextCryptoListingWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
+    }
+
+    s.cryptoWire = wire;
 
     // 4. PROCESS IPOS & NEW LAUNCHES
     s.ipos = s.ipos.map((ipo) => {
@@ -1086,46 +1437,10 @@ export class MarketEngineService {
       headlineNews.push(`NEW IPO ANNOUNCEMENT: ${pick.name} (${pick.ticker}) files for Wall Street initial public offering!`);
     }
 
-    // 6. PERIODICALLY GENERATE NEW CRYPTO COINS (Every 6 weeks)
-    if (playerWeek % 6 === 0 && s.cryptoCoins.length < 12) {
-      const newCryptoTemplates = [
-        { name: 'Red Carpet Token', symbol: '$RED', price: 1.25, cap: 45000000, sec: 'Event Access', risk: 'Medium' as const, desc: 'VIP backstage passes and festival premiere access token.' },
-        { name: 'Screenwriter AI', symbol: '$SCRIPT', price: 3.5, cap: 88000000, sec: 'AI & Creative', risk: 'High' as const, desc: 'Decentralized AI script generation compute network.' },
-        { name: 'Box Office Gold', symbol: '$BOX', price: 0.88, cap: 25000000, sec: 'Payment & Ticketing', risk: 'Medium' as const, desc: 'Global theater chain ticketing discount & reward token.' },
-      ];
+    // (Crypto listings are handled by the living market section above —
+    // every 10-12 weeks with real market caps, wire events and inbox alerts)
 
-      const cPick = newCryptoTemplates[Math.floor(Math.random() * newCryptoTemplates.length)];
-      if (!s.cryptoCoins.some((c) => c.symbol === cPick.symbol)) {
-        const newCoin: CryptoCoin = {
-          id: `crypto_gen_${Date.now()}`,
-          name: cPick.name,
-          symbol: cPick.symbol,
-          price: cPick.price,
-          prevPrice: cPick.price * 0.9,
-          change24h: 11.1,
-          change7d: 18.5,
-          marketCap: cPick.cap,
-          circulatingSupply: Math.round(cPick.cap / cPick.price),
-          volume24h: Math.round(cPick.cap * 0.15),
-          popularity: 70,
-          communityStrength: 75,
-          volatility: 'High',
-          sector: cPick.sec,
-          risk: cPick.risk,
-          techDescription: cPick.desc,
-          sparkline: [cPick.price * 0.85, cPick.price * 0.9, cPick.price],
-          news: `Newly launched crypto asset $${cPick.symbol} lists on Web3 exchanges with strong volume!`,
-          status: 'Active',
-          playerHoldings: 0,
-          playerAvgBuyPrice: 0,
-        };
-
-        s.cryptoCoins.push(newCoin);
-        headlineNews.push(`NEW CRYPTO LISTING: $${cPick.symbol} (${cPick.name}) deploys on Hollywood Web3 Exchange!`);
-      }
-    }
-
-    // ENDLESS MARKET (v2): infinite listings, delistings, bankruptcies, acquisitions
+    // ENDLESS MARKET (v2): infinite stock bankruptcies, acquisitions
     try {
       const endlessNews = processEndlessMarket(s, playerWeek, playerYear);
       headlineNews.push(...endlessNews);
@@ -1134,7 +1449,9 @@ export class MarketEngineService {
     }
 
     this.saveMarketState(s);
-    return { updatedState: s, headlineNews };
+    const delistPayouts = (s as any)._delistPayouts || 0;
+    delete (s as any)._delistPayouts;
+    return { updatedState: s, headlineNews, cryptoEvents, delistPayouts };
   }
 
   /**
@@ -1372,6 +1689,20 @@ export class MarketEngineService {
     }
 
     const totalDollarRevenue = coinAmount * coin.price;
+    // ---- REALIZED PnL → CRYPTO TAX (fed weekly into the tax engine) ----
+    const avgBuy = coin.playerAvgBuyPrice || 0;
+    const realizedPerUnit = coin.price - avgBuy;
+    const realizedPnl = realizedPerUnit * coinAmount;
+    if (realizedPnl > 0) {
+      s.pendingCryptoGains = (s.pendingCryptoGains || 0) + Math.floor(realizedPnl);
+    } else if (realizedPnl < 0) {
+      s.pendingCryptoLosses = (s.pendingCryptoLosses || 0) + Math.floor(-realizedPnl);
+    }
+    const taxNote = realizedPnl > 0
+      ? ` Taxable gain of $${Math.floor(realizedPnl).toLocaleString()} recorded — withholding applies this week.`
+      : realizedPnl < 0
+      ? ` Realized loss of $${Math.floor(-realizedPnl).toLocaleString()} offsets this week's crypto gains.`
+      : '';
     coin.playerHoldings = owned - coinAmount;
     if (coin.playerHoldings <= 0.00001) {
       coin.playerHoldings = 0;
@@ -1397,9 +1728,25 @@ export class MarketEngineService {
 
     return {
       success: true,
-      message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!`,
+      message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!${taxNote}`,
       totalDollarRevenue,
     };
+  }
+
+  /**
+   * NET CRYPTO TAXABLE GAINS — consumed weekly by GameContext and fed into
+   * the tax engine as 'crypto' income. Losses offset gains; net below zero
+   * reports 0 (no fake negative income).
+   */
+  public static consumePendingCryptoTax(): number {
+    const s = this.getMarketState();
+    const gains = s.pendingCryptoGains || 0;
+    const losses = s.pendingCryptoLosses || 0;
+    const net = Math.max(0, gains - losses);
+    s.pendingCryptoGains = 0;
+    s.pendingCryptoLosses = Math.max(0, losses - gains);
+    this.saveMarketState(s);
+    return net;
   }
 
   /**
@@ -1511,52 +1858,12 @@ export class MarketEngineService {
 
 // ============================================================
 // ENDLESS MARKET ENGINE (v2) — invisible procedural pool
-// Infinite coins & studios: list, rise/fall, delist, acquired, bankrupt
+// Coin generation + lifecycle now lives in the LIVING CRYPTO MARKET
+// section above (regimes, listings, delists). This block keeps the
+// endless STUDIO generator for stock bankruptcies/acquisitions.
 // ============================================================
 
-const COIN_PREFIX = ['Red', 'Gold', 'Star', 'Neon', 'Crimson', 'Velvet', 'Lunar', 'Solar', 'Pixel', 'Quantum', 'Royal', 'Cosmic', 'Vivid', 'Echo', 'Apex', 'Nova', 'Phantom', 'Crystal', 'Ivory', 'Obsidian'];
-const COIN_SUFFIX = ['Token', 'Coin', 'Credit', 'Cash', 'Dollar', 'Bucks', 'Notes', 'Coinage', 'Chips', 'Script', 'Pay', 'Flux', 'Bond', 'Yield', 'Mint', 'Shares'];
-const COIN_SECTORS = ['Entertainment', 'Streaming', 'AI & Creative', 'Ticketing', 'Gaming', 'Music', 'Fashion', 'Real Estate', 'Fintech', 'Social', 'Sports', 'Travel'];
-const COIN_SYMBOLS = ['R', 'G', 'S', 'N', 'C', 'V', 'L', 'Q', 'P', 'X', 'K', 'M', 'A', 'E', 'T', 'B', 'D', 'Y', 'W', 'F'];
-
 function rand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
-
-// ENDLESS COIN GENERATOR — never runs out (combinatorial pool)
-export function generateEndlessCoin(): Omit<CryptoCoin, 'playerHoldings' | 'playerAvgBuyPrice'> {
-  const prefix = rand(COIN_PREFIX);
-  const suffix = rand(COIN_SUFFIX);
-  const sector = rand(COIN_SECTORS);
-  const sym = '$' + prefix[0] + suffix[0];
-  const price = Math.round((0.5 + Math.random() * 9.5) * 100) / 100;
-  const supply = Math.floor(1000000 + Math.random() * 50000000);
-  const cap = Math.floor(price * supply);
-  const vol = (['Low', 'Moderate', 'High', 'Extreme Degen'] as const)[Math.floor(Math.random() * 4)];
-  return {
-    id: `coin_gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-    name: `${prefix} ${suffix}`,
-    symbol: sym,
-    price,
-    prevPrice: price * 0.92,
-    change24h: 8.7,
-    change7d: 15.2,
-    marketCap: cap,
-    circulatingSupply: supply,
-    volume24h: Math.floor(cap * (0.08 + Math.random() * 0.2)),
-    popularity: Math.floor(40 + Math.random() * 55),
-    communityStrength: Math.floor(35 + Math.random() * 60),
-    volatility: vol,
-    sector,
-    risk: vol === 'Extreme Degen' ? 'Extreme Degen' : vol === 'High' ? 'High' : vol === 'Moderate' ? 'Medium' : 'Low',
-    techDescription: `${prefix} ${suffix} powers ${sector.toLowerCase()} payments and community rewards across Hollywood.`,
-    sparkline: [price * 0.8, price * 0.9, price * 0.95, price],
-    news: `$${sym} (${prefix} ${suffix}) lists on Hollywood Web3 Exchange!`,
-    status: 'Active',
-    weeksSinceListing: 0,
-    weakStreak: 0,
-    listedWeek: 1,
-    listedYear: 2026,
-  };
-}
 
 const STUDIO_PREFIX = ['Apex', 'Stellar', 'Meridian', 'Cascade', 'Ironclad', 'Sunburst', 'Northstar', 'Vanguard', 'Golden', 'Silverline', 'Bluebird', 'Redwood', 'Crestline', 'Atlas', 'Monarch', 'Quill', 'Summit', 'Harbor', 'Sterling', 'Blackwood'];
 const STUDIO_SUFFIX = ['Studios', 'Pictures', 'Entertainment', 'Films', 'Productions', 'Media', 'Pictures Group', 'Works', 'Cinema', 'Motion Co.', 'Pictures Co.', 'Entertainment Group', 'Films Co.', 'Studios Group'];
@@ -1617,33 +1924,8 @@ export function processEndlessMarket(s: any, playerWeek: number, playerYear: num
   const news: string[] = [];
 
   // ---- COINS ----
-  // Age + delisting logic
-  s.cryptoCoins = (s.cryptoCoins || []).map((c: any) => {
-    if (c.status !== 'Active' && c.status !== 'TopLeader') return c;
-    c.weeksSinceListing = (c.weeksSinceListing || 0) + 1;
-    // Weak detection: price fell below 15% of its peak
-    const peak = Math.max(...(c.sparkline || [c.price]), c.price);
-    const crashed = c.price < peak * 0.15;
-    c.weakStreak = crashed ? (c.weakStreak || 0) + 1 : 0;
-    // Delist: crashed 6 straight weeks OR too old (>52 weeks) and weak
-    if (c.weakStreak >= 6 || (c.weeksSinceListing > 52 && c.weakStreak >= 3)) {
-      const delisted = { ...c, status: 'Delisted' as const, news: `$${c.symbol} (${c.name}) has been DELISTED after sustained losses. Holders left with dust.` };
-      news.push(`🚨 DELISTED: $${c.symbol} (${c.name}) removed from the exchange after sustained collapse.`);
-      return delisted;
-    }
-    return c;
-  });
-  // New endless listings every 5 weeks (keep up to 15 active)
-  if (playerWeek % 5 === 0) {
-    const activeCoins = (s.cryptoCoins || []).filter((c: any) => c.status === 'Active' || c.status === 'TopLeader').length;
-    if (activeCoins < 15) {
-      const newCoin = generateEndlessCoin();
-      (newCoin as any).listedWeek = playerWeek;
-      (newCoin as any).listedYear = playerYear;
-      s.cryptoCoins.push(newCoin);
-      news.push(`🪙 NEW LISTING: $${newCoin.symbol} (${newCoin.name}) deploys on the exchange!`);
-    }
-  }
+  // Coin lifecycle (regimes, listings, delists) is handled by the living
+  // crypto market section in processEndWeek — nothing to do here anymore.
 
   // ---- STUDIOS ----
   s.stocks = (s.stocks || []).map((st: any) => {

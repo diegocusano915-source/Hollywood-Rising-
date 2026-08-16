@@ -10,7 +10,7 @@
 export type TaxIncomeCategory =
   | 'acting' | 'royalties' | 'business' | 'property' | 'sponsorship'
   | 'endorsement' | 'social' | 'interest' | 'fanClub' | 'merch'
-  | 'streaming' | 'studio' | 'media' | 'investment';
+  | 'streaming' | 'studio' | 'media' | 'investment' | 'crypto';
 
 export const TAX_CATEGORY_LABELS: Record<TaxIncomeCategory, string> = {
   acting: 'Acting Salary',
@@ -27,6 +27,7 @@ export const TAX_CATEGORY_LABELS: Record<TaxIncomeCategory, string> = {
   studio: 'Personal Studio',
   media: 'Interviews & Media',
   investment: 'Investments & Bankroll',
+  crypto: 'Crypto Trading Gains',
 };
 
 export interface TaxDeductionDetail {

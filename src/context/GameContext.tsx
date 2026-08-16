@@ -2660,6 +2660,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       worldNews.push(...marketResult.headlineNews);
     }
 
+    // Crypto living market — listings, delist reviews, regime shifts → Inbox.
+    // Forced-liquidation proceeds from delistings are credited for real.
+    if (marketResult?.cryptoEvents && marketResult.cryptoEvents.length > 0) {
+      for (const ce of marketResult.cryptoEvents) {
+        newInboxMessages.unshift({
+          id: `msg_crypto_${ce.kind}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: ce.kind === 'REGIME' ? 'FINANCE' : 'BUSINESS',
+          sender: 'Star Exchange',
+          senderRole: ce.kind === 'LISTING' ? 'New Listings Desk' : ce.kind === 'DELISTED' || ce.kind === 'DELIST_VOTE' ? 'Delisting Committee' : 'Market Surveillance',
+          subject: ce.subject,
+          body: ce.body,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+    if (marketResult?.delistPayouts && marketResult.delistPayouts > 0) {
+      const payout = marketResult.delistPayouts;
+      p.money += payout;
+      bankrollIncomeThisWeek += 0; // delist payout is return of capital, not income
+      newInboxMessages.unshift({
+        id: `msg_crypto_payout_${Date.now()}`,
+        category: 'FINANCE',
+        sender: 'Star Exchange Settlements',
+        senderRole: 'Forced Liquidation Desk',
+        subject: `Settlement complete — $${payout.toLocaleString()} credited from delist liquidation`,
+        body: `Your delisted token positions were liquidated at the contractual 40% delist discount.\n\nNet proceeds credited to your cash balance: $${payout.toLocaleString()}.\n\nThe exchange is sorry for the loss — delist reviews are announced in advance precisely so holders can exit before this happens.`,
+        date: dateInfo.fullDateText,
+        read: false,
+        dateWeek: newWeek,
+        dateYear: newYear,
+      });
+    }
+
     const updatedInbox = [...newInboxMessages, ...saveData.inbox];
 
     // ------------------------------------------------------------------
@@ -2724,6 +2760,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         studio: studioIncomeThisWeek,
         media: hubIncomeThisWeek + interviewFeeIncomeThisWeek,
         investment: bankrollIncomeThisWeek,
+        // Net realized crypto gains this week (losses offset) — taxable
+        crypto: MarketEngineService.consumePendingCryptoTax(),
       };
       const empireNow = empireResult?.updatedState;
       const repNow = RepresentationService.getState();
