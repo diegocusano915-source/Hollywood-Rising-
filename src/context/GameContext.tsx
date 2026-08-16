@@ -1297,6 +1297,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
     if (socialsResult.socialReputation) socialReputation.push(...socialsResult.socialReputation);
 
+    // YT mini-bank payouts that CLEARED this week — credit wallet + inbox.
+    // (Tax was already withheld at transfer time; the net is post-tax.)
+    if ((socialsResult as any).ytPayoutArrivals && (socialsResult as any).ytPayoutArrivals.length > 0) {
+      for (const arrival of (socialsResult as any).ytPayoutArrivals) {
+        p.money += arrival.net;
+        newInboxMessages.unshift({
+          id: `msg_yt_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'FINANCE',
+          sender: 'YouTube Creator Payments',
+          senderRole: 'AdSense Payout Desk',
+          subject: `💰 YouTube payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
+          body: `Your Creator Bank transfer has cleared.\n\n• Requested: $${arrival.gross.toLocaleString()}\n• Tax withheld (20%): −$${arrival.tax.toLocaleString()}\n• NET CREDITED: $${arrival.net.toLocaleString()}\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''}\n\nThe remainder of your Creator Bank balance stays on YouTube, accruing ad revenue every week your channel earns views.`,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+
     // Writer contracts that ran out this week — send formal goodbye to Inbox
     if (socialsResult.expiredWriters && socialsResult.expiredWriters.length > 0) {
       for (const ex of socialsResult.expiredWriters) {
@@ -1323,7 +1343,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     writerExpensesThisWeek = socialsResult.writerWeeklyCost || 0;
     sponsorshipIncomeThisWeek = socialsResult.weeklySponsorshipIncome || 0;
     endorsementIncomeThisWeek = repResult.weeklyEarnings || 0;
-    socialYoutubeIncomeThisWeek = socialsResult.youtubeRevenue || 0;
+    // YT ad revenue now accrues to the Creator Bank (mini-bank inside YouTube)
+    // — it reaches the wallet only via transfers that clear in 1-5 weeks.
+    socialYoutubeIncomeThisWeek = 0;
 
     if (prRetainerExpensesThisWeek > 0) repPr.push(`PR Agency Retainer: -$${prRetainerExpensesThisWeek.toLocaleString()}`);
     if (legalRetainerExpensesThisWeek > 0) repLawFirm.push(`Law Firm Retainer: -$${legalRetainerExpensesThisWeek.toLocaleString()}`);

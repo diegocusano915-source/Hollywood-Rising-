@@ -102,6 +102,111 @@ export interface YouTubeVideo {
   duration: string;
   durationSec: number;
   isEvergreen: boolean;
+  /** Publish-slot reach multiplier (Sat 7PM prime = 1.18) */
+  slotBoost?: number;
+  /** Pre-flight algorithm score at publish time (0-100) */
+  algoScore?: number;
+}
+
+/** A payout requested from the YT mini-bank — clears in 1-5 weeks */
+export interface YouTubePendingPayout {
+  id: string;
+  gross: number;
+  taxWithheld: number;
+  net: number;
+  weeksRemaining: number;
+  totalWeeks: number;
+  requestedWeek: number;
+  requestedYear: number;
+}
+
+/** A video scheduled to publish on a future week + audience slot */
+export interface YouTubeScheduledUpload {
+  id: string;
+  title: string;
+  category: YouTubeVideo['category'];
+  slotBoost: number;
+  slotLabel: string;
+  algoScore: number;
+  publishWeek: number;
+  publishYear: number;
+  createdWeek: number;
+  createdYear: number;
+}
+
+/**
+ * CHANNEL AUTHORITY LADDER — the slow burn. Weekly view ceilings are hard
+ * caps per tier; crossing 1M lifetime views realistically requires Tier 4+
+ * which takes 1-2 game years of consistent uploads. XP: +9/upload, +5 bonus
+ * for score ≥70, engagement drips, −4 for skipped weeks after channel start.
+ */
+export const YT_AUTHORITY_TIERS = [
+  { tier: 1, name: 'Cold Start',        minXp: 0,    weeklyViewCap: 300,    rpm: 0 },
+  { tier: 2, name: 'Rising Creator',    minXp: 130,  weeklyViewCap: 2500,   rpm: 2.0 },
+  { tier: 3, name: 'Established Channel', minXp: 420, weeklyViewCap: 18000, rpm: 3.0 },
+  { tier: 4, name: 'Featured Creator',  minXp: 900,  weeklyViewCap: 90000,  rpm: 4.0 },
+  { tier: 5, name: 'Premium Creator',   minXp: 1600, weeklyViewCap: 260000, rpm: 5.0 },
+] as const;
+
+export function ytAuthorityTier(xp: number): (typeof YT_AUTHORITY_TIERS)[number] {
+  let t: (typeof YT_AUTHORITY_TIERS)[number] = YT_AUTHORITY_TIERS[0];
+  for (const tier of YT_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
+  return t;
+}
+
+/** Publish slots — audience windows with real reach multipliers */
+export const YT_SLOTS = [
+  { id: 'mon_9am', label: 'Monday 9AM', boost: 1.02, hint: 'dead scroll hours' },
+  { id: 'noon', label: 'Weekday Noon', boost: 1.06, hint: 'decent lunch traffic' },
+  { id: 'sun_10am', label: 'Sunday 10AM', boost: 1.08, hint: 'weekend slow browse' },
+  { id: 'fri_5pm', label: 'Friday 5PM', boost: 1.11, hint: 'pre-weekend binge wave' },
+  { id: 'sat_7pm', label: 'Saturday 7PM PRIME', boost: 1.18, hint: 'your audience peak' },
+] as const;
+
+export const YT_PAYOUT_TAX_PCT = 0.2; // 20% withheld at transfer request
+
+/**
+ * Pre-flight algorithm score (0-100) — mirrors what the weekly engine will
+ * use. Factors: title strength, category fit (BTS needs a live movie),
+ * slot timing, channel authority.
+ */
+export function computeYtAlgoScore(input: {
+  title: string;
+  category: YouTubeVideo['category'];
+  slotBoost: number;
+  authorityXp: number;
+  hasActiveMovie: boolean;
+}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
+  const t = input.title.trim();
+  let titleScore = 30;
+  if (t.length >= 25) titleScore += 12;
+  if (/\d/.test(t)) titleScore += 14; // numbers perform
+  if (/(first|secret|truth|day|days|behind|story|changed|spent|inside)/i.test(t)) titleScore += 18; // proven patterns
+  if (t.length > 0 && t.length < 12) titleScore -= 10; // lazy titles die
+  titleScore = Math.max(5, Math.min(100, titleScore));
+
+  let typeScore = 55;
+  if (input.category === 'BEHIND_SCENES') typeScore = input.hasActiveMovie ? 90 : 35;
+  else if (input.category === 'TRAILER') typeScore = input.hasActiveMovie ? 82 : 60;
+  else if (input.category === 'INTERVIEW') typeScore = 62;
+  else if (input.category === 'AWARD_SPEECH') typeScore = 75;
+  else if (input.category === 'LIVESTREAM') typeScore = 58;
+
+  const slotScore = Math.round((input.slotBoost - 1) * 320 + 55); // 1.02→58, 1.18→82... clamp
+  const slotScoreC = Math.max(30, Math.min(100, slotScore));
+
+  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
+
+  const score = Math.round(titleScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
+  return {
+    score,
+    factors: [
+      { label: 'Title strength', value: titleScore, tip: /\d/.test(t) ? 'Numbers + stakes detected — strong.' : 'Add a number and stakes ("30 Days...", "$1M...") for +14.' },
+      { label: 'Type relevance', value: typeScore, tip: input.category === 'BEHIND_SCENES' && !input.hasActiveMovie ? 'BTS scores low without a movie in production/theaters.' : 'Good fit for your current career state.' },
+      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.15 ? 'Prime window — your audience peaks here.' : 'Sat 7PM PRIME adds the biggest first-week boost.' },
+      { label: 'Channel authority', value: authScore, tip: authScore < 40 ? 'Cold start: the algorithm tests you on small audiences. Consistency is the only fix.' : 'Authority working for you.' },
+    ],
+  };
 }
 
 export interface NpcYouTubeChannel {
@@ -312,6 +417,21 @@ export interface SocialsState {
   // SOCIAL ACCOUNTS V3: separate account creation per platform + per-platform weekly activity
   socialAccounts?: Record<string, { handle: string; createdWeek: number; createdYear: number }>;
   postsThisWeekByPlatform?: Record<string, number>;
+  // ---- YOUTUBE CREATOR HQ (v4) ----
+  /** Channel authority XP — drives tier caps (the slow burn) */
+  youtubeAuthorityXp?: number;
+  /** YT mini-bank: accrued AdSense balance waiting to be transferred */
+  youtubeBalance?: number;
+  /** Transfers in flight (tax already withheld, clears in 1-5 weeks) */
+  youtubePendingPayouts?: YouTubePendingPayout[];
+  /** Videos scheduled to publish on future weeks */
+  youtubeScheduled?: YouTubeScheduledUpload[];
+  /** Lifetime uploads (authority consistency tracking) */
+  youtubeLifetimeUploads?: number;
+  /** Consecutive weeks with at least one upload/video published */
+  youtubeUploadStreak?: number;
+  /** Last week/year the weekly processor ran (scheduling anchor) */
+  lastProcessedYear?: number;
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -556,6 +676,18 @@ export class SocialsService {
         if (this.state) {
           if (this.state.youtubeWatchHours === undefined) this.state.youtubeWatchHours = 0;
           if (!this.state.youtubeMonetizationStatus) this.state.youtubeMonetizationStatus = 'NOT_ELIGIBLE';
+          // ---- CREATOR HQ MIGRATION (v4) ----
+          if (typeof this.state.youtubeAuthorityXp !== 'number') {
+            // Seed authority from existing channel so long-time creators keep progress
+            const lifetimeVids = this.state.youtubeAlgorithm?.lifetimeVideos || this.state.youtubeVideos.length;
+            const viewsSeed = Math.floor((this.state.youtubeTotalViews || 0) / 1000);
+            this.state.youtubeAuthorityXp = Math.min(1500, lifetimeVids * 9 + viewsSeed);
+          }
+          if (typeof this.state.youtubeBalance !== 'number') this.state.youtubeBalance = 0;
+          if (!Array.isArray(this.state.youtubePendingPayouts)) this.state.youtubePendingPayouts = [];
+          if (!Array.isArray(this.state.youtubeScheduled)) this.state.youtubeScheduled = [];
+          if (typeof this.state.youtubeLifetimeUploads !== 'number') this.state.youtubeLifetimeUploads = this.state.youtubeVideos.length;
+          if (typeof this.state.youtubeUploadStreak !== 'number') this.state.youtubeUploadStreak = 0;
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
           if (this.state.youtubeCopyrightStrikes === undefined) this.state.youtubeCopyrightStrikes = 0;
@@ -836,6 +968,12 @@ export class SocialsService {
       youtubeWatchHours: 0,
       youtubeTotalViews: 0,
       youtubeMonetizationStatus: 'NOT_ELIGIBLE',
+      youtubeAuthorityXp: 0,
+      youtubeBalance: 0,
+      youtubePendingPayouts: [],
+      youtubeScheduled: [],
+      youtubeLifetimeUploads: 0,
+      youtubeUploadStreak: 0,
       youtubeReviewWeeksLeft: 0,
       youtubeCommunityStrikes: 0,
       youtubeCopyrightStrikes: 0,
@@ -1075,6 +1213,10 @@ export class SocialsService {
     writerWeeklyCost?: number;
     youtubeRevenue?: number;
     expiredWriters?: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }>;
+    /** YT mini-bank payouts that cleared this week → credit + inbox */
+    ytPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
+    /** YT ad revenue ACCRUED to the bank this week (display only — not wallet income) */
+    youtubeAccruedToBank?: number;
   } {
     const state = this.getState();
 
@@ -1087,6 +1229,7 @@ export class SocialsService {
     const socialTrending: string[] = [];
     const socialReputation: string[] = [];
     const expiredWriters: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }> = [];
+    const ytPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
     let fanGrowth = 0;
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
@@ -1347,75 +1490,144 @@ export class SocialsService {
         }
       }
 
-      // 7c. Process Organic Video Growth & Algorithm Tracking
+      // 7c. THE ALGORITHM — tier-capped slow burn. Weekly view ceilings are
+      //     HARD caps per authority tier; 1M lifetime views needs Tier 4+
+      //     (1-2 game years of consistent uploads). Revenue accrues to the
+      //     YT mini-bank (youtubeBalance) — only transfers reach the player.
       let totalYtRevenueThisWeek = 0;
       let totalNewViewsThisWeek = 0;
       let totalNewWatchHrsThisWeek = 0;
       let totalNewSubsThisWeek = 0;
+      const tier = ytAuthorityTier(state.youtubeAuthorityXp || 0);
+
+      // Publish any scheduled uploads due this week
+      const publishedThisWeek: YouTubeScheduledUpload[] = [];
+      state.youtubeScheduled = (state.youtubeScheduled || []).filter((sched) => {
+        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
+        if (due) {
+          publishedThisWeek.push(sched);
+          const boost = sched.slotBoost || 1;
+          state.youtubeVideos.unshift({
+            id: `ytv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            title: sched.title,
+            thumbnailUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop',
+            category: sched.category,
+            views: 0,
+            likes: 0,
+            commentsCount: 0,
+            watchTimeHours: 0,
+            retentionPercent: Math.min(95, 35 + Math.round(sched.algoScore * 0.45)),
+            ctrPercent: Math.min(14, 2 + Math.round(sched.algoScore * 0.09)),
+            shares: 0,
+            subscribersGained: 0,
+            estimatedRevenue: 0,
+            uploadWeek: player.dateWeek || 1,
+            uploadYear: player.dateYear || 2026,
+            duration: `${6 + Math.floor(Math.random() * 12)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+            durationSec: 400 + Math.floor(Math.random() * 900),
+            isEvergreen: false,
+            slotBoost: boost,
+            algoScore: sched.algoScore,
+          });
+          // Authority: every upload builds the channel (+ bonus for strong scores)
+          state.youtubeAuthorityXp = (state.youtubeAuthorityXp || 0) + 9 + (sched.algoScore >= 70 ? 5 : 0);
+          state.youtubeLifetimeUploads = (state.youtubeLifetimeUploads || 0) + 1;
+          state.youtubeUploadStreak = (state.youtubeUploadStreak || 0) + 1;
+          return false;
+        }
+        return true;
+      });
+      for (const pub of publishedThisWeek) {
+        socialPosts.push(`📺 PUBLISHED (scheduled): "${pub.title}" — ${pub.slotLabel}. Algorithm score ${pub.algoScore}.`);
+      }
+      // Consistency decay: a skipped week bleeds authority once uploads exist
+      if (publishedThisWeek.length === 0 && (state.youtubeLifetimeUploads || 0) > 0) {
+        state.youtubeAuthorityXp = Math.max(0, (state.youtubeAuthorityXp || 0) - 4);
+        state.youtubeUploadStreak = 0;
+      }
+
+      // Active videos share the tier cap (last 6 weeks only get real push)
+      const activeVideos = state.youtubeVideos.filter(
+        (v) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (v.uploadYear * 52 + v.uploadWeek) <= 6
+      );
+      const capShare = tier.weeklyViewCap / Math.max(1, Math.min(activeVideos.length, 4));
 
       state.youtubeVideos.forEach((vid) => {
-        // Organic view velocity
-        let baseVelocity = 0;
-        if (state.youtubeSubscribers < 100) {
-          // Small creator uploads: 5 to 120 views
-          baseVelocity = Math.floor(Math.random() * 45) + 5;
-        } else if (state.youtubeSubscribers < 1000) {
-          baseVelocity = Math.floor(state.youtubeSubscribers * (0.1 + Math.random() * 0.2)) + 15;
-        } else {
-          baseVelocity = Math.floor(state.youtubeSubscribers * (0.05 + Math.random() * 0.15)) + 50;
-        }
+        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (vid.uploadYear * 52 + vid.uploadWeek));
+        const isActive = weeksOld <= 6;
+        if (!isActive) return; // old videos are frozen history (no zombie growth)
 
-        // Category & Movie Bonus
-        if (vid.category === 'TRAILER') {
-          baseVelocity = Math.floor(baseVelocity * 3.5) + (player.fameXp * 5);
-        } else if (vid.category === 'BEHIND_SCENES' || vid.category === 'INTERVIEW') {
-          baseVelocity = Math.floor(baseVelocity * 1.8);
-        }
+        // Per-video score from real CTR/retention + publish-time score
+        const score = Math.min(100, Math.round((vid.algoScore || 50) * 0.4 + vid.ctrPercent * 4 * 0.3 + vid.retentionPercent * 0.3));
+        let velocity = capShare * (0.25 + (score / 100) * 0.75);
 
-        // Evergreen or decay
-        if (vid.isEvergreen) {
-          baseVelocity = Math.floor(baseVelocity * 0.8) + 10;
-        } else {
-          const weeksOld = Math.max(1, (player.dateWeek || 1) - vid.uploadWeek);
-          baseVelocity = Math.floor(baseVelocity / Math.pow(1.8, weeksOld));
-        }
+        // Category relevance
+        if (vid.category === 'TRAILER') velocity *= 1.5;
+        else if (vid.category === 'BEHIND_SCENES' || vid.category === 'AWARD_SPEECH') velocity *= 1.3;
+        else if (vid.category === 'LIVESTREAM') velocity *= 0.8;
 
-        const newViews = Math.max(0, baseVelocity);
+        // Slot timing + fame pull (fame helps but never overrides the cap)
+        velocity *= vid.slotBoost || 1;
+        velocity *= 1 + Math.min(0.6, (player.fameXp || 0) / 2500);
+
+        // Early-life decay curve: week 0 smaller (test audience), peak wk 1-2, fade
+        const lifeMult = weeksOld === 0 ? 0.4 : weeksOld === 1 ? 1 : weeksOld === 2 ? 0.85 : Math.pow(0.55, weeksOld - 2);
+        velocity *= lifeMult;
+
+        const newViews = Math.max(0, Math.floor(velocity * (0.8 + Math.random() * 0.4)));
         vid.views += newViews;
         totalNewViewsThisWeek += newViews;
 
-        // Watch Time (Hours)
         const durationSec = vid.durationSec || 600;
         const retention = (vid.retentionPercent || 50) / 100;
         const newWatchHrs = parseFloat(((newViews * durationSec * retention) / 3600).toFixed(1));
         vid.watchTimeHours = parseFloat(((vid.watchTimeHours || 0) + newWatchHrs).toFixed(1));
         totalNewWatchHrsThisWeek += newWatchHrs;
 
-        // Likes, Comments, Shares, Subs
         if (newViews > 0) {
           const newLikes = Math.floor(newViews * ((vid.ctrPercent || 5) / 100) * 0.8);
           const newComments = Math.floor(newViews * 0.02);
-          const newShares = Math.floor(newViews * 0.01);
           const newSubs = Math.floor(newViews * 0.012);
-
           vid.likes += newLikes;
           vid.commentsCount += newComments;
-          vid.shares = (vid.shares || 0) + newShares;
+          vid.shares = (vid.shares || 0) + Math.floor(newViews * 0.01);
           vid.subscribersGained = (vid.subscribersGained || 0) + newSubs;
           totalNewSubsThisWeek += newSubs;
         }
 
-        // Monetization & AdSense Payout (ONLY IF APPROVED!)
+        // Monetized revenue accrues to the YT MINI-BANK (not the wallet)
         if (state.youtubeMonetizationStatus === 'APPROVED' && newViews > 0) {
-          const cpm = 4.50 + Math.random() * 1.50; // $4.50 - $6.00 CPM
-          const rev = Math.floor((newViews / 1000) * cpm);
+          const rpm = tier.rpm + Math.random() * 0.8;
+          const rev = Math.floor((newViews / 1000) * rpm);
           vid.estimatedRevenue += rev;
           totalYtRevenueThisWeek += rev;
-        } else {
-          // Unmonetized videos earn $0 revenue!
-          vid.estimatedRevenue = vid.estimatedRevenue || 0;
         }
       });
+
+      // Engagement authority drip: performing channels build trust
+      if (totalNewViewsThisWeek > 0) {
+        state.youtubeAuthorityXp = (state.youtubeAuthorityXp || 0) + Math.min(6, Math.floor(totalNewViewsThisWeek / 800));
+      }
+
+      // YT BANK: accrue revenue + tick pending payouts
+      if (totalYtRevenueThisWeek > 0) {
+        state.youtubeBalance = (state.youtubeBalance || 0) + totalYtRevenueThisWeek;
+        state.creatorStudio.totalAdRevenue += totalYtRevenueThisWeek;
+        state.creatorStudio.weeklyAdRevenue = totalYtRevenueThisWeek;
+      } else {
+        state.creatorStudio.weeklyAdRevenue = 0;
+      }
+      (state as any).__ytAccrued = totalYtRevenueThisWeek;
+      const ytArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
+      state.youtubePendingPayouts = (state.youtubePendingPayouts || []).filter((po) => {
+        po.weeksRemaining -= 1;
+        if (po.weeksRemaining <= 0) {
+          ytArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
+          return false;
+        }
+        return true;
+      });
+      ytPayoutArrivals.push(...ytArrivals);
 
       // Update Channel Totals
       state.youtubeWatchHours = parseFloat(((state.youtubeWatchHours || 0) + totalNewWatchHrsThisWeek).toFixed(1));
@@ -1423,21 +1635,11 @@ export class SocialsService {
       state.youtubeTotalViews = (state.youtubeTotalViews || 0) + totalNewViewsThisWeek;
 
       if (totalYtRevenueThisWeek > 0) {
-        socialPosts.push(`📺 Generated $${totalYtRevenueThisWeek.toLocaleString()} in YouTube AdSense revenue!`);
+        socialPosts.push(`📺 YT ad revenue +$${totalYtRevenueThisWeek.toLocaleString()} → Creator Bank (balance $${(state.youtubeBalance || 0).toLocaleString()}).`);
       }
 
-      // 7d. Update Algorithm Status dynamically
-      if (state.youtubeTotalViews < 500) {
-        state.youtubeAlgorithmStatus = 'Observing New Creator';
-      } else if (state.youtubeTotalViews < 5000) {
-        state.youtubeAlgorithmStatus = 'Gaining Initial Momentum';
-      } else if (state.youtubeTotalViews < 25000) {
-        state.youtubeAlgorithmStatus = 'Niche Recommendation Push';
-      } else if (state.youtubeTotalViews < 100000) {
-        state.youtubeAlgorithmStatus = 'Algorithmic Distribution';
-      } else {
-        state.youtubeAlgorithmStatus = 'Viral Creator Powerhouse';
-      }
+      // 7d. Update Algorithm Status from the authority ladder
+      state.youtubeAlgorithmStatus = `Tier ${tier.tier} · ${tier.name} — weekly push capped at ${tier.weeklyViewCap.toLocaleString()} views`;
 
       // 7e. NPC Channels Activity
       if (state.npcYouTubeChannels) {
@@ -1452,9 +1654,10 @@ export class SocialsService {
     }
 
     const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter((p) => state.createdPlatforms[p]);
-    const totalYtRevenueThisWeek = state.youtubeVideos.reduce((sum, v) => sum + (v.estimatedRevenue || 0), 0);
 
     // 8. Record Social Analytics Snapshot
+    state.lastProcessedWeek = player.dateWeek;
+    state.lastProcessedYear = player.dateYear;
     state.analyticsHistory.unshift({
       week: player.dateWeek,
       year: player.dateYear,
@@ -1472,6 +1675,9 @@ export class SocialsService {
 
     this.saveState(state);
 
+    const accruedThisWeek = (state.creatorStudio && (state as any).__ytAccrued) || 0;
+    delete (state as any).__ytAccrued;
+
     return {
       socialPosts,
       socialTrending,
@@ -1479,8 +1685,103 @@ export class SocialsService {
       fanGrowth,
       weeklySponsorshipIncome,
       writerWeeklyCost,
-      youtubeRevenue: totalYtRevenueThisWeek,
+      youtubeRevenue: accruedThisWeek,
+      ytPayoutArrivals,
+      youtubeAccruedToBank: accruedThisWeek,
       expiredWriters,
+    };
+  }
+
+  /**
+   * CREATOR HQ — schedule a video for a future week + audience slot.
+   * Score is computed at schedule time and baked into the video at publish.
+   */
+  public static scheduleYouTubeVideo(input: {
+    title: string;
+    category: YouTubeVideo['category'];
+    slotId: string;
+    weeksFromNow: number; // 1-4
+    hasActiveMovie: boolean;
+  }): { success: boolean; message: string; score?: number } {
+    const state = this.getState();
+    if (!state.createdPlatforms.YouTube) return { success: false, message: 'Create your YouTube account first.' };
+    const title = input.title.trim();
+    if (!title) return { success: false, message: 'Enter a title — the algorithm scans it.' };
+
+    const slot = YT_SLOTS.find((s) => s.id === input.slotId) || YT_SLOTS[0];
+    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
+    const curWeek = state.lastProcessedWeek || 1;
+    const curYear = state.lastProcessedYear || 2026;
+    let targetWeek = curWeek + weeks;
+    let targetYear = curYear;
+    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
+
+    const { score } = computeYtAlgoScore({
+      title,
+      category: input.category,
+      slotBoost: slot.boost,
+      authorityXp: state.youtubeAuthorityXp || 0,
+      hasActiveMovie: input.hasActiveMovie,
+    });
+
+    state.youtubeScheduled = state.youtubeScheduled || [];
+    if (state.youtubeScheduled.length >= 4) {
+      return { success: false, message: 'Max 4 scheduled videos. Let some publish first.' };
+    }
+    state.youtubeScheduled.push({
+      id: `yts_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      category: input.category,
+      slotBoost: slot.boost,
+      slotLabel: slot.label,
+      algoScore: score,
+      publishWeek: targetWeek,
+      publishYear: targetYear,
+      createdWeek: curWeek,
+      createdYear: curYear,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Scheduled "${title}" — ${slot.label}, Week ${targetWeek}${targetWeek !== curWeek + weeks ? '' : ''}, ${targetYear}. Algorithm score ${score}.`,
+      score,
+    };
+  }
+
+  /**
+   * CREATOR HQ — transfer from the YT mini-bank to the player wallet.
+   * 20% tax withheld up front; funds clear in 1-5 weeks with an inbox notice.
+   */
+  public static requestYouTubePayout(amount: number): { success: boolean; message: string } {
+    const state = this.getState();
+    if (state.youtubeMonetizationStatus !== 'APPROVED') {
+      return { success: false, message: 'Channel not monetized yet (1,000 subs + 4,000 watch hours + review).' };
+    }
+    const amt = Math.floor(amount);
+    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
+    const balance = state.youtubeBalance || 0;
+    if (amt > balance) {
+      return { success: false, message: `Insufficient Creator Bank balance — available $${balance.toLocaleString()}.` };
+    }
+    const tax = Math.round(amt * YT_PAYOUT_TAX_PCT);
+    const net = amt - tax;
+    const weeks = 1 + Math.floor(Math.random() * 5); // 1-5 weeks clearing
+    state.youtubeBalance = balance - amt;
+    state.youtubePendingPayouts = state.youtubePendingPayouts || [];
+    state.youtubePendingPayouts.push({
+      id: `ytp_${Date.now()}`,
+      gross: amt,
+      taxWithheld: tax,
+      net,
+      weeksRemaining: weeks,
+      totalWeeks: weeks,
+      requestedWeek: state.lastProcessedWeek || 1,
+      requestedYear: state.lastProcessedYear || 2026,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears to your wallet in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
     };
   }
 
