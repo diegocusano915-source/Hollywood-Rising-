@@ -38,6 +38,45 @@ interface StreamingViewProps {
   onBack: () => void;
 }
 
+/** Real brand identities — official colors + wordmark styling per platform */
+const BRAND: Record<string, { bg: string; text: string; label: string; sub?: string; cls?: string }> = {
+  stream_netflix:   { bg: '#E50914', text: '#fff', label: 'N', sub: 'NETFLIX', cls: 'font-black tracking-tight' },
+  stream_prime:    { bg: '#0F171E', text: '#00A8E1', label: 'prime video', cls: 'font-black lowercase tracking-tight' },
+  stream_apple:     { bg: '#000000', text: '#fff', label: 'tv+', sub: 'Apple', cls: 'font-semibold tracking-tight' },
+  stream_disney:    { bg: '#0C1C3C', text: '#fff', label: 'Disney+', cls: 'font-semibold tracking-wide' },
+  stream_hbomax:   { bg: '#5822D4', text: '#fff', label: 'HBO', sub: 'max', cls: 'font-black tracking-tight' },
+  stream_hulu:      { bg: '#1CE783', text: '#0B0C0F', label: 'hulu', cls: 'font-black lowercase tracking-tighter' },
+  stream_paramount: { bg: '#0064FF', text: '#fff', label: 'P+', sub: 'Paramount+', cls: 'font-black tracking-tight' },
+  stream_peacock:   { bg: '#000000', text: '#fff', label: 'Peacock', cls: 'font-black tracking-tight' },
+  stream_youtube:   { bg: '#FF0000', text: '#fff', label: '▶', sub: 'YouTube', cls: 'font-black' },
+  stream_crunchyroll: { bg: '#F47521', text: '#fff', label: 'CR', sub: 'Crunchyroll', cls: 'font-black tracking-tight' },
+  stream_mubi:      { bg: '#000000', text: '#fff', label: 'MUBI', cls: 'font-medium tracking-[0.2em]' },
+  stream_roku:      { bg: '#662D91', text: '#fff', label: 'Roku', cls: 'font-semibold' },
+};
+
+const BrandLogo: React.FC<{ platformId: string; name: string; logoUrl: string; size?: 'sm' | 'md' | 'lg' }> = ({ platformId, name, logoUrl, size = 'md' }) => {
+  const brand = BRAND[platformId];
+  const dims = size === 'sm' ? 'w-6 h-6 text-[7px]' : size === 'lg' ? 'w-14 h-14 text-[13px]' : 'w-9 h-9 text-[10px]';
+  if (!brand) {
+    // fallback: first-letter tile from the platform's own name
+    return (
+      <div className={`${dims} rounded-lg object-cover border border-white/20 flex items-center justify-center bg-gradient-to-br from-zinc-800 to-black text-white font-black shrink-0`}>
+        {name.charAt(0)}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${dims} rounded-lg flex flex-col items-center justify-center shrink-0 border border-white/10 overflow-hidden`}
+      style={{ background: brand.bg, color: brand.text }}
+      title={name}
+    >
+      <span className={`${brand.cls} leading-none`}>{brand.label}</span>
+      {brand.sub && <span className="text-[5.5px] leading-none mt-[1px] opacity-90 tracking-wide">{brand.sub}</span>}
+    </div>
+  );
+};
+
 const TIER_STYLE: Record<string, string> = {
   Mega: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
   Major: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
@@ -108,7 +147,7 @@ export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
           return (
             <button key={p.id} onClick={() => setSelectedPlatform(p)} className="p-3 rounded-2xl border border-white/10 bg-black/50 text-left cursor-pointer hover:border-red-400 transition-all">
               <div className="flex items-center gap-2">
-                <img src={p.logoUrl} alt={p.name} className="w-8 h-8 rounded-lg object-cover border border-white/20" />
+                <BrandLogo platformId={p.id} name={p.name} logoUrl={p.logoUrl} size="lg" />
                 <div className="min-w-0">
                   <p className="text-[11px] font-black text-white truncate">{p.name}</p>
                   <p className="text-[8px] text-gray-500">{p.subscribers}</p>
@@ -131,16 +170,22 @@ export const StreamingView: React.FC<StreamingViewProps> = ({ onBack }) => {
           <div className="flex items-center justify-between p-3 border-b border-white/10">
             <button onClick={() => setSelectedPlatform(null)} className="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer">← Back</button>
             <div className="flex items-center gap-2">
-              <img src={selectedPlatform.logoUrl} alt="" className="w-6 h-6 rounded object-cover" />
+              <BrandLogo platformId={selectedPlatform.id} name={selectedPlatform.name} logoUrl={selectedPlatform.logoUrl} size="sm" />
               <span className="text-xs font-black">{selectedPlatform.name}</span>
             </div>
             <span className="text-[10px] text-gray-500">{selectedPlatform.subscribers}</span>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Platform info */}
-            <div className="p-3 rounded-2xl bg-black/50 border border-white/10 space-y-1">
-              <p className="text-xs font-black text-white">{selectedPlatform.name}</p>
-              <p className="text-[10px] text-gray-400">{platformPersonality(selectedPlatform).tierLabel} · Reputation {selectedPlatform.reputation}/100 · Genres: {selectedPlatform.genrePrefs?.join(', ') || 'All'}</p>
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/10 space-y-2">
+              <div className="flex items-center gap-3">
+                <BrandLogo platformId={selectedPlatform.id} name={selectedPlatform.name} logoUrl={selectedPlatform.logoUrl} size="lg" />
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-white">{selectedPlatform.name}</p>
+                  <p className="text-[10px] text-gray-400">{platformPersonality(selectedPlatform).tierLabel} · Reputation {selectedPlatform.reputation}/100</p>
+                  <p className="text-[9px] text-gray-500">Genres: {selectedPlatform.genrePrefs?.join(', ') || 'All'}</p>
+                </div>
+              </div>
               <p className="text-[10px] text-gray-500">Status: <strong className={selectedPlatform.status === 'Exclusive' ? 'text-emerald-300' : selectedPlatform.status === 'Partner' ? 'text-sky-300' : 'text-gray-400'}>{selectedPlatform.status}</strong> · {selectedPlatform.moviesLicensed + selectedPlatform.seriesLicensed} works licensed</p>
             </div>
 
