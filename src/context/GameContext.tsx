@@ -38,6 +38,7 @@ import {
   validateAndEnforceCallboardRoster,
   generateNpcProfiles,
   GIFT_ITEMS,
+  coursesRequiredFor,
 } from '../database/storageService';
 import { generateWeeklyCourses, ACTING_COURSES_POOL } from '../database/actingSchoolDatabase';
 import { soundService } from '../services/soundService';
@@ -569,10 +570,50 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Apply to Callboard Project
   const applyToCallboard = (projectId: string) => {
     const proj = saveData.callboard.find(p => p.id === projectId);
-    if (!proj) return { success: false, message: 'Project not found.' };
+    if (!proj) return { success: false, message: 'Project not found.', reasons: [] as string[] };
 
-    if (saveData.player.energy < 20) {
-      return { success: false, message: 'Not enough energy! You need 20 Energy to apply.' };
+    // ============================================================
+    // INVISIBLE CASTING CHECKER — audits the player's REAL career
+    // before the door opens. Every failed gate produces a specific
+    // decline reason. Applying is no longer enough: talent (completed
+    // acting courses), fame, skill, union status and representation
+    // are all checked against the listing's real requirements.
+    // ============================================================
+    const p = saveData.player;
+    const declineReasons: string[] = [];
+
+    if (p.energy < 20) {
+      declineReasons.push(`ENERGY: 20 required to self-tape and attend callbacks — you have ${p.energy}. Rest and come back.`);
+    }
+
+    const coursesDone = Math.max(p.completedCourseIds?.length || 0, p.completedCourseRecords?.length || 0);
+    const reqCourses = proj.requiredCourses ?? 0;
+    if (coursesDone < reqCourses) {
+      declineReasons.push(`TRAINING: ${reqCourses} completed acting course${reqCourses > 1 ? 's' : ''} required for a ${proj.roleType} role on a $${(proj.budget / 1000000).toFixed(1)}M production — you have ${coursesDone}. Graduate courses at Acting School.`);
+    }
+
+    if (proj.requiredFameXp && (p.fameXp || 0) < proj.requiredFameXp) {
+      declineReasons.push(`NAME RECOGNITION: ${proj.requiredFameXp} Fame XP required — you have ${(p.fameXp || 0).toLocaleString()}. CDs at this level won't read unknowns.`);
+    }
+
+    if (proj.requiredActing && (p.talents?.acting || 0) < proj.requiredActing) {
+      declineReasons.push(`CRAFT: Acting skill ${proj.requiredActing} required — yours is ${p.talents?.acting || 0}. Train the specific skill.`);
+    }
+
+    if (proj.budget > 50000000 && !p.isUnionMember) {
+      declineReasons.push(`UNION: SAG-AFTRA membership required on productions over $50M (you need 4 completed lead roles to join).`);
+    }
+
+    if (proj.budget > 120000000 && proj.roleType === 'Lead' && !(p as any).representation?.agent?.signed) {
+      declineReasons.push(`REPRESENTATION: A signed agent must submit you for Lead roles on $120M+ productions. Agents start pitching at Fame 250.`);
+    }
+
+    if (declineReasons.length > 0) {
+      return {
+        success: false,
+        message: `CASTING DIRECTOR DECLINED YOUR SUBMISSION — ${proj.roleType} role in "${proj.title}" (${proj.studio}). The door stays closed until requirements are met.`,
+        reasons: declineReasons,
+      };
     }
 
     soundService.playClick();
@@ -631,6 +672,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       success: true,
       message: `Applied for ${proj.roleType} role in "${proj.title}"! Moved to Auditions and recorded in Career History.`,
+      reasons: [] as string[],
     };
   };
 
@@ -2696,6 +2738,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: `A REAL ${cc.studioName} production (${cc.studioTicker}) straight off the studio lot — "${cc.title}" is a ${cc.genre.toLowerCase()} with a $${(cc.budget / 1000000).toFixed(0)}M budget now casting its ${cc.role.roleType.toLowerCase()} role. Book it and you're working for a studio you can actually own shares in — the film's box office will move the stock.`,
           decisionTimeWeeks: 2 + Math.floor(Math.random() * 3),
           requiredFameXp: cc.role.requiredFameXp,
+          requiredCourses: coursesRequiredFor(cc.budget, cc.role.roleType),
         }));
       if (studioListings.length > 0) {
         updatedCallboard = [...studioListings, ...updatedCallboard].slice(0, 35);

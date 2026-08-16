@@ -227,6 +227,7 @@ export function generateSinglePrincipalRole(playerFameXp: number = 0, seedIndex:
     decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
     requiredFameXp: tier === 'A-List' ? 500 : tier === 'Established Star' ? 200 : tier === 'Rising Actor' ? 50 : 0,
     requiredActing: Math.max(10, Math.floor(playerFameXp / 5)),
+    requiredCourses: coursesRequiredFor(budget, roleType),
     coStars: ['Timothée Chalamet', 'Zendaya', 'Florence Pugh'].slice(0, 2),
     isFranchise,
     franchisePart,
@@ -285,6 +286,7 @@ export function generateSingleSupportingRole(playerFameXp: number = 0, seedIndex
     decisionTimeWeeks: Math.floor(2 + Math.random() * 3),
     requiredFameXp: tier === 'A-List' ? 250 : tier === 'Established Star' ? 100 : 0,
     requiredActing: 0,
+    requiredCourses: coursesRequiredFor(budget, roleType),
   };
 }
 
@@ -316,7 +318,21 @@ export function generateSingleMinorRole(playerFameXp: number = 0, seedIndex: num
     decisionTimeWeeks: 1,
     requiredFameXp: 0,
     requiredActing: 0,
+    requiredCourses: 0,
   };
+}
+
+/**
+ * COURSE REQUIREMENT FORMULA — the invisible talent gate.
+ * Bigger budgets demand more completed acting courses; leads add one more,
+ * supporting roles relax it. A brand-new actor (0 courses) can only walk
+ * into micro-budget beginner work — everything else declines them with
+ * the exact training gap spelled out.
+ */
+export function coursesRequiredFor(budget: number, roleType: string): number {
+  const base = budget >= 80000000 ? 5 : budget >= 20000000 ? 4 : budget >= 5000000 ? 2 : 0;
+  const roleBump = roleType === 'Lead' ? 1 : roleType === 'Principal' ? 0 : -1;
+  return Math.max(0, base + roleBump);
 }
 
 /**

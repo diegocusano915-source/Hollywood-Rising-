@@ -249,6 +249,8 @@ export interface CallboardProject {
   productionRef?: string;
   /** Ticker of the listed studio behind this production */
   studioTicker?: string;
+  /** Completed acting courses required — the invisible talent gate */
+  requiredCourses?: number;
 }
 
 export interface AuditionApplication {
