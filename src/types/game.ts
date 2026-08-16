@@ -597,6 +597,15 @@ export interface NpcProfile {
   prenupTerms?: PrenupTerms;
   history?: RelationshipHistoryEvent[];
   children?: ChildRecord[];
+  /** Active pregnancy — weeks tick down weekly until the birth event fires */
+  pregnancy?: {
+    weeksUntilBirth: number;
+    totalWeeks: number;
+    childName: string;
+    childGender: 'Male' | 'Female' | 'Non-Binary';
+    conceivedWeek: number;
+    conceivedYear: number;
+  };
   lastInteractionWeek?: number;
 }
 

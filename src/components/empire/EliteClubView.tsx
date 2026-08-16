@@ -76,11 +76,11 @@ export const EliteClubView: React.FC<Props> = ({ empireState, onUpdateState, onB
     setOpenContact(c);
   };
 
-  const reply = (c: SocietyContact, optIdx: number) => {
+  const reply = (c: SocietyContact, opt: { archetype: string; text: string; relChange: number; dealScale?: number }) => {
     const next = { ...empireState, eliteClub: { ...ec, threads: { ...(ec.threads || {}) } } };
-    const opts = buildReplyOptions(next, c);
-    const opt = opts[optIdx];
-    const { newDeal } = sendReply(next, c, opt);
+    // The EXACT option the player clicked is sent — texts and REL effects
+    // shown on screen always match what's applied (no re-roll).
+    const { newDeal } = sendReply(next, c, opt as any);
     commit(next);
     if (newDeal) showFb(`🔓 NEW DEAL UNLOCKED: ${newDeal.title} — check the chat.`);
   };
@@ -224,7 +224,7 @@ export const EliteClubView: React.FC<Props> = ({ empireState, onUpdateState, onB
         <div className="px-3 py-2.5 border-t border-[#1c2833] bg-[#0a0f16] space-y-1.5">
           <p className="text-[6.5px] font-black text-[#5c6470] tracking-[1.5px]">REPLY — ARCHETYPES ROTATE · EFFECTS ARE REAL</p>
           {replies.map((opt, i) => (
-            <button key={opt.archetype} onClick={() => reply(openContact, i)}
+            <button key={opt.archetype} onClick={() => reply(openContact, opt)}
               className="w-full flex gap-2.5 items-center bg-[#06080a] border border-[#1f2b38] rounded-xl px-3 py-2.5 cursor-pointer hover:border-[#f5b942]/40 text-left">
               <span className={`min-w-[54px] text-center text-[6.5px] font-black py-1.5 px-1 rounded-md ${
                 opt.archetype === 'SUAVE' ? 'bg-[#f5b942]/15 text-[#f5b942]' :

@@ -64,6 +64,7 @@ import { notificationService } from '../services/notificationService';
 import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
+import { RelationshipEngine } from '../services/relationshipService';
 import { ActiveJob, TransactionRecord } from '../types/network';
 import { ScandalItem } from '../types/representation';
 
@@ -2783,16 +2784,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // MANDATORY FAILSAFE: Guarantee Minimum 2 Principal Roles, 2 Supporting Roles, 1 Minor Role EVERY WEEK
     updatedCallboard = validateAndEnforceCallboardRoster(updatedCallboard, p.fameXp);
 
-    // 9. Relationships
+    // 9. Relationships — weeks tick, pregnancies advance, births fire
+    const birthsThisWeek: Array<{ motherName: string; child: any }> = [];
     const updatedRelationships = saveData.relationships.map(rel => {
-      if (rel.stage !== 'Stranger') {
-        return {
-          ...rel,
-          weeksInCurrentStage: rel.weeksInCurrentStage + 1,
-        };
+      if (rel.stage === 'Stranger') return rel;
+      let next = { ...rel, weeksInCurrentStage: rel.weeksInCurrentStage + 1 };
+      // Pregnancy countdown → birth (real ChildRecord with the chosen name)
+      if (next.pregnancy) {
+        const res = RelationshipEngine.advancePregnancy(p, next);
+        next = res.updatedNpc;
+        if (res.bornChild) {
+          birthsThisWeek.push({ motherName: next.name, child: res.bornChild });
+          p.childrenCount = (p.childrenCount || 0) + 1;
+        }
       }
-      return rel;
+      return next;
     });
+
+    for (const birth of birthsThisWeek) {
+      newInboxMessages.unshift({
+        id: `msg_birth_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        category: 'RELATIONSHIPS',
+        sender: `${birth.motherName}`,
+        senderRole: 'Family',
+        subject: `👶 IT'S A ${birth.child.gender === 'Male' ? 'BOY' : birth.child.gender === 'Female' ? 'GIRL' : 'BABY'}! Welcome ${birth.child.name}`,
+        body: `${birth.motherName} gave birth this week!\n\n• Name: ${birth.child.name}\n• Gender: ${birth.child.gender}\n• Born: Week ${newWeek}, ${newYear}\n\nCongratulations — your family just grew. Visit Relationships → Family to watch ${birth.child.name} grow.`,
+        date: dateInfo.fullDateText,
+        read: false,
+        dateWeek: newWeek,
+        dateYear: newYear,
+      });
+      worldNews.push(`👶 ${p.firstName} ${p.lastName} and ${birth.motherName} welcomed baby ${birth.child.name}!`);
+    }
 
     // Invisible Market Engine Weekly Processing
     const marketResult = MarketEngineService.processEndWeek(newWeek, newYear, p.money);
@@ -3632,20 +3655,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedRels = saveData.relationships.map(rel => {
       if (rel.id === npcId) {
         const newLevel = Math.min(100, rel.relationshipLevel + gift.affinityBoost);
-        let newStage = rel.stage;
-
-        // Stage progression rules:
-        // Match -> Chatting (level >= 30)
-        // Chatting -> Dating (level >= 50)
-        // Dating -> Exclusive (level >= 75)
-        if (rel.stage === 'Match' && newLevel >= 30) newStage = 'Chatting';
-        else if (rel.stage === 'Chatting' && newLevel >= 50) newStage = 'Dating';
-        else if (rel.stage === 'Dating' && newLevel >= 75) newStage = 'Exclusive';
-
+        // Gifts raise affinity ONLY — stage advancement goes exclusively
+        // through RelationshipEngine.advanceStage (its gates check affinity,
+        // trust, compatibility AND weeks). No more fake 'Match'/'Chatting'
+        // stages corrupting the ladder.
         return {
           ...rel,
           relationshipLevel: newLevel,
-          stage: newStage,
         };
       }
       return rel;
