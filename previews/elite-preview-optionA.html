@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Option A — The Inner Circle</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0812; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #f0ecf6; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7d7594; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+
+  .app { background: linear-gradient(170deg, #141020, #0a0710); border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; overflow: hidden; position: relative; }
+  .glow { position: absolute; top: -70px; right: -50px; width: 250px; height: 250px; background: radial-gradient(circle, rgba(245,185,11,0.18), transparent 65%); filter: blur(8px); pointer-events: none; }
+  .inner { position: relative; padding: 16px; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; gap: 9px; align-items: center; }
+  .brand .ic { width: 40px; height: 40px; border-radius: 14px; background: linear-gradient(135deg, #f5b942, #8a5a10); display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 20px rgba(245,185,11,0.25); }
+  .brand b { font-size: 14px; display: block; }
+  .brand span { font-size: 8px; color: #8a80a0; letter-spacing: 2px; }
+
+  .roster-stats { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .rs { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 11px; padding: 8px 4px; text-align: center; }
+  .rs span { font-size: 6.5px; color: #8a80a0; display: block; letter-spacing: 0.5px; }
+  .rs b { font-size: 12px; font-family: 'Courier New', monospace; color: #f5d67b; }
+
+  .filters { display: flex; gap: 5px; margin-top: 12px; overflow-x: auto; padding-bottom: 3px; }
+  .fchip { font-size: 8.5px; font-weight: 900; padding: 6px 11px; border-radius: 99px; background: rgba(255,255,255,0.05); color: #9a8fa8; border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+  .fchip.on { background: #f5b942; color: #1a1206; border-color: #f5b942; }
+
+  /* contact rows */
+  .contacts { margin-top: 11px; display: flex; flex-direction: column; gap: 7px; }
+  .contact { display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 15px; padding: 10px 12px; cursor: pointer; }
+  .contact.unread { border-color: rgba(245,185,11,0.4); background: rgba(245,185,11,0.05); }
+  .av { width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #fff; position: relative; }
+  .cat-dot { position: absolute; bottom: -3px; right: -3px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #141020; }
+  .c-main { flex: 1; min-width: 0; }
+  .c-top { display: flex; gap: 5px; align-items: center; }
+  .c-top b { font-size: 11.5px; }
+  .realm { font-size: 6px; font-weight: 900; padding: 1.5px 6px; border-radius: 4px; letter-spacing: 0.5px; }
+  .r-bill { background: rgba(245,185,11,0.15); color: #f5d67b; }
+  .r-actor { background: rgba(224,69,94,0.15); color: #ff8fa3; }
+  .r-ball { background: rgba(61,220,151,0.15); color: #5fd6a4; }
+  .r-gov { background: rgba(91,156,224,0.15); color: #7ab3ec; }
+  .r-real { background: rgba(207,157,240,0.15); color: #cf9df0; }
+  .c-sub { font-size: 7.5px; color: #8a80a0; display: block; margin-top: 1px; truncate: true; }
+  .rel-bar { height: 3.5px; border-radius: 99px; background: rgba(255,255,255,0.08); margin-top: 5px; overflow: hidden; width: 100px; }
+  .rel-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #8a5a10, #f5b942); }
+  .c-right { text-align: right; flex-shrink: 0; }
+  .c-right b { font-size: 9px; font-family: 'Courier New', monospace; color: #f5d67b; display: block; }
+  .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5b942; margin: 3px 0 0 auto; box-shadow: 0 0 8px #f5b942; }
+
+  /* DM chat */
+  .chat-head { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.35); }
+  .chat-head .av { width: 38px; height: 38px; border-radius: 12px; }
+  .chat-head .m { flex: 1; min-width: 0; }
+  .chat-head .m b { font-size: 12px; display: block; }
+  .chat-head .m span { font-size: 7.5px; color: #8a80a0; display: block; }
+  .rel-chip { font-size: 8px; font-weight: 900; color: #f5d67b; background: rgba(245,185,11,0.12); border: 1px solid rgba(245,185,11,0.35); padding: 5px 10px; border-radius: 99px; }
+
+  .chat-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+  .msg { max-width: 82%; padding: 9px 12px; border-radius: 4px 14px 14px 14px; font-size: 10px; line-height: 1.45; }
+  .msg.them { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); align-self: flex-start; }
+  .msg.me { background: linear-gradient(135deg, #8a5a10, #6b4308); border: 1px solid rgba(245,185,11,0.3); align-self: flex-end; border-radius: 14px 4px 14px 14px; }
+  .msg .who { font-size: 6.5px; font-weight: 900; letter-spacing: 1px; display: block; margin-bottom: 2px; color: #f5d67b; }
+  .sys { text-align: center; font-size: 7px; color: #6a6280; font-family: 'Courier New', monospace; }
+  .unlock-card { align-self: center; width: 92%; background: rgba(61,220,151,0.08); border: 1px solid rgba(61,220,151,0.35); border-radius: 13px; padding: 10px 12px; }
+  .unlock-card b { font-size: 9.5px; color: #5fd6a4; display: block; }
+  .unlock-card span { font-size: 8px; color: #a8d8c2; }
+  .unlock-card .go { margin-top: 6px; display: inline-block; font-size: 8px; font-weight: 900; background: #3ddc97; color: #04231a; padding: 6px 12px; border-radius: 8px; }
+
+  .reply-opts { padding: 10px 14px 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 6px; }
+  .ro-h { font-size: 7px; font-weight: 900; color: #8a80a0; letter-spacing: 1.5px; margin-bottom: 2px; }
+  .reply { display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 9px 11px; cursor: pointer; }
+  .reply .arch { min-width: 52px; text-align: center; font-size: 6.5px; font-weight: 900; padding: 5px 3px; border-radius: 7px; flex-shrink: 0; }
+  .ra-charm { background: rgba(245,185,66,0.14); color: #f5b942; }
+  .ra-direct { background: rgba(91,156,224,0.14); color: #7ab3ec; }
+  .ra-bold { background: rgba(224,69,94,0.14); color: #ff8fa3; }
+  .ra-wise { background: rgba(61,220,151,0.14); color: #5fd6a4; }
+  .reply p { font-size: 9.5px; color: #ddd6e8; line-height: 1.35; flex: 1; }
+  .reply .fx { font-size: 6px; color: #8a80a0; font-family: 'Courier New', monospace; text-align: right; flex-shrink: 0; line-height: 1.6; }
+
+  /* events with real outcomes */
+  .evt { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.35); overflow: hidden; margin-bottom: 9px; }
+  .evt-h { display: flex; justify-content: space-between; align-items: center; padding: 11px 13px; }
+  .evt-h .l { min-width: 0; }
+  .evt-h b { font-size: 11.5px; display: block; }
+  .evt-h span { font-size: 7.5px; color: #8a80a0; }
+  .cost-pill { font-size: 9px; font-weight: 900; color: #f5d67b; font-family: 'Courier New', monospace; flex-shrink: 0; }
+  .outcomes { padding: 0 13px 11px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+  .ok { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; padding: 7px 5px; text-align: center; }
+  .ok span { font-size: 6px; color: #8a80a0; display: block; letter-spacing: 0.5px; }
+  .ok b { font-size: 10px; font-family: 'Courier New', monospace; }
+  .evt-note { font-size: 7px; color: #6a6280; padding: 0 13px 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option A · The Inner Circle — 140-contact directory with real names + DMs</div>
+  <div class="app">
+    <div class="glow"></div>
+    <div class="inner">
+      <div class="topbar">
+        <div class="brand"><div class="ic">👑</div><div><b>Inner Circle</b><span>ELITE CLUB · MEMBER NETWORK</span></div></div>
+        <span class="mono" style="font-size:9px;color:#8a80a0">WK 34</span>
+      </div>
+
+      <div class="roster-stats">
+        <div class="rs"><span>CONTACTS</span><b>140</b></div>
+        <div class="rs"><span>REAL NAMES</span><b>62</b></div>
+        <div class="rs"><span>REALMS</span><b>10</b></div>
+        <div class="rs"><span>STRONG TIES</span><b>7</b></div>
+      </div>
+
+      <div class="filters">
+        <div class="fchip on">ALL 140</div>
+        <div class="fchip">💰 Billionaires</div>
+        <div class="fchip">🎬 Actors</div>
+        <div class="fchip">⚽ Footballers</div>
+        <div class="fchip">🏛️ Officials</div>
+        <div class="fchip">🎤 Artists</div>
+        <div class="fchip">🎥 Directors</div>
+      </div>
+
+      <div class="contacts">
+        <div class="contact unread">
+          <div class="av" style="background:linear-gradient(135deg,#1a3a5c,#0d1f36)">JB<span class="cat-dot" style="background:#f5b942"></span></div>
+          <div class="c-main">
+            <div class="c-top"><b>Jeff Bennington</b><span class="realm r-bill">BILLIONAIRE</span></div>
+            <span class="c-sub">Bennington Ventures · $84B · "heard you're the real deal"</span>
+            <div class="rel-bar"><i style="width:34%"></i></div>
+          </div>
+          <div class="c-right"><b>34</b><span class="unread-dot"></span></div>
+        </div>
+
+        <div class="contact">
+          <div class="av" style="background:linear-gradient(135deg,#5c1a2e,#2e0d17)">MZ<span class="cat-dot" style="background:#ff8fa3"></span></div>
+          <div class="c-main">
+            <div class="c-top"><b>Margot Zane</b><span class="realm r-actor">ACTRESS</span></div>
+            <span class="c-sub">LuckyChap-style prodco · 2 Oscars · dm open</span>
+            <div class="rel-bar"><i style="width:58%"></i></div>
+          </div>
+          <div class="c-right"><b>58</b></div>
+        </div>
+
+        <div class="contact unread">
+          <div class="av" style="background:linear-gradient(135deg,#0d3a1f,#06200f)">CR<span class="cat-dot" style="background:#5fd6a4"></span></div>
+          <div class="c-main">
+            <div class="c-top"><b>Cristiano R.</b><span class="realm r-ball">FOOTBALLER</span><span class="realm r-real">REAL</span></div>
+            <span class="c-sub">Al Nassr · 1.2B social reach · "bacalhau Saturday, you in?"</span>
+            <div class="rel-bar"><i style="width:47%"></i></div>
+          </div>
+          <div class="c-right"><b>47</b><span class="unread-dot"></span></div>
+        </div>
+
+        <div class="contact">
+          <div class="av" style="background:linear-gradient(135deg,#3a2a0d,#2a1d06)">OP<span class="cat-dot" style="background:#7ab3ec"></span></div>
+          <div class="c-main">
+            <div class="c-top"><b>Mayor Olivia Park</b><span class="realm r-gov">OFFICIAL</span></div>
+            <span class="c-sub">City of LA · film-permit desk · owes you a favor</span>
+            <div class="rel-bar"><i style="width:71%"></i></div>
+          </div>
+          <div class="c-right"><b>71</b></div>
+        </div>
+
+        <div class="contact">
+          <div class="av" style="background:linear-gradient(135deg,#2a1a3a,#150a20)">SN<span class="cat-dot" style="background:#cf9df0"></span></div>
+          <div class="c-main">
+            <div class="c-top"><b>Sir Nolan</b><span class="realm r-real">REAL</span><span class="realm" style="background:rgba(255,255,255,0.08);color:#c8c8e0">DIRECTOR</span></div>
+            <span class="c-sub">Syncopy · "send me that script when it's ready"</span>
+            <div class="rel-bar"><i style="width:29%"></i></div>
+          </div>
+          <div class="c-right"><b>29</b></div>
+        </div>
+        <p style="font-size:7px;color:#5c5470;text-align:center;font-family:'Courier New',monospace">10 REALMS SPLIT EVENLY (~14 EACH) · 62 REAL NAMES + 78 FICTIONAL · EVERY CONTACT DM-ABLE</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · DM — simulated conversation with archetype replies + real unlocks</div>
+  <div class="app">
+    <div class="glow"></div>
+    <div class="inner" style="padding:0">
+      <div class="chat-head">
+        <div class="av" style="background:linear-gradient(135deg,#1a3a5c,#0d1f36)">JB</div>
+        <div class="m"><b>Jeff Bennington</b><span>Bennington Ventures · $84B · ONLINE NOW</span></div>
+        <span class="rel-chip">REL 34/100</span>
+      </div>
+
+      <div class="chat-body">
+        <span class="sys">— CONVERSATION STARTED · WEEK 34 · SIMULATED BUT CONSEQUENCES ARE REAL —</span>
+        <div class="msg them"><span class="who">JB</span>Saw your box office numbers. Impressive. I back winners early — that's the whole game.</div>
+        <div class="msg me">Appreciate that. Winners back winners, right?</div>
+        <div class="msg them"><span class="who">JB</span>Ha. I like you. Look — I'm assembling a $20M media fund. Small, private, friends-only. Want a seat?</div>
+        <div class="unlock-card">
+          <b>🔓 UNLOCKED: PRIVATE CO-INVESTMENT SEAT</b>
+          <span>Relationship 34 → 41. Real deal offer created: Bennington Media Fund II — invest $250K-$2M, quarterly payouts tied to the fund's real performance.</span>
+          <span class="go">VIEW DEAL →</span>
+        </div>
+        <div class="msg them"><span class="who">JB</span>Don't take too long. Seats go to people who answer fast.</div>
+      </div>
+
+      <div class="reply-opts">
+        <div class="ro-h">YOUR REPLY — ARCHETYPES ROTATE PER MESSAGE (SAME ENGINE AS INTERVIEWS, DIFFERENT POOL)</div>
+        <div class="reply">
+          <span class="arch ra-charm">CHARM</span>
+          <p>For you Jeff, I'd answer at 3AM. Count me in for a seat.</p>
+          <span class="fx">REL +7<br>DEAL LOCKED</span>
+        </div>
+        <div class="reply">
+          <span class="arch ra-wise">CAUTIOUS</span>
+          <p>Send me the terms sheet first. I read what I sign.</p>
+          <span class="fx">REL +3<br>RESPECT +</span>
+        </div>
+        <div class="reply">
+          <span class="arch ra-bold">BOLD</span>
+          <p>A $20M fund? I write checks bigger than that between takes.</p>
+          <span class="fx">REL −2<br>OR +9 RISK ROLL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · Events — every outcome lands on your REAL career</div>
+  <div class="app">
+    <div class="glow"></div>
+    <div class="inner">
+      <div class="topbar">
+        <div class="brand"><div class="ic">🥂</div><div><b>Host Events</b><span>REAL OUTCOMES · NO FAKE TEXT</span></div></div>
+      </div>
+
+      <div class="evt" style="margin-top:12px">
+        <div class="evt-h">
+          <div class="l"><b>Metropolitan Charity Gala</b><span>CHARITY · +6 relationship with attendees · unlocks Politician realm</span></div>
+          <span class="cost-pill">$50K</span>
+        </div>
+        <div class="outcomes">
+          <div class="ok"><span>FAME</span><b style="color:#7ab3ec">+6 XP</b></div>
+          <div class="ok"><span>REL GAINS</span><b style="color:#f5d67b">+6 × 12</b></div>
+          <div class="ok"><span>TAX DEDUCT</span><b style="color:#5fd6a4">$50K</b></div>
+        </div>
+        <p class="evt-note">The $50K is a REAL tax-deductible donation — it hits this week's tax filing as a deduction. 8-14 random contacts attend; each gains +6 relationship. One mayor-level official attends → unlocks the Officials realm filter.</p>
+      </div>
+
+      <div class="evt">
+        <div class="evt-h">
+          <div class="l"><b>Monaco Superyacht Weekend</b><span>YACHT · billionaire-only guest list · deal flow</span></div>
+          <span class="cost-pill">$250K</span>
+        </div>
+        <div class="outcomes">
+          <div class="ok"><span>DEAL OFFERS</span><b style="color:#5fd6a4">2-4</b></div>
+          <div class="ok"><span>AVG REL</span><b style="color:#f5d67b">+9</b></div>
+          <div class="ok"><span>FAME</span><b style="color:#7ab3ec">+12 XP</b></div>
+        </div>
+        <p class="evt-note">Only billionaire-realm contacts attend. Each rolls a REAL co-investment deal into your DMs (fund name, minimum, projected quarterly return — cash actually moves when you accept). Paparazzi chance: +8K fans if photographed.</p>
+      </div>
+
+      <div class="evt">
+        <div class="evt-h">
+          <div class="l"><b>Private Island Executive Retreat</b><span>RETREAT · studio heads · franchise leverage</span></div>
+          <span class="cost-pill">$500K</span>
+        </div>
+        <div class="outcomes">
+          <div class="ok"><span>STUDIO DEAL</span><b style="color:#5fd6a4">1 MAJOR</b></div>
+          <div class="ok"><span>BOARD INTRO</span><b style="color:#f5d67b">1</b></div>
+          <div class="ok"><span>ALL REL</span><b style="color:#7ab3ec">+12</b></div>
+        </div>
+        <p class="evt-note">Highest-tier event: one attending studio head offers a REAL franchise-lead pitch to your Production Hub, and one board-seat introduction unlocks in the Empire. Every attendee +12 relationship.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
