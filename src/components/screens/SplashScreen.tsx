@@ -41,7 +41,7 @@ export const SplashScreen: React.FC = () => {
     }, 800);
 
     const timer = setTimeout(() => {
-      setCurrentScreen('main_menu');
+      setCurrentScreen('disclaimer');
     }, 3400);
 
     return () => {

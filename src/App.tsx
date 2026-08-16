@@ -7,6 +7,7 @@ import React from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { DeviceFrame } from './components/common/DeviceFrame';
 import { SplashScreen } from './components/screens/SplashScreen';
+import { DisclaimerScreen } from './components/screens/DisclaimerScreen';
 import { MainMenuScreen } from './components/screens/MainMenuScreen';
 import { CharacterCreationScreen } from './components/screens/CharacterCreationScreen';
 import { GameHomeScreen } from './components/screens/GameHomeScreen';
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
 
       {/* Screen Router */}
       {currentScreen === 'splash' && <SplashScreen />}
+      {currentScreen === 'disclaimer' && <DisclaimerScreen />}
       {currentScreen === 'main_menu' && <MainMenuScreen />}
       {currentScreen === 'character_creation' && <CharacterCreationScreen />}
       {currentScreen === 'game_home' && <GameHomeScreen />}

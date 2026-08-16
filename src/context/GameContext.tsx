@@ -112,8 +112,8 @@ type ModalType =
 
 interface GameContextType {
   // Navigation & Main Tabs
-  currentScreen: 'splash' | 'main_menu' | 'character_creation' | 'game_home';
-  setCurrentScreen: (screen: 'splash' | 'main_menu' | 'character_creation' | 'game_home') => void;
+  currentScreen: 'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home';
+  setCurrentScreen: (screen: 'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home') => void;
   activeMainTab: MainTab;
   setActiveMainTab: (tab: MainTab) => void;
 
@@ -218,7 +218,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSlot, setActiveSlot] = useState<number>(1);
   const [saveData, setSaveData] = useState<SaveData>(() => StorageService.loadSaveData(1));
-  const [currentScreen, setCurrentScreen] = useState<'splash' | 'main_menu' | 'character_creation' | 'game_home'>('splash');
+  const [currentScreen, setCurrentScreen] = useState<'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home'>('splash');
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('HOME');
   const [activeModal, setActiveModal] = useState<ModalType>('none');
   const [isProcessingWeek, setIsProcessingWeek] = useState<boolean>(false);

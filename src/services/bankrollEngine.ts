@@ -224,6 +224,14 @@ export function processBankrollWeek(
   let moneyDelta = 0;
   const mgr = player?.representation?.manager;
 
+  // NO SIGNED MANAGER = NO BANKROLL ACTIVITY AT ALL. Without a manager the
+  // player has no representation sourcing deals, so expiring offers and
+  // every other notification would be ghost mail — silence them entirely
+  // and just hold state (countdowns resume if a manager is signed later).
+  if (!mgr?.signed) {
+    return { moneyDelta: 0, messages: [] };
+  }
+
   // Legacy-save migration: old states stored a bare nextSourceWeek (1..56).
   // Anything above 52 could NEVER fire again after a year rollover — revive
   // those dead schedulers with a fresh 3-week countdown.

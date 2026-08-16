@@ -153,8 +153,12 @@ export const TalentScreen: React.FC = () => {
     const Icon = config.icon;
     const rank = getRankBadge(config.val);
 
-    // Courses that improve this talent (from full pool)
-    const talentCoursesPool = ACTING_COURSES_POOL.filter(c => c.category === selectedTalentCategory);
+    // Courses that improve this talent — GRADUATED courses excluded (they
+    // live only in the completed list below; re-enrollment is blocked)
+    const completedIds = new Set(completedRecords.map((r) => r.courseId));
+    const talentCoursesPool = ACTING_COURSES_POOL.filter(
+      (c) => c.category === selectedTalentCategory && !completedIds.has(c.id)
+    );
 
     // Active courses for this talent
     const talentActiveCourses = activeCourses.filter(c => c.category === selectedTalentCategory);
