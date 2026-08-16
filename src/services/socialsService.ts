@@ -1108,76 +1108,25 @@ export class SocialsService {
     const mM = (v: number) => `$${(v / 1000000).toFixed(1)}M`;
     const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-    // Combinatorial writer copy — OPEN × BODY × BODY × CLOSE slots with real
-    // data baked into the bodies produce thousands of unique posts, so a
-    // writer's feed never reads the same two texts week after week.
-    const openers: string[] = realTitle ? [
-      `Quick '${realTitle}' update from the press road:`,
-      `Numbers just came in from the studio —`,
-      `I keep re-reading the reviews for '${realTitle}' and shaking my head:`,
-      `Someone pinched me on set today:`,
-      `Note from the '${realTitle}' publicity desk:`,
-      `Alright, you've earned some real news:`,
-      `Catching my breath between interviews to tell you:`,
-      `The trades called this morning. Here's the truth:`,
-      `Sitting in the editing bay thinking about this:`,
-      `To everyone who showed up for '${realTitle}' this month:`,
-    ] : [
-      `Catching you up from my corner of Hollywood:`,
-      `Note from the desk this morning:`,
-      `Real talk before the day starts:`,
-      `Something I've been sitting on all week:`,
-      `Alright, time for a proper update:`,
-      `From today's production meeting:`,
-      `Quick career note before it gets loud:`,
-      `The kind of week that deserves a real post:`,
-    ];
-
-    const bodies: string[] = [];
-    if (realTitle) {
-      if (realGross > 0) bodies.push(`'${realTitle}' is now at ${mM(realGross)} worldwide and still climbing.`);
-      if (realOpening > 0) bodies.push(`we opened at ${mM(realOpening)} — above every projection the studio showed me.`);
-      if (realPosition > 0 && realPosition <= 3) bodies.push(`we're sitting at #${realPosition} on the box office chart right now.`);
-      if (realAud > 0) bodies.push(`the audience score is holding strong at ${realAud}%.`);
-      if (realCritic > 0) bodies.push(`critics have us at ${realCritic}% — the write-ups have been surreal.`);
-      if (realIntl > 0) bodies.push(`${mM(realIntl)} of the total comes from overseas — this movie is traveling the world.`);
-      if (realWeeks > 1) bodies.push(`${realWeeks} weeks in theaters and people are STILL buying tickets.`);
-      if (realAwards > 0) bodies.push(`the trophy case grew by ${realAwards} this season.`);
-      bodies.push(`playing a ${realRole} role took everything I had — dialect coaches, stunt weeks, 4AM call times.`);
-      bodies.push(`the crew behind this one is the real story: gaffers, editors, sound — hundreds of artists.`);
-    } else {
-      bodies.push(`three scripts on the desk, one I genuinely can't stop thinking about.`);
-      bodies.push(`the next role scares me a little, which is how I know it's the right one.`);
-      bodies.push(`training is stacking up — dialect sessions in the morning, stunt work in the afternoon.`);
-      bodies.push(`development meetings all week, real decisions coming soon.`);
-      bodies.push(`reading, training, auditioning — the unglamorous engine of this career.`);
-      bodies.push(`the character I'm building right now is unlike anything you've seen from me.`);
-    }
-
-    const closers = [
-      `Thank you for being on this ride with me. ❤️`,
-      `More news very soon — stay close. 👀`,
-      `This is all yours, not mine. 🙏`,
-      `Keep showing up and I'll keep earning it. 🎬`,
-      `Details when the embargo lifts. 🔒`,
-      `Drop your predictions below. 💬`,
-      `Grateful beyond words tonight. ✨`,
-      `We're just getting started. 🔥`,
-      `Tell me where you're watching from. 🌍`,
-      `#${tag || 'HollywoodRising'}`,
-    ];
+    // Endless writer copy — the writer draws from the deep topic pool with
+    // real data baked in and their specialty coloring the voice. Millions of
+    // combinations; a feed never repeats.
+    const writerPostData: WriterPostData = {
+      title: realTitle,
+      gross: realGross,
+      opening: realOpening,
+      position: realPosition,
+      aud: realAud,
+      critic: realCritic,
+      intl: realIntl,
+      weeks: realWeeks,
+      awards: realAwards,
+      role: realRole,
+      firstName: player.firstName,
+      tag,
+    };
 
     const usedWriterTexts = new Set<string>();
-    const buildWriterPost = (): string => {
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const t = `${pick(openers)} ${pick(bodies)} ${pick(bodies)} ${pick(closers)}`;
-        if (!usedWriterTexts.has(t)) {
-          usedWriterTexts.add(t);
-          return t;
-        }
-      }
-      return `${pick(openers)} ${pick(bodies)} ${pick(closers)}`;
-    };
 
     for (const hiredWriter of hiredWriters) {
       hiredWriter.postsThisWeek = 0;
@@ -1202,8 +1151,10 @@ export class SocialsService {
       const count = 2 + (realTitle && (latestRealMovie as any)?.inCinemas && Math.random() < 0.4 ? 1 : 0);
 
       const playerHandle = SocialsService.getHandle(pid, player);
+      // Writer's specialty colors the voice — pool writer from SOCIAL_WRITER_POOL
+      const poolWriter = SOCIAL_WRITER_POOL.find((w) => w.id === hiredWriter.id);
       for (let i = 0; i < count; i++) {
-        const autoPostText = buildWriterPost();
+        const autoPostText = drawWriterPoolPost(poolWriter?.specialty || 'Film Reviewer', writerPostData, usedWriterTexts);
         const currentFollowers = state.followers[feed] || 100;
         const eng = this.calculatePostEngagement(currentFollowers, state.verification[feed] || 'NONE', player, true);
 
@@ -2212,6 +2163,235 @@ export const SOCIAL_WRITER_POOL: SocialWriter[] = [
   { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 40, cancelFee: 16000, minFame: 10000, minMovies: 6, minFans: 75000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
   { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 40, cancelFee: 18000, minFame: 12000, minMovies: 6, minFans: 100000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
 ];
+
+// ============================================================
+// ENDLESS WRITER POST POOL
+// A deep slot library the writer draws from every post: openers ×
+// topic bodies × specialty flavor × closers. Bodies are template
+// functions so REAL game numbers bake in. With 15+ openers,
+// 60+ bodies (drawn 2 per post), 7 specialty flavors and 18
+// closers, the effective combination space is in the millions —
+// a feed never repeats.
+// ============================================================
+
+interface WriterPostData {
+  title: string;
+  gross: number;
+  opening: number;
+  position: number;
+  aud: number;
+  critic: number;
+  intl: number;
+  weeks: number;
+  awards: number;
+  role: string;
+  firstName: string;
+  tag: string;
+}
+
+const wMoney = (v: number): string =>
+  v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}K`;
+
+const WRITER_POOL_OPENERS_MOVIE: Array<(d: WriterPostData) => string> = [
+  (d) => `Quick '${d.title}' update from the press road:`,
+  (d) => `Numbers just came in from the studio —`,
+  (d) => `I keep re-reading the reviews for '${d.title}' and shaking my head:`,
+  (d) => `Someone pinched me on set today:`,
+  (d) => `Note from the '${d.title}' publicity desk:`,
+  (d) => `Alright, you've earned some real news:`,
+  (d) => `Catching my breath between interviews to tell you:`,
+  (d) => `The trades called this morning. Here's the truth:`,
+  (d) => `Sitting in the editing bay thinking about this:`,
+  (d) => `To everyone who showed up for '${d.title}' this month:`,
+  (d) => `My phone hasn't stopped buzzing since the '${d.title}' premiere —`,
+  (d) => `Long day on the lot, one thing left to do:`,
+  (d) => `The studio marketing team just unlocked the numbers, so:`,
+  (d) => `Between takes, between meetings, one honest post:`,
+  (d) => `Screening room was packed tonight and I'm still processing it:`,
+  (d) => `Filed under things I'll tell the grandkids:`,
+];
+
+const WRITER_POOL_OPENERS_GENERAL: Array<() => string> = [
+  () => `Catching you up from my corner of Hollywood:`,
+  () => `Note from the desk this morning:`,
+  () => `Real talk before the day starts:`,
+  () => `Something I've been sitting on all week:`,
+  () => `Alright, time for a proper update:`,
+  () => `From today's production meeting:`,
+  () => `Quick career note before it gets loud:`,
+  () => `The kind of week that deserves a real post:`,
+  () => `Coffee's cold, notes are long, here we go:`,
+  () => `No press release needed for this one:`,
+  () => `Somewhere between a rehearsal and a red carpet:`,
+  () => `Clearing the drafts folder — you get the truth:`,
+  () => `Hollywood moves fast, so let me slow one thing down:`,
+  () => `Writing this from the back of a car on Cahuenga:`,
+];
+
+const WRITER_POOL_BODIES_BOXOFFICE: Array<(d: WriterPostData) => string> = [
+  (d) => `'${d.title}' is now at ${wMoney(d.gross)} worldwide and still climbing.`,
+  (d) => `we opened at ${wMoney(d.opening)} — above every projection the studio showed me.`,
+  (d) => `we're sitting at #${d.position} on the box office chart right now.`,
+  (d) => `${wMoney(d.intl)} of the total comes from overseas — this movie is traveling the world.`,
+  (d) => `${d.weeks} weeks in theaters and people are STILL buying tickets.`,
+  (d) => `second-weekend holds like this one are the rarest thing in the business.`,
+  (d) => `the studio just greenlit a bigger marketing push — they smell a hit.`,
+  (d) => `exhibitors are adding screens instead of cutting them. Read that again.`,
+];
+const WRITER_POOL_BODIES_REVIEWS: Array<(d: WriterPostData) => string> = [
+  (d) => `the audience score is holding strong at ${d.aud}%.`,
+  (d) => `critics have us at ${d.critic}% — the write-ups have been surreal.`,
+  (d) => `a critic called the performance "career-defining" and I've read it nine times.`,
+  (d) => `the reviews keep using words like "fearless" and "transformed".`,
+  (d) => `even the tough reviews had good things to say about the third act.`,
+  (d) => `word of mouth is doing what no ad campaign could.`,
+];
+const WRITER_POOL_BODIES_CRAFT: Array<(d: WriterPostData) => string> = [
+  (d) => `playing a ${d.role} role took everything I had — dialect coaches, stunt weeks, 4AM call times.`,
+  (d) => `the physical prep alone was three months of training most people never see.`,
+  (d) => `I kept a private journal in the character's voice. It's strange and I love it.`,
+  (d) => `there's a scene we shot 22 times and take 19 is the one in the movie.`,
+  (d) => `the script changed my idea of what I'm capable of. That's the honest answer.`,
+  (d) => `I said yes to this project because it scared me. Still does, a little.`,
+  (d) => `deleted scenes exist that would break your heart. Maybe one day.`,
+  (d) => `every choice in this performance was fought for, nothing was accidental.`,
+];
+const WRITER_POOL_BODIES_SET: Array<(d: WriterPostData) => string> = [
+  (d) => `the crew behind this one is the real story: gaffers, editors, sound — hundreds of artists.`,
+  (d) => `craft services aside, the best part of the shoot was the people.`,
+  (d) => `our stunt coordinator should be a household name after this.`,
+  (d) => `16-hour days, zero complaints. This crew was different.`,
+  (d) => `the director ran set like a family dinner — loud, warm, relentless.`,
+  (d) => `behind every frame you're watching: a small city working in the dark.`,
+];
+const WRITER_POOL_BODIES_FANS: Array<(d: WriterPostData) => string> = [
+  (d) => `someone camped outside the theater in a costume from the movie. Legend.`,
+  (d) => `your DMs, edits, and theories are all I read on Sundays.`,
+  (d) => `a fan letter from Ohio is taped to my mirror right now.`,
+  (d) => `the premiere crowd chanted the title. I get chills typing that.`,
+  (d) => `I see every fan art post. Every single one. Keep them coming.`,
+  (d) => `theater owners say groups are coming back in costumes. You did that.`,
+];
+const WRITER_POOL_BODIES_TRADE: Array<(d: WriterPostData) => string> = [
+  (d) => `three scripts on the desk, one I genuinely can't stop thinking about.`,
+  (d) => `the next role scares me a little, which is how I know it's the right one.`,
+  (d) => `development meetings all week, real decisions coming soon.`,
+  (d) => `the trades keep guessing. They're mostly wrong. Mostly.`,
+  (d) => `my team says don't post this. Posting it anyway: something big is close.`,
+  (d) => `meetings in three studios this week and a very good problem choosing.`,
+];
+const WRITER_POOL_BODIES_TRAINING: Array<(d: WriterPostData) => string> = [
+  (d) => `training is stacking up — dialect sessions in the morning, stunt work in the afternoon.`,
+  (d) => `reading, training, auditioning — the unglamorous engine of this career.`,
+  (d) => `the character I'm building right now is unlike anything you've seen from me.`,
+  (d) => `gym at 5, script at 7, set at 9. This is the fun part.`,
+  (d) => `learned a new accent this month. My neighbors think I've lost it.`,
+  (d) => `rehearsal footage exists that will never, ever be released. It's that raw.`,
+];
+const WRITER_POOL_BODIES_LIFESTYLE: Array<(d: WriterPostData) => string> = [
+  (d) => `took one day off. Drove to the ocean. Thought about absolutely nothing.`,
+  (d) => `${d.firstName}'s honest review of fame so far: surreal, exhausting, worth it.`,
+  (d) => `found the diner I used to wait tables at. Left the biggest tip of my life.`,
+  (d) => `still drives the same car. Still forgets that sometimes people notice.`,
+  (d) => `gratitude list this week: work, health, and whoever invented cold brew.`,
+];
+const WRITER_POOL_BODIES_INDUSTRY: Array<(d: WriterPostData) => string> = [
+  (d) => `the industry is changing fast and the good work still finds a way.`,
+  (d) => `every job on a set matters. This business runs on hundreds of hands.`,
+  (d) => `streaming, theatrical, whatever's next — a great story wins every time.`,
+  (d) => `Hollywood will humble you on a Tuesday and crown you by Friday.`,
+  (d) => `the people who last in this town are the ones who keep studying.`,
+];
+
+/** Specialty-flavored lines — the writer's voice, not just the actor's */
+const WRITER_SPECIALTY_FLAVOR: Record<string, Array<(d: WriterPostData) => string>> = {
+  'Film Reviewer': [
+    (d) => `critics' consensus is forming and it lands on the performance — pinned review incoming.`,
+    (d) => `consider this your spoiler-free nudge: see it on the biggest screen you can find.`,
+    (d) => `the letterboxd crowd has opinions. Loud ones. Correct ones.`,
+  ],
+  'Gossip & Celebrity': [
+    (d) => `yes, the tabloids ran the story. No, it wasn't true. Yes, this post is the correction.`,
+    (d) => `spotted at the same restaurant as a certain director. Draw your own conclusions (correctly).`,
+    (d) => `the gossip pages need content, so here's an exclusive: hard work is the secret.`,
+  ],
+  'Awards Watch': [
+    (d) => `the awards tracking boards just moved this performance up the leaderboard.`,
+    (d) => `buzz season is officially open and the campaign schedule is already wild.`,
+    (d) => `the words "campaign" and "contender" are being used in the same sentence as '${d.title}'.`,
+  ],
+  'Business & Trade': [
+    (d) => `the financing behind this one is a story itself — international pre-sales did heavy lifting.`,
+    (d) => `back-end points negotiated on this deal were the smartest signature of the year.`,
+    (d) => `analysts are revising the quarter's projections upward. Upward.`,
+  ],
+  International: [
+    (d) => `premiere passport stamps this month: three countries, one tux.`,
+    (d) => `the overseas press asked better questions than anyone. Facts.`,
+    (d) => `dubbed, subtitled, pirated, loved — cinema travels farther than any of us.`,
+  ],
+  'PR & Lifestyle': [
+    (d) => `brand meetings went long but the vision is very, very clear.`,
+    (d) => `the press tour wardrobe reveal is going to break the internet. Scheduled and everything.`,
+    (d) => `red carpet prep is a sport and we are in training.`,
+  ],
+};
+
+const WRITER_POOL_CLOSERS: Array<(d: WriterPostData) => string> = [
+  (d) => `Thank you for being on this ride with me. ❤️`,
+  (d) => `More news very soon — stay close. 👀`,
+  (d) => `This is all yours, not mine. 🙏`,
+  (d) => `Keep showing up and I'll keep earning it. 🎬`,
+  (d) => `Details when the embargo lifts. 🔒`,
+  (d) => `Drop your predictions below. 💬`,
+  (d) => `Grateful beyond words tonight. ✨`,
+  (d) => `We're just getting started. 🔥`,
+  (d) => `Tell me where you're watching from. 🌍`,
+  (d) => `Reply with your favorite scene. No wrong answers.`,
+  (d) => `Half of this industry is showing up. You're the other half.`,
+  (d) => `Screenshots of this post will age beautifully. 📸`,
+  (d) => `Next update lands with actual receipts. 🧾`,
+  (d) => `Stay weird, stay kind, buy the popcorn. 🍿`,
+  (d) => `#${d.tag || 'HollywoodRising'}`,
+  (d) => `#${d.tag || 'HollywoodRising'} #NowWatching`,
+  (d) => `Book the tickets. Thank me after. 🎟️`,
+  (d) => `The best is genuinely ahead. Believe that. ⚡`,
+];
+
+/**
+ * Draw one endless-pool post for a writer. Real movie data bakes into the
+ * bodies; the writer's specialty colors the voice; weekly dedupe keeps the
+ * same sentence from appearing twice in one week.
+ */
+export function drawWriterPoolPost(
+  specialty: string,
+  data: WriterPostData,
+  usedTexts: Set<string>
+): string {
+  const pickT = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+  // Topic pools — box office & review lines only exist when real numbers do
+  const topics: Array<Array<(d: WriterPostData) => string>> = [WRITER_POOL_BODIES_CRAFT, WRITER_POOL_BODIES_SET, WRITER_POOL_BODIES_FANS, WRITER_POOL_BODIES_TRADE, WRITER_POOL_BODIES_TRAINING, WRITER_POOL_BODIES_LIFESTYLE, WRITER_POOL_BODIES_INDUSTRY];
+  if (data.gross > 0 || data.opening > 0 || data.position > 0 || data.weeks > 1) topics.push(WRITER_POOL_BODIES_BOXOFFICE);
+  if (data.aud > 0 || data.critic > 0) topics.push(WRITER_POOL_BODIES_REVIEWS);
+
+  const openers = data.title ? WRITER_POOL_OPENERS_MOVIE : WRITER_POOL_OPENERS_GENERAL;
+  const flavor = WRITER_SPECIALTY_FLAVOR[specialty] || WRITER_SPECIALTY_FLAVOR['Film Reviewer'];
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    // 2 topic sentences from DIFFERENT topics, 40% chance of a specialty line
+    const t1 = pickT(pickT(topics))(data);
+    let t2 = pickT(pickT(topics))(data);
+    if (t2 === t1) t2 = pickT(pickT(topics))(data);
+    const fl = Math.random() < 0.4 ? ` ${pickT(flavor)(data)}` : '';
+    const text = `${pickT(openers)(data)} ${t1} ${t2}${fl} ${pickT(WRITER_POOL_CLOSERS)(data)}`;
+    if (!usedTexts.has(text)) {
+      usedTexts.add(text);
+      return text;
+    }
+  }
+  return `${pickT(openers)(data)} ${pickT(pickT(topics))(data)} ${pickT(WRITER_POOL_CLOSERS)(data)}`;
+}
 
 // ---------- PREMIUM ----------
 export class PremiumService {
