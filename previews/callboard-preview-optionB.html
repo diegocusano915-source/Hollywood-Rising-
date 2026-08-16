@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B — The Marquee</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0b0810; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #edeaf6; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7a7390; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+
+  .wrap { background: linear-gradient(170deg, #14101d, #0b0812); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; overflow: hidden; position: relative; }
+  .spot { position: absolute; top: -80px; left: 50%; transform: translateX(-50%); width: 300px; height: 180px; background: radial-gradient(ellipse, rgba(245,185,11,0.16), transparent 70%); pointer-events: none; }
+  .inner { position: relative; padding: 18px 16px; }
+
+  .head { text-align: center; }
+  .head h2 { font-size: 17px; font-weight: 900; letter-spacing: 3px; color: #f5d67b; text-transform: uppercase; }
+  .head .sub { font-size: 8.5px; color: #8a83a0; letter-spacing: 2.5px; margin-top: 3px; }
+
+  .you-strip { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+  .you-chip { font-size: 8.5px; font-weight: 900; padding: 5px 12px; border-radius: 99px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #c8c8e0; }
+  .you-chip.warn { color: #f5d67b; border-color: rgba(245,214,123,0.4); }
+  .you-chip.bad { color: #fb7185; border-color: rgba(251,113,133,0.4); }
+
+  .filters { display: flex; gap: 6px; margin-top: 14px; overflow-x: auto; padding-bottom: 2px; }
+  .chip { font-size: 9px; font-weight: 900; padding: 7px 13px; border-radius: 99px; background: rgba(255,255,255,0.05); color: #8a83a0; border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+  .chip.on { background: #f5d67b; color: #1a1206; border-color: #f5d67b; }
+
+  /* poster grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .poster-card { border-radius: 16px; overflow: hidden; position: relative; animation: cardIn 0.5s ease backwards; border: 1px solid rgba(255,255,255,0.1); }
+  @keyframes cardIn { from { transform: translateY(14px); opacity: 0; } }
+  .poster { height: 150px; display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; }
+  .p1 { background: linear-gradient(160deg, #2d1b2e, #12080f); }
+  .p2 { background: linear-gradient(160deg, #1b2d2a, #081210); }
+  .p3 { background: linear-gradient(160deg, #2d241b, #100c08); }
+  .p4 { background: linear-gradient(160deg, #1b2230, #080b12); }
+
+  .tier-ribbon { position: absolute; top: 8px; left: 8px; font-size: 7px; font-weight: 900; padding: 3px 8px; border-radius: 99px; letter-spacing: 1px; }
+  .tr-open { background: #4ade80; color: #052e16; }
+  .tr-locked { background: rgba(0,0,0,0.7); color: #fb7185; border: 1px solid rgba(251,113,133,0.5); }
+  .tr-sub { background: rgba(0,0,0,0.7); color: #f5d67b; border: 1px solid rgba(245,214,123,0.5); }
+
+  .real-dot { position: absolute; top: 8px; right: 8px; font-size: 6.5px; font-weight: 900; padding: 3px 7px; border-radius: 99px; background: rgba(74,222,128,0.2); color: #4ade80; border: 1px solid rgba(74,222,128,0.45); letter-spacing: 0.5px; }
+
+  .pc-body { padding: 9px 11px 11px; background: rgba(0,0,0,0.35); }
+  .pc-body b { font-size: 10.5px; display: block; line-height: 1.25; }
+  .pc-body span { font-size: 7.5px; color: #9a93b0; display: block; margin-top: 2px; }
+  .pc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 7px; }
+  .salary { font-size: 11px; font-weight: 900; font-family: 'Courier New', monospace; color: #4ade80; }
+  .lock-note { font-size: 7px; font-weight: 900; color: #fb7185; }
+
+  /* competition dots */
+  .dots { display: flex; gap: 2.5px; align-items: center; }
+  .dots i { width: 4px; height: 4px; border-radius: 50%; background: #f5d67b; display: block; }
+
+  /* casting sheet (modal-style preview) */
+  .sheet { margin-top: 16px; border-radius: 20px; border: 1px solid rgba(245,214,123,0.3); background: rgba(0,0,0,0.4); overflow: hidden; }
+  .sheet-poster { height: 130px; background: linear-gradient(160deg, #2d1b2e, #12080f); display: flex; align-items: center; justify-content: center; font-size: 44px; position: relative; }
+  .sheet-h { padding: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .sheet-h b { font-size: 15px; display: block; }
+  .sheet-h span { font-size: 8.5px; color: #9a93b0; display: block; margin-top: 2px; }
+  .sheet-h .sal { text-align: right; }
+  .sheet-h .sal b { font-size: 19px; color: #4ade80; font-family: 'Courier New', monospace; }
+  .sheet-h .sal span { font-size: 7px; letter-spacing: 1px; }
+
+  .gate { padding: 0 14px 6px; }
+  .gate-title { font-size: 9px; font-weight: 900; letter-spacing: 2px; color: #c8c8e0; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .gate-title small { color: #7a7390; }
+  .g-item { display: flex; align-items: center; gap: 9px; padding: 7px 0; }
+  .g-ic { width: 26px; height: 26px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .g-pass { background: rgba(74,222,128,0.15); }
+  .g-fail { background: rgba(251,113,133,0.15); }
+  .g-info { background: rgba(255,255,255,0.08); }
+  .g-main { flex: 1; }
+  .g-main b { font-size: 10.5px; display: block; }
+  .g-main span { font-size: 8px; color: #8a83a0; }
+  .g-val { font-size: 9.5px; font-weight: 900; font-family: 'Courier New', monospace; }
+  .v-pass { color: #4ade80; } .v-fail { color: #fb7185; } .v-info { color: #c8c8e0; }
+
+  .odds-strip { margin: 8px 14px 14px; border-radius: 14px; background: rgba(245,214,123,0.08); border: 1px solid rgba(245,214,123,0.25); padding: 12px; }
+  .odds-top { display: flex; justify-content: space-between; align-items: center; }
+  .odds-top b { font-size: 11px; color: #f5d67b; }
+  .odds-top .pct { font-size: 17px; font-weight: 900; font-family: 'Courier New', monospace; color: #f5d67b; }
+  .odds-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.1); margin-top: 9px; overflow: hidden; }
+  .odds-bar i { display: block; height: 100%; width: 33%; border-radius: 99px; background: linear-gradient(90deg, #f5d67b, #d4a017); }
+  .odds-sub { display: flex; justify-content: space-between; font-size: 8px; color: #9a93b0; margin-top: 7px; font-weight: 700; }
+
+  .sheet-actions { display: flex; gap: 8px; padding: 0 14px 14px; }
+  .sabtn { flex: 1; text-align: center; padding: 12px; border-radius: 13px; font-size: 10.5px; font-weight: 900; cursor: pointer; }
+  .sa-primary { background: linear-gradient(135deg, #f5d67b, #d4a017); color: #1a1206; }
+  .sa-ghost { background: rgba(255,255,255,0.06); color: #c8c8e0; border: 1px solid rgba(255,255,255,0.12); }
+  .sa-locked { background: rgba(251,113,133,0.08); color: #fb7185; border: 1px solid rgba(251,113,133,0.3); }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option B · The Marquee — poster wall with tier ribbons + competition dots</div>
+  <div class="wrap">
+    <div class="spot"></div>
+    <div class="inner">
+      <div class="head">
+        <h2>✦ The Marquee ✦</h2>
+        <div class="sub">TONIGHT'S CASTING CALLS · SUBMISSIONS COMPETITIVE</div>
+        <div class="you-strip">
+          <span class="you-chip warn">★ EMERGING · 180 XP</span>
+          <span class="you-chip">ACTING 34</span>
+          <span class="you-chip bad">NON-UNION</span>
+          <span class="you-chip">⚡ 62</span>
+        </div>
+      </div>
+
+      <div class="filters">
+        <div class="chip on">ALL 18</div>
+        <div class="chip">FOR YOU 4</div>
+        <div class="chip">LOCKED 9</div>
+        <div class="chip">STUDIO FILMS</div>
+      </div>
+
+      <div class="grid">
+        <div class="poster-card" style="animation-delay:0.05s">
+          <div class="poster p1">🕯️
+            <span class="tier-ribbon tr-open">OPEN · LEAD</span>
+            <span class="real-dot">◉ A24 · REAL</span>
+          </div>
+          <div class="pc-body">
+            <b>Midnight Catechism</b>
+            <span>Horror · $18M · 7 wks</span>
+            <div class="pc-foot">
+              <span class="salary">$85K</span>
+              <span class="dots"><i></i><i></i><i></i><i></i><i style="opacity:.3"></i><i style="opacity:.3"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="poster-card" style="animation-delay:0.12s">
+          <div class="poster p3">🦞
+            <span class="tier-ribbon tr-sub">SUBMITTED · WK 2/3</span>
+            <span class="real-dot">◉ A24 · REAL</span>
+          </div>
+          <div class="pc-body">
+            <b>The Lobster Theory</b>
+            <span>Drama · $9M · 5 wks</span>
+            <div class="pc-foot">
+              <span class="salary">$22K</span>
+              <span class="dots"><i></i><i></i><i></i><i style="opacity:.3"></i><i style="opacity:.3"></i><i style="opacity:.3"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="poster-card" style="animation-delay:0.19s">
+          <div class="poster p4">⚡
+            <span class="tier-ribbon tr-locked">🔒 FAME 800</span>
+          </div>
+          <div class="pc-body">
+            <b>Untitled Marvel Project</b>
+            <span>Action · $220M · Disney</span>
+            <div class="pc-foot">
+              <span class="salary" style="color:#fb7185">$2.4M</span>
+              <span class="lock-note">LOCKED</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="poster-card" style="animation-delay:0.26s">
+          <div class="poster p2">🎭
+            <span class="tier-ribbon tr-locked">🔒 SAG ONLY</span>
+            <span class="real-dot" style="color:#4ade80">◉ MSLF · REAL</span>
+          </div>
+          <div class="pc-body">
+            <b>Velvet Hour</b>
+            <span>Drama · $46M · 9 wks</span>
+            <div class="pc-foot">
+              <span class="salary" style="color:#fb7185">$140K</span>
+              <span class="lock-note">LOCKED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option B · Casting Sheet — gate checklist + booking odds strip</div>
+  <div class="wrap">
+    <div class="spot"></div>
+    <div class="inner">
+      <div class="sheet">
+        <div class="sheet-poster">🕯️<span class="real-dot" style="top:10px;right:10px">◉ A24 (REAL STUDIO)</span></div>
+        <div class="sheet-h">
+          <div>
+            <b>Midnight Catechism</b>
+            <span>LEAD · HORROR · DIR. JORDAN PEELE · 7 WKS FILMING</span>
+          </div>
+          <div class="sal"><b>$85,000</b><span>BASE SALARY</span></div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-title">CASTING GATES <small>ALL MUST PASS TO SUBMIT</small></div>
+          <div class="g-item">
+            <div class="g-ic g-pass">★</div>
+            <div class="g-main"><b>Fame XP</b><span>CD reads unknowns for leads at this budget — 120 minimum</span></div>
+            <span class="g-val v-pass">180 / 120 ✓</span>
+          </div>
+          <div class="g-item">
+            <div class="g-ic g-pass">🎭</div>
+            <div class="g-main"><b>Acting Skill</b><span>Horror lead demands range — 25 minimum</span></div>
+            <span class="g-val v-pass">34 / 25 ✓</span>
+          </div>
+          <div class="g-item">
+            <div class="g-ic g-pass">🎬</div>
+            <div class="g-main"><b>Screen Credits</b><span>2 completed projects minimum</span></div>
+            <span class="g-val v-pass">3 / 2 ✓</span>
+          </div>
+          <div class="g-item">
+            <div class="g-ic g-info">⚡</div>
+            <div class="g-main"><b>Energy</b><span>Self-tape + callback reserves</span></div>
+            <span class="g-val v-info">62 / 20 ✓</span>
+          </div>
+        </div>
+
+        <div class="odds-strip">
+          <div class="odds-top"><b>BOOKING ODDS</b><span class="pct">33%</span></div>
+          <div class="odds-bar"><i></i></div>
+          <div class="odds-sub"><span>34 NPC ACTORS AUDITIONING</span><span>YOUR EDGE: +12% FAME</span><span>DECISION ~3 WKS</span></div>
+        </div>
+
+        <div class="sheet-actions">
+          <div class="sabtn sa-ghost">SAVE</div>
+          <div class="sabtn sa-primary">SUBMIT AUDITION (−20⚡)</div>
+        </div>
+      </div>
+
+      <div class="sheet" style="margin-top:12px">
+        <div class="sheet-poster" style="height:90px;background:linear-gradient(160deg,#1b2230,#080b12)">⚡
+          <span class="tier-ribbon tr-locked">🔒 LOCKED</span>
+        </div>
+        <div class="sheet-h">
+          <div><b>Untitled Marvel Project</b><span>LEAD · ACTION · DISNEY · $220M</span></div>
+          <div class="sal"><b style="color:#fb7185">$2.4M</b><span>BASE SALARY</span></div>
+        </div>
+        <div class="gate">
+          <div class="g-item">
+            <div class="g-ic g-fail">★</div>
+            <div class="g-main"><b>Fame XP — 800 required</b><span>You're at 180. Studio tentpoles don't read Emerging talent.</span></div>
+            <span class="g-val v-fail">180 / 800 ✕</span>
+          </div>
+          <div class="g-item">
+            <div class="g-ic g-fail">🎭</div>
+            <div class="g-main"><b>Acting Skill — 70 required</b><span>Train at acting school to raise this gate.</span></div>
+            <span class="g-val v-fail">34 / 70 ✕</span>
+          </div>
+          <div class="g-item">
+            <div class="g-ic g-fail">🤝</div>
+            <div class="g-main"><b>SAG-AFTRA + Agent required</b><span>4 lead roles for the union. Agent pitches unlock at Fame 250.</span></div>
+            <span class="g-val v-fail">MISSING ✕</span>
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <div class="sabtn sa-locked">🔒 REQUIREMENTS NOT MET — 3 GATES FAILED</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -6,6 +6,7 @@
 
 import { Player, InboxMessage } from '../types/game';
 import { SocialPost, HiredWriter, PremiumState, RedditPost, RedditComment, TelegramStory, MarqueeJob } from '../types/world';
+import { monthOfWeek, closingMonthOfWeek } from '../utils/calendar';
 import { RepresentationService } from './representationService';
 
 export type PlatformType = 'Twitter' | 'Facebook' | 'Instagram' | 'Reddit' | 'YouTube' | 'Telegram';
@@ -649,7 +650,13 @@ export interface SocialsState {
   twitterAccruedLastWeek?: number;
   /** How many manual feed posts have been converted into tracked creator tweets */
   twitterTrackedFeedCount?: number;
+  /** Global monthly social earnings tracker — hard cap $25K, floor $5K when active */
+  socialMonthlyEarnings?: { year: number; month: string; accrued: number; postsCounted: number };
 }
+
+/** Monthly social-earnings envelope: real-engine range $5,000-$25,000 */
+export const SOCIAL_MONTHLY_CAP = 25000;
+export const SOCIAL_MONTHLY_FLOOR = 5000;
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
 
@@ -931,6 +938,9 @@ export class SocialsService {
           // Seed the tracked count so OLD feed posts don't retroactively convert
           if (typeof this.state.twitterTrackedFeedCount !== 'number') {
             this.state.twitterTrackedFeedCount = (this.state.playerPosts?.Twitter?.length) || 0;
+          }
+          if (!this.state.socialMonthlyEarnings) {
+            this.state.socialMonthlyEarnings = { year: this.state.lastProcessedYear || 2026, month: 'January', accrued: 0, postsCounted: 0 };
           }
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
@@ -1218,6 +1228,24 @@ export class SocialsService {
       youtubeScheduled: [],
       youtubeLifetimeUploads: 0,
       youtubeUploadStreak: 0,
+      instagramAuthorityXp: 0,
+      instagramBalance: 0,
+      instagramPendingPayouts: [],
+      instagramScheduled: [],
+      instagramCreatorPosts: [],
+      instagramLifetimePosts: 0,
+      instagramPostStreak: 0,
+      instagramAccruedLastWeek: 0,
+      twitterAuthorityXp: 0,
+      twitterBalance: 0,
+      twitterPendingPayouts: [],
+      twitterScheduled: [],
+      twitterCreatorPosts: [],
+      twitterLifetimePosts: 0,
+      twitterPostStreak: 0,
+      twitterAccruedLastWeek: 0,
+      twitterTrackedFeedCount: 0,
+      socialMonthlyEarnings: { year: 2026, month: 'January', accrued: 0, postsCounted: 0 },
       youtubeReviewWeeksLeft: 0,
       youtubeCommunityStrikes: 0,
       youtubeCopyrightStrikes: 0,
@@ -1469,6 +1497,16 @@ export class SocialsService {
     instagramAccruedToBank?: number;
   } {
     const state = this.getState();
+
+    // ---- MONTHLY SOCIAL EARNINGS TRACKER ----
+    // One global envelope across all platforms: real-engine range
+    // $5,000 (active floor) to $25,000 (hard cap). Rolls over on month
+    // change; month-end payouts are handled at section 7h.
+    const monthNow = monthOfWeek(player.dateWeek || 1);
+    if (!state.socialMonthlyEarnings || state.socialMonthlyEarnings.month !== monthNow || state.socialMonthlyEarnings.year !== (player.dateYear || 2026)) {
+      state.socialMonthlyEarnings = { year: player.dateYear || 2026, month: monthNow, accrued: 0, postsCounted: 0 };
+    }
+    const remainingMonthlyCap = (): number => Math.max(0, SOCIAL_MONTHLY_CAP - (state.socialMonthlyEarnings?.accrued || 0));
 
     // Hired writers — each retained for ONE platform (posting handled below).
     // Player manual posts are capped at SocialsService.PLAYER_POSTS_PER_WEEK per platform.
@@ -1791,6 +1829,7 @@ export class SocialsService {
           state.youtubeAuthorityXp = (state.youtubeAuthorityXp || 0) + 9 + (sched.algoScore >= 70 ? 5 : 0);
           state.youtubeLifetimeUploads = (state.youtubeLifetimeUploads || 0) + 1;
           state.youtubeUploadStreak = (state.youtubeUploadStreak || 0) + 1;
+          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
           return false;
         }
         return true;
@@ -1853,12 +1892,14 @@ export class SocialsService {
           totalNewSubsThisWeek += newSubs;
         }
 
-        // Monetized revenue accrues to the YT MINI-BANK (not the wallet)
-        if (state.youtubeMonetizationStatus === 'APPROVED' && newViews > 0) {
+        // Monetized revenue accrues to the YT MINI-BANK (not the wallet),
+        // clamped by the global $25K monthly social envelope
+        if (state.youtubeMonetizationStatus === 'APPROVED' && newViews > 0 && remainingMonthlyCap() > 0) {
           const rpm = tier.rpm + Math.random() * 0.8;
-          const rev = Math.floor((newViews / 1000) * rpm);
+          const rev = Math.min(Math.floor((newViews / 1000) * rpm), remainingMonthlyCap());
           vid.estimatedRevenue += rev;
           totalYtRevenueThisWeek += rev;
+          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
         }
       });
 
@@ -1919,7 +1960,9 @@ export class SocialsService {
     if (state.createdPlatforms.Instagram) {
       const igTier = igAuthorityTier(state.instagramAuthorityXp || 0);
       const igFollowersNow = state.followers.Instagram || 0;
-      const igBonusActive = igFollowersNow >= 10000;
+      // REVENUE GATE: Gram Creator Bonuses require an ACTIVE PREMIUM
+      // subscription — paying for premium is the only way posts earn.
+      const igBonusActive = PremiumService.getActive(state);
 
       // Publish scheduled posts due this week (real feed posts + graded records)
       const igPublished: InstagramCreatorPost[] = [];
@@ -1935,6 +1978,7 @@ export class SocialsService {
         state.instagramAuthorityXp = (state.instagramAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
         state.instagramLifetimePosts = (state.instagramLifetimePosts || 0) + 1;
         state.instagramPostStreak = (state.instagramPostStreak || 0) + 1;
+        if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
       }
       if (igPublished.length === 0 && (state.instagramLifetimePosts || 0) > 0) {
         state.instagramAuthorityXp = Math.max(0, (state.instagramAuthorityXp || 0) - 4);
@@ -1972,11 +2016,13 @@ export class SocialsService {
         post.followersGained = (post.followersGained || 0) + wkFollowers;
         igNewFollowers += wkFollowers;
 
-        // Creator Bonus revenue → IG mini-bank (10K+ real followers only)
-        if (igBonusActive && wkReach > 0) {
-          const rev = Math.floor((wkReach / 1000) * (igTier.rpm + Math.random() * 0.6));
+        // Creator Bonus revenue → IG mini-bank (PREMIUM subscribers only,
+        // clamped by the global $25K monthly envelope)
+        if (igBonusActive && wkReach > 0 && remainingMonthlyCap() > 0) {
+          const rev = Math.min(Math.floor((wkReach / 1000) * (igTier.rpm + Math.random() * 0.6)), remainingMonthlyCap());
           post.revenue = (post.revenue || 0) + rev;
           igAccruedThisWeek += rev;
+          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
         }
       }
       if (igNewFollowers > 0) {
@@ -2014,7 +2060,9 @@ export class SocialsService {
     if (state.createdPlatforms.Twitter) {
       const twTier = twAuthorityTier(state.twitterAuthorityXp || 0);
       const twFollowersNow = state.followers.Twitter || 0;
-      const twPayoutsActive = twFollowersNow >= TW_PAYOUT_FOLLOWER_GATE;
+      // REVENUE GATE: ads revenue requires an ACTIVE PREMIUM subscription —
+      // paying for premium is the only way tweets earn.
+      const twPayoutsActive = PremiumService.getActive(state);
 
       // Publish scheduled tweets due this week (scheduling API still available)
       const twPublished: TwitterCreatorPost[] = [];
@@ -2060,6 +2108,7 @@ export class SocialsService {
         state.twitterAuthorityXp = (state.twitterAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
         state.twitterLifetimePosts = (state.twitterLifetimePosts || 0) + 1;
         state.twitterPostStreak = (state.twitterPostStreak || 0) + 1;
+        if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
       }
       if (twPublished.length === 0 && (state.twitterLifetimePosts || 0) > 0) {
         state.twitterAuthorityXp = Math.max(0, (state.twitterAuthorityXp || 0) - 4);
@@ -2098,11 +2147,13 @@ export class SocialsService {
         post.followersGained = (post.followersGained || 0) + wkFollowers;
         twNewFollowers += wkFollowers;
 
-        // Ad-revenue payouts → X mini-bank (5K+ real followers only)
-        if (twPayoutsActive && wkImps > 0) {
-          const rev = Math.floor((wkImps / 1000) * (twTier.rpm + Math.random() * 0.6));
+        // Ad-revenue payouts → X mini-bank (PREMIUM subscribers only,
+        // clamped by the global $25K monthly envelope)
+        if (twPayoutsActive && wkImps > 0 && remainingMonthlyCap() > 0) {
+          const rev = Math.min(Math.floor((wkImps / 1000) * (twTier.rpm + Math.random() * 0.6)), remainingMonthlyCap());
           post.revenue = (post.revenue || 0) + rev;
           twAccrued += rev;
+          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
         }
       }
       if (twNewFollowers > 0) {
@@ -2126,6 +2177,71 @@ export class SocialsService {
         return true;
       });
       twPayoutArrivals.push(...twArrivals);
+    }
+
+    // 7h. MONTH-END SOCIAL PAYOUT — the ONLY way bank money leaves. On the
+    //     closing week of each month: active creators get the $5K floor
+    //     top-up if under it, every platform balance pays out automatically
+    //     (YouTube is the ONLY platform taxed at 20%), and each payout
+    //     clears to the wallet in 1-5 weeks with an inbox notice.
+    const closingMonth = closingMonthOfWeek(player.dateWeek || 1, (player.dateWeek || 1) === 52);
+    if (closingMonth) {
+      const me = state.socialMonthlyEarnings!;
+      const premiumActive = PremiumService.getActive(state);
+      const ytMonetized = state.youtubeMonetizationStatus === 'APPROVED';
+      const eligibleForFloor = (premiumActive || ytMonetized) && me.postsCounted >= 2;
+
+      // $5,000 monthly floor for active premium/monetized creators
+      if (eligibleForFloor && me.accrued < SOCIAL_MONTHLY_FLOOR) {
+        const topUp = SOCIAL_MONTHLY_FLOOR - me.accrued;
+        me.accrued = SOCIAL_MONTHLY_FLOOR;
+        if (ytMonetized && state.createdPlatforms.YouTube) state.youtubeBalance = (state.youtubeBalance || 0) + topUp;
+        else if (premiumActive && state.createdPlatforms.Instagram) state.instagramBalance = (state.instagramBalance || 0) + topUp;
+        else if (premiumActive && state.createdPlatforms.Twitter) state.twitterBalance = (state.twitterBalance || 0) + topUp;
+        socialPosts.push(`🏦 CREATOR SUPPORT: monthly earnings topped up to the $${SOCIAL_MONTHLY_FLOOR.toLocaleString()} floor (active creator minimum).`);
+      }
+
+      // Auto-payout every platform balance — YouTube taxed, others not
+      const startPending = (
+        arr: YouTubePendingPayout[] | undefined,
+        gross: number,
+        tax: number,
+        platform: 'YouTube' | 'Instagram' | 'Twitter',
+      ) => {
+        const net = gross - tax;
+        const weeks = 1 + Math.floor(Math.random() * 5);
+        const list = arr || [];
+        list.push({
+          id: `mp_${platform}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          gross, taxWithheld: tax, net,
+          weeksRemaining: weeks, totalWeeks: weeks,
+          requestedWeek: player.dateWeek || 1, requestedYear: player.dateYear || 2026,
+        });
+        return list;
+      };
+
+      const ytBal = state.youtubeBalance || 0;
+      if (ytBal > 0) {
+        const tax = Math.round(ytBal * YT_PAYOUT_TAX_PCT);
+        state.youtubePendingPayouts = startPending(state.youtubePendingPayouts, ytBal, tax, 'YouTube');
+        state.youtubeBalance = 0;
+        socialPosts.push(`🏦 MONTH-END PAYOUT: YouTube $${ytBal.toLocaleString()} — $${tax.toLocaleString()} tax withheld (20%). Clears in 1-5 weeks.`);
+      }
+      const igBal = state.instagramBalance || 0;
+      if (igBal > 0) {
+        state.instagramPendingPayouts = startPending(state.instagramPendingPayouts, igBal, 0, 'Instagram');
+        state.instagramBalance = 0;
+        socialPosts.push(`🏦 MONTH-END PAYOUT: Instagram $${igBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
+      }
+      const twBal = state.twitterBalance || 0;
+      if (twBal > 0) {
+        state.twitterPendingPayouts = startPending(state.twitterPendingPayouts, twBal, 0, 'Twitter');
+        state.twitterBalance = 0;
+        socialPosts.push(`🏦 MONTH-END PAYOUT: X $${twBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
+      }
+      if (ytBal === 0 && igBal === 0 && twBal === 0 && !eligibleForFloor) {
+        socialPosts.push(`🏦 MONTH-END: no social payout — banks are empty. Posts only earn revenue with Premium (or YouTube monetization).`);
+      }
     }
 
     const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter((p) => state.createdPlatforms[p]);

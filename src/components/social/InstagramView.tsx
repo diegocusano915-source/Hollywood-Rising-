@@ -17,6 +17,7 @@ import {
   igAuthorityTier,
   computeIgAlgoScore,
   InstagramCreatorPost,
+  PremiumService,
 } from '../../services/socialsService';
 
 const POST_TYPES: Array<{ t: InstagramCreatorPost['postType']; icon: string; name: string; meta: string; lockFollowers?: number }> = [
@@ -64,7 +65,7 @@ export const InstagramView: React.FC<{ onBack: () => void }> = () => {
   const scheduled = state.instagramScheduled || [];
   const pendingPayouts = state.instagramPendingPayouts || [];
   const balance = state.instagramBalance || 0;
-  const bonusActive = followers >= 10000;
+  const bonusActive = PremiumService.getActive(state);
 
   const latestMovie = releasedMovies[0];
   const filming = (saveData.bookedProjects || []).some((b: any) => !b.isFilmingComplete);
@@ -291,48 +292,39 @@ export const InstagramView: React.FC<{ onBack: () => void }> = () => {
             </div>
           </div>
 
-          {/* bonus gate — REAL follower count */}
+          {/* monthly envelope */}
+          <div className="rounded-2xl border border-white/10 bg-black/40 p-3.5 space-y-2">
+            <div className="flex justify-between items-center">
+              <b className="text-[10px] text-gray-200">This Month (all platforms)</b>
+              <span className="text-[8px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-full">CAP $25,000</span>
+            </div>
+            <div className="flex justify-between text-[9px]"><span className="text-gray-400">Accrued so far</span><b className="font-mono text-gray-100">${(state.socialMonthlyEarnings?.accrued || 0).toLocaleString()}</b></div>
+            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <i className="block h-full bg-emerald-500" style={{ width: `${Math.min(100, ((state.socialMonthlyEarnings?.accrued || 0) / 25000) * 100)}%` }} />
+            </div>
+            <p className="text-[8px] text-gray-500 leading-relaxed">PAYOUTS ARE AUTOMATIC — the bank pays out on the last week of every month (no withdrawals before then). Active creators earn between the $5,000 floor and the $25,000 cap depending on reach. Instagram payouts are <b className="text-emerald-300">TAX-FREE</b> — only YouTube is taxed.</p>
+          </div>
+
+          {/* premium gate — the revenue requirement */}
           <div className="rounded-2xl border border-white/10 bg-black/40 p-3.5">
             <div className="flex justify-between items-center mb-2">
               <b className="text-[10px] text-gray-200">Creator Bonuses</b>
               <span className={`text-[8px] font-black px-2.5 py-1 rounded-full ${bonusActive ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/40' : 'bg-white/5 text-gray-400 border border-white/15'}`}>
-                {bonusActive ? 'ACTIVE' : 'LOCKED'}
+                {bonusActive ? 'EARNING' : 'PREMIUM REQUIRED'}
               </span>
             </div>
-            <div className="flex justify-between text-[8px]"><span className="text-gray-400">Real followers</span><b className="font-mono">{followers.toLocaleString()} / 10,000</b></div>
-            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mt-1.5">
-              <i className="block h-full bg-pink-500" style={{ width: `${Math.min(100, (followers / 10000) * 100)}%` }} />
-            </div>
-            {!bonusActive && <p className="text-[8px] text-gray-500 mt-2">Bonuses unlock at 10,000 REAL followers — reach converts at 0.6-1.2% on every post.</p>}
+            {!bonusActive && <p className="text-[8px] text-gray-500 leading-relaxed">Posts only generate revenue with an ACTIVE PREMIUM subscription. Subscribe from the Premium panel — followers alone don't pay anymore.</p>}
+            {bonusActive && <p className="text-[8px] text-emerald-300/80 leading-relaxed">Premium active — every creator post earns Creator Bonus revenue into this bank.</p>}
           </div>
 
-          {bonusActive && (
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-3.5 space-y-2.5">
-              <b className="text-[10px] text-gray-200 block">TRANSFER TO WALLET</b>
-              <p className="text-[8px] text-gray-500 leading-relaxed">20% tax withheld at request. Clears in 1-5 weeks — inbox notice when funds land.</p>
-              <div className="flex gap-2">
-                <input type="number" value={payoutAmt} onChange={(e) => setPayoutAmt(e.target.value)} placeholder="Amount"
-                  className="flex-1 min-w-0 bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-[12px] font-mono text-white outline-none" />
-                <button onClick={() => setPayoutAmt(String(balance))} className="px-3 rounded-xl bg-white/10 border border-white/15 text-[9px] font-black text-gray-200 cursor-pointer">MAX</button>
-              </div>
-              {payoutAmt && (
-                <div className="bg-white/[0.03] border border-white/10 rounded-xl p-2.5 text-[8.5px] font-mono space-y-1">
-                  <div className="flex justify-between text-gray-400"><span>Gross</span><b className="text-gray-200">${(parseInt(payoutAmt) || 0).toLocaleString()}</b></div>
-                  <div className="flex justify-between text-gray-400"><span>Tax (20%)</span><b className="text-rose-300">−${Math.round((parseInt(payoutAmt) || 0) * 0.2).toLocaleString()}</b></div>
-                  <div className="flex justify-between text-gray-400 border-t border-white/10 pt-1"><span>You receive (1-5 wks)</span><b className="text-emerald-300">${((parseInt(payoutAmt) || 0) - Math.round((parseInt(payoutAmt) || 0) * 0.2)).toLocaleString()}</b></div>
-                </div>
-              )}
-              <button onClick={doPayout} className="w-full py-3 rounded-xl bg-emerald-500 text-emerald-950 text-[11px] font-black cursor-pointer">REQUEST TRANSFER</button>
-            </div>
-          )}
-
+          {/* pending payouts */}
           {pendingPayouts.length > 0 && (
             <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-3.5 space-y-2">
-              <b className="text-[9px] font-black text-amber-300 tracking-[1.5px] block">⏳ TRANSFERS IN FLIGHT</b>
+              <b className="text-[9px] font-black text-amber-300 tracking-[1.5px] block">⏳ MONTH-END PAYOUTS CLEARING</b>
               {pendingPayouts.map((p) => (
                 <div key={p.id}>
                   <div className="flex justify-between text-[8.5px] font-mono mb-1">
-                    <span className="text-gray-300">${p.net.toLocaleString()} clearing</span>
+                    <span className="text-gray-300">${p.net.toLocaleString()} clearing (no tax)</span>
                     <span className="text-amber-300">{p.weeksRemaining} wk{p.weeksRemaining > 1 ? 's' : ''} left</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">

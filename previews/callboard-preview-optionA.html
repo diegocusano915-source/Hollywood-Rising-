@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A — Casting Breakdowns</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0c10; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #dde3ec; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #6b7484; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+  .up { color: #3ddc97; } .down { color: #ff5b6e; } .warn { color: #f5b942; }
+
+  .panel { background: #0e1117; border: 1px solid #1b212c; border-radius: 18px; overflow: hidden; }
+  .head { padding: 14px 16px; border-bottom: 1px solid #1b212c; }
+  .head h2 { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+  .head .sub { font-size: 8.5px; color: #6b7484; margin-top: 2px; letter-spacing: 1.5px; }
+  .profile-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; padding: 10px 14px; background: #0b0e14; border-bottom: 1px solid #1b212c; }
+  .profile-strip div { text-align: center; }
+  .profile-strip span { font-size: 7.5px; color: #6b7484; letter-spacing: 1px; display: block; }
+  .profile-strip b { font-size: 11.5px; font-family: 'Courier New', monospace; }
+
+  .filters { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid #1b212c; }
+  .chip { font-size: 9px; font-weight: 900; padding: 6px 11px; border-radius: 99px; background: #131824; color: #8b96a8; border: 1px solid #1b212c; white-space: nowrap; }
+  .chip.on { background: #f5b942; color: #1a1206; border-color: #f5b942; }
+
+  /* breakdown sheet row */
+  .bd { padding: 13px 16px; border-bottom: 1px solid #141924; }
+  .bd:last-child { border: none; }
+  .bd-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .bd-title { flex: 1; min-width: 0; }
+  .bd-title b { font-size: 13px; display: block; }
+  .bd-title span { font-size: 8.5px; color: #6b7484; display: block; margin-top: 2px; }
+  .studio-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 7.5px; font-weight: 900; padding: 2px 7px; border-radius: 5px; letter-spacing: 0.5px; }
+  .st-real { background: #3ddc9718; color: #3ddc97; border: 1px solid #3ddc9735; }
+  .st-gen { background: #8b96a818; color: #8b96a8; border: 1px solid #8b96a825; }
+
+  .status { font-size: 8px; font-weight: 900; letter-spacing: 1px; padding: 4px 10px; border-radius: 6px; text-align: center; flex-shrink: 0; }
+  .st-open { background: #3ddc9718; color: #3ddc97; border: 1px solid #3ddc9740; }
+  .st-locked { background: #ff5b6e15; color: #ff5b6e; border: 1px solid #ff5b6e35; }
+  .st-submitted { background: #f5b94215; color: #f5b942; border: 1px solid #f5b94235; }
+
+  .req-row { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+  .req { font-size: 7.5px; font-weight: 900; padding: 3px 8px; border-radius: 5px; display: inline-flex; align-items: center; gap: 3px; }
+  .req.pass { background: #3ddc9712; color: #7dd3a8; border: 1px solid #3ddc9730; }
+  .req.fail { background: #ff5b6e12; color: #ff5b6e; border: 1px solid #ff5b6e30; }
+  .req.info { background: #ffffff08; color: #8b96a8; border: 1px solid #ffffff12; }
+
+  .comp { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  .comp-bar { flex: 1; height: 5px; border-radius: 99px; background: #1b212c; overflow: hidden; }
+  .comp-bar i { display: block; height: 100%; border-radius: 99px; }
+  .comp-txt { font-size: 8px; font-weight: 900; font-family: 'Courier New', monospace; white-space: nowrap; }
+
+  .bd-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .abtn { flex: 1; text-align: center; padding: 9px; border-radius: 9px; font-size: 9.5px; font-weight: 900; cursor: pointer; letter-spacing: 0.5px; }
+  .abtn.primary { background: #f5b942; color: #1a1206; }
+  .abtn.ghost { background: #0b0e14; color: #8b96a8; border: 1px solid #1b212c; }
+  .abtn.disabled { background: #141924; color: #556074; cursor: not-allowed; }
+
+  /* detail sheet */
+  .sheet-head { padding: 16px; border-bottom: 1px solid #1b212c; display: flex; justify-content: space-between; }
+  .sheet-head .t b { font-size: 16px; display: block; }
+  .sheet-head .t span { font-size: 9px; color: #6b7484; }
+  .salary { text-align: right; }
+  .salary b { font-size: 20px; font-family: 'Courier New', monospace; color: #3ddc97; }
+  .salary span { font-size: 7.5px; color: #6b7484; display: block; letter-spacing: 1px; }
+
+  .checklist { padding: 14px 16px; border-bottom: 1px solid #1b212c; }
+  .checklist h4 { font-size: 9.5px; font-weight: 900; letter-spacing: 2px; color: #8b96a8; margin-bottom: 10px; }
+  .chk { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #141924; font-size: 10.5px; }
+  .chk:last-child { border: none; }
+  .chk .l { color: #b9c1cf; }
+  .chk .l small { display: block; font-size: 8px; color: #6b7484; }
+  .chk b { font-family: 'Courier New', monospace; font-size: 11px; }
+  .verdict { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 10px; font-weight: 800; line-height: 1.5; }
+  .verdict.fail { background: #ff5b6e12; border: 1px solid #ff5b6e35; color: #ff9daa; }
+  .verdict.pass { background: #3ddc9712; border: 1px solid #3ddc9735; color: #7dd3a8; }
+
+  .odds-box { padding: 14px 16px; }
+  .odds-row { display: flex; align-items: center; gap: 12px; }
+  .odds-ring { width: 84px; height: 84px; border-radius: 50%; background: conic-gradient(#f5b942 0deg 118deg, #1b212c 118deg 360deg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .odds-ring .in { width: 64px; height: 64px; border-radius: 50%; background: #0e1117; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .odds-ring .in b { font-size: 19px; font-family: 'Courier New', monospace; color: #f5b942; }
+  .odds-ring .in span { font-size: 6.5px; color: #6b7484; letter-spacing: 1px; }
+  .odds-stats { flex: 1; }
+  .os { display: flex; justify-content: space-between; font-size: 9.5px; padding: 4px 0; }
+  .os span { color: #6b7484; } .os b { font-family: 'Courier New', monospace; }
+
+  .rejection { margin: 14px 16px; padding: 12px 14px; border-radius: 12px; background: #141924; border: 1px solid #1b212c; }
+  .rejection b { font-size: 10px; color: #ff9daa; display: block; margin-bottom: 4px; }
+  .rejection p { font-size: 9.5px; color: #8b96a8; line-height: 1.55; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option A · Casting Breakdowns — the professional board (requirements + competition + odds)</div>
+  <div class="panel">
+    <div class="head">
+      <h2>📋 CASTING BREAKDOWNS</h2>
+      <div class="sub">SUBMISSIONS CLOSE WEEKLY · CDs REVIEW EVERY ROLE · NO GUARANTEES</div>
+    </div>
+
+    <div class="profile-strip">
+      <div><span>FAME TIER</span><b class="warn">EMERGING</b></div>
+      <div><span>FAME XP</span><b>180</b></div>
+      <div><span>ACTING</span><b>34</b></div>
+      <div><span>UNION</span><b class="down">NON-SAG</b></div>
+    </div>
+
+    <div class="filters">
+      <div class="chip on">ALL (18)</div>
+      <div class="chip">ELIGIBLE (4)</div>
+      <div class="chip">LOCKED (9)</div>
+      <div class="chip">SUBMITTED (2)</div>
+      <div class="chip">STUDIO FILMS</div>
+    </div>
+
+    <!-- Eligible -->
+    <div class="bd">
+      <div class="bd-top">
+        <div class="bd-title">
+          <b>Midnight Catechism</b>
+          <span>Lead · Horror · $18M · 7 wks filming · Dir. Jordan Peele</span>
+          <span style="margin-top:4px"><span class="studio-tag st-real">◉ REAL STUDIO · A24 (A24)</span></span>
+        </div>
+        <span class="status st-open">ELIGIBLE</span>
+      </div>
+      <div class="req-row">
+        <span class="req pass">✓ FAME 120 (you 180)</span>
+        <span class="req pass">✓ ACTING 25 (you 34)</span>
+        <span class="req info">◆ 20 ENERGY</span>
+      </div>
+      <div class="comp">
+        <div class="comp-bar"><i style="width:64%; background:linear-gradient(90deg,#f5b942,#e08f2b)"></i></div>
+        <span class="comp-txt warn">34 AUDITIONING · ODDS 33%</span>
+      </div>
+      <div class="bd-actions">
+        <div class="abtn ghost">DETAILS</div>
+        <div class="abtn primary">SUBMIT AUDITION (−20⚡)</div>
+      </div>
+    </div>
+
+    <!-- Locked: fame -->
+    <div class="bd">
+      <div class="bd-top">
+        <div class="bd-title">
+          <b>Untitled Marvel Project</b>
+          <span>Lead · Action · $220M · 14 wks · Dir. N/A</span>
+          <span style="margin-top:4px"><span class="studio-tag st-real">◉ REAL STUDIO · Disney (DIS)</span></span>
+        </div>
+        <span class="status st-locked">LOCKED</span>
+      </div>
+      <div class="req-row">
+        <span class="req fail">✕ FAME 800 (you 180)</span>
+        <span class="req fail">✕ ACTING 70 (you 34)</span>
+        <span class="req fail">✕ SAG-AFTRA REQUIRED</span>
+        <span class="req fail">✕ AGENT REQUIRED</span>
+      </div>
+      <div class="bd-actions">
+        <div class="abtn disabled">🔒 REQUIREMENTS NOT MET</div>
+      </div>
+    </div>
+
+    <!-- Locked: union -->
+    <div class="bd">
+      <div class="bd-top">
+        <div class="bd-title">
+          <b>Velvet Hour</b>
+          <span>Principal · Drama · $46M · 9 wks · Dir. Denis Villeneuve</span>
+          <span style="margin-top:4px"><span class="studio-tag st-real">◉ REAL STUDIO · Meridian (MSLF)</span></span>
+        </div>
+        <span class="status st-locked">LOCKED</span>
+      </div>
+      <div class="req-row">
+        <span class="req pass">✓ FAME 300 (you 180)</span>
+        <span class="req fail">✕ SAG-AFTRA REQUIRED (4 lead roles needed)</span>
+      </div>
+      <div class="bd-actions">
+        <div class="abtn disabled">🔒 JOIN UNION TO UNLOCK</div>
+      </div>
+    </div>
+
+    <!-- Submitted -->
+    <div class="bd">
+      <div class="bd-top">
+        <div class="bd-title">
+          <b>The Lobster Theory</b>
+          <span>Support · Drama · $9M · 5 wks · Dir. Greta Gerwig</span>
+          <span style="margin-top:4px"><span class="studio-tag st-real">◉ REAL STUDIO · A24 (A24)</span></span>
+        </div>
+        <span class="status st-submitted">SUBMITTED · WK 2/3</span>
+      </div>
+      <div class="comp">
+        <div class="comp-bar"><i style="width:41%; background:linear-gradient(90deg,#3ddc97,#2aa876)"></i></div>
+        <span class="comp-txt up">18 AUDITIONING · ODDS 55%</span>
+      </div>
+      <div class="bd-actions">
+        <div class="abtn ghost">WAITING ON CASTING DIRECTOR…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · Breakdown Sheet — full requirements checklist + booking odds</div>
+  <div class="panel">
+    <div class="sheet-head">
+      <div class="t">
+        <b>Midnight Catechism</b>
+        <span>LEAD · HORROR · A24 (REAL STUDIO · A24)</span>
+      </div>
+      <div class="salary"><b>$85,000</b><span>BASE SALARY</span></div>
+    </div>
+
+    <div class="checklist">
+      <h4>✓ CASTING REQUIREMENTS — ALL MUST PASS</h4>
+      <div class="chk">
+        <span class="l">Fame XP <small>CD won't read unknowns for a lead this size</small></span>
+        <b class="up">180 / 120 ✓</b>
+      </div>
+      <div class="chk">
+        <span class="l">Acting Skill <small>Horror lead demands range</small></span>
+        <b class="up">34 / 25 ✓</b>
+      </div>
+      <div class="chk">
+        <span class="l">Completed Projects <small>Minimum screen credits</small></span>
+        <b class="up">3 / 2 ✓</b>
+      </div>
+      <div class="chk">
+        <span class="l">SAG-AFTRA <small>Not required for indie tier</small></span>
+        <b class="up">NOT NEEDED ✓</b>
+      </div>
+      <div class="chk">
+        <span class="l">Energy <small>Self-tape + callback reserves</small></span>
+        <b class="up">62 / 20 ✓</b>
+      </div>
+      <div class="verdict pass">✔ ALL REQUIREMENTS MET — you may submit. Submissions are COMPETITIVE: the casting director compares you against every NPC actor auditioning.</div>
+    </div>
+
+    <div class="odds-box">
+      <div class="odds-row">
+        <div class="odds-ring"><div class="in"><b>33%</b><span>BOOK ODDS</span></div></div>
+        <div class="odds-stats">
+          <div class="os"><span>NPC ACTORS AUDITIONING</span><b>34</b></div>
+          <div class="os"><span>YOUR FAME VS POOL AVG</span><b class="up">+12%</b></div>
+          <div class="os"><span>YOUR ACTING VS POOL AVG</span><b class="up">+8%</b></div>
+          <div class="os"><span>RELATIONSHIP WITH CD</span><b>NONE</b></div>
+          <div class="os"><span>DECISION IN</span><b>~3 WKS</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bd-actions" style="padding: 0 16px 16px">
+      <div class="abtn ghost">SAVE FOR LATER</div>
+      <div class="abtn primary">SUBMIT AUDITION (−20⚡)</div>
+    </div>
+
+    <div class="rejection">
+      <b>✉ LAST WEEK'S RESULT — REJECTED</b>
+      <p>"Neon Confessions" (Principal): The CD went another way. Your audition scored 71/100 — the booking went to an actor with 410 Fame XP and a horror credit. Build fame and try again; every rejection is logged and remembered.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

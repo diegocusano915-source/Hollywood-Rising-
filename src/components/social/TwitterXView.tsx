@@ -305,47 +305,39 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <p className="text-[8px] text-gray-500">Impressions convert to REAL followers (0.4-0.9% per tweet). This bank is separate from YouTube & Instagram.</p>
             </div>
 
-            {/* payout gate */}
+            {/* monthly envelope */}
             <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
               <div className="flex justify-between items-center">
-                <b className="text-[10px] text-gray-200">Ads Revenue Payouts</b>
-                <span className={`text-[8px] font-black px-2.5 py-1 rounded-full ${payoutsActive ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/40' : 'bg-white/5 text-gray-400 border border-white/15'}`}>
-                  {payoutsActive ? 'ACTIVE' : 'LOCKED'}
-                </span>
+                <b className="text-[10px] text-gray-200">This Month (all platforms)</b>
+                <span className="text-[8px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-full">CAP $25,000</span>
               </div>
-              <div className="flex justify-between text-[9px]"><span className="text-gray-400">Real X followers</span><b className="font-mono">{twFollowers.toLocaleString()} / {TW_PAYOUT_FOLLOWER_GATE.toLocaleString()}</b></div>
+              <div className="flex justify-between text-[9px]"><span className="text-gray-400">Accrued so far</span><b className="font-mono text-gray-100">${(state.socialMonthlyEarnings?.accrued || 0).toLocaleString()}</b></div>
               <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                <i className="block h-full bg-sky-500" style={{ width: `${Math.min(100, (twFollowers / TW_PAYOUT_FOLLOWER_GATE) * 100)}%` }} />
+                <i className="block h-full bg-emerald-500" style={{ width: `${Math.min(100, ((state.socialMonthlyEarnings?.accrued || 0) / 25000) * 100)}%` }} />
               </div>
+              <p className="text-[8px] text-gray-500 leading-relaxed">PAYOUTS ARE AUTOMATIC — the bank pays out on the last week of every month (no withdrawals before then). Active creators earn between the $5,000 floor and the $25,000 cap depending on impressions. X payouts are <b className="text-emerald-300">TAX-FREE</b> — only YouTube is taxed.</p>
             </div>
 
-            {payoutsActive && (
-              <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5">
-                <b className="text-[10px] text-gray-200 block">TRANSFER TO WALLET</b>
-                <p className="text-[8px] text-gray-500">20% tax withheld at request · clears in 1-5 weeks · inbox notice when it lands.</p>
-                <div className="flex gap-2">
-                  <input type="number" value={payoutAmt} onChange={(e) => setPayoutAmt(e.target.value)} placeholder="Amount"
-                    className="flex-1 min-w-0 bg-black/60 border border-white/15 rounded-xl px-3 py-2.5 text-xs font-mono text-white outline-none" />
-                  <button onClick={() => setPayoutAmt(String(balance))} className="px-3 rounded-xl bg-white/10 border border-white/15 text-[9px] font-black text-gray-200 cursor-pointer">MAX</button>
-                </div>
-                {payoutAmt && (
-                  <div className="bg-black/40 border border-white/10 rounded-xl p-2.5 text-[9px] font-mono space-y-1">
-                    <div className="flex justify-between text-gray-400"><span>Gross</span><b className="text-gray-200">${(parseInt(payoutAmt) || 0).toLocaleString()}</b></div>
-                    <div className="flex justify-between text-gray-400"><span>Tax (20%)</span><b className="text-rose-300">−${Math.round((parseInt(payoutAmt) || 0) * 0.2).toLocaleString()}</b></div>
-                    <div className="flex justify-between text-gray-400 border-t border-white/10 pt-1"><span>You receive (1-5 wks)</span><b className="text-emerald-300">${((parseInt(payoutAmt) || 0) - Math.round((parseInt(payoutAmt) || 0) * 0.2)).toLocaleString()}</b></div>
-                  </div>
-                )}
-                <button onClick={doPayout} className="w-full py-2.5 rounded-xl bg-emerald-500 text-emerald-950 text-[10px] font-black cursor-pointer">REQUEST TRANSFER</button>
+            {/* premium gate — the revenue requirement */}
+            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <b className="text-[10px] text-gray-200">Ads Revenue</b>
+                <span className={`text-[8px] font-black px-2.5 py-1 rounded-full ${PremiumService.getActive(state) ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/40' : 'bg-white/5 text-gray-400 border border-white/15'}`}>
+                  {PremiumService.getActive(state) ? 'EARNING' : 'PREMIUM REQUIRED'}
+                </span>
               </div>
-            )}
+              {!PremiumService.getActive(state)
+                ? <p className="text-[8px] text-gray-500 leading-relaxed">Posts only generate revenue with an ACTIVE PREMIUM subscription. Subscribe from the Premium panel — followers alone don't pay.</p>
+                : <p className="text-[8px] text-emerald-300/80 leading-relaxed">Premium active — every tweet earns ads revenue into this bank.</p>}
+            </div>
 
             {pending.length > 0 && (
               <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-400/30 space-y-2">
-                <b className="text-[9px] font-black text-amber-300 tracking-wider">⏳ TRANSFERS IN FLIGHT</b>
+                <b className="text-[9px] font-black text-amber-300 tracking-wider">⏳ MONTH-END PAYOUTS CLEARING</b>
                 {pending.map((p) => (
                   <div key={p.id}>
                     <div className="flex justify-between text-[9px] font-mono mb-1">
-                      <span className="text-gray-300">${p.net.toLocaleString()} clearing</span>
+                      <span className="text-gray-300">${p.net.toLocaleString()} clearing (no tax)</span>
                       <span className="text-amber-300">{p.weeksRemaining} wk{p.weeksRemaining > 1 ? 's' : ''} left</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
