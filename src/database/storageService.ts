@@ -582,7 +582,10 @@ export class StorageService {
             parsed.player.completedCourseIds = [];
           }
           if (!parsed.player.availableSchoolCourses || parsed.player.availableSchoolCourses.length === 0) {
-            parsed.player.availableSchoolCourses = generateWeeklyCourses(parsed.player.completedCourseIds);
+            parsed.player.availableSchoolCourses = generateWeeklyCourses(
+              parsed.player.completedCourseIds,
+              (parsed.player.activeCourses || []).map((c: any) => c.courseId)
+            );
           }
           if (!parsed.trophies) parsed.trophies = [];
           if (!parsed.awardHistory) parsed.awardHistory = [];

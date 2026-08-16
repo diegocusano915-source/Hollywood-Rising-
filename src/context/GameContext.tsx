@@ -697,6 +697,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Course not found in catalogue.' };
     }
 
+    // GRADUATED courses are closed forever — the school never re-offers them
+    if ((saveData.player.completedCourseIds || []).includes(courseId) ||
+        (saveData.player.completedCourseRecords || []).some((r: any) => r.courseId === courseId)) {
+      return { success: false, message: `You already graduated from "${course.name}" — courses can only be taken once.` };
+    }
+
+    // Can't double-enroll a course you're currently attending
+    if (currentActive.some((c: any) => c.courseId === courseId)) {
+      return { success: false, message: `You're already enrolled in "${course.name}".` };
+    }
+
     if (course.requiresUnionMember && !saveData.player.isUnionMember) {
       return {
         success: false,
@@ -1568,7 +1579,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeCourses: remainingActiveCourses,
       completedCourseIds,
       completedCourseRecords,
-      availableSchoolCourses: generateWeeklyCourses(completedCourseIds),
+      availableSchoolCourses: generateWeeklyCourses(
+        completedCourseIds,
+        (p.activeCourses || []).map((c: any) => c.courseId)
+      ),
     };
 
     // 5. Process Auditions

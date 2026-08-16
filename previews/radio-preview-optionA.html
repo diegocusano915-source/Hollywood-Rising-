@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Option A — The Dial</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0c0a06; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #f2ead8; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7a7260; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+
+  .deck { background: linear-gradient(170deg, #17130b, #0d0a05); border: 1px solid #2e2410; border-radius: 22px; overflow: hidden; }
+
+  /* dial header */
+  .dial-head { padding: 14px; border-bottom: 1px solid #2e2410; display: flex; justify-content: space-between; align-items: center; }
+  .dial-h-l { display: flex; align-items: center; gap: 9px; }
+  .knob { width: 38px; height: 38px; border-radius: 50%; border: 3px solid #8a6d1f; display: flex; align-items: center; justify-content: center; font-size: 16px; background: radial-gradient(circle at 35% 35%, #f5d67b, #8a6d1f); }
+  .dial-h-l b { font-size: 13px; display: block; }
+  .dial-h-l span { font-size: 7.5px; color: #9a8a68; letter-spacing: 2px; }
+  .freq-display { text-align: right; }
+  .freq-display b { font-size: 16px; font-family: 'Courier New', monospace; color: #f5b942; display: block; }
+  .freq-display span { font-size: 7px; color: #7a7260; letter-spacing: 1px; }
+
+  /* VU meters */
+  .vu-row { display: flex; gap: 4px; padding: 10px 14px; border-bottom: 1px solid #2e2410; align-items: flex-end; height: 34px; }
+  .vu { flex: 1; background: #1a1509; border-radius: 2px; position: relative; overflow: hidden; }
+  .vu i { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #f5d67b, #8a6d1f); animation: bounce 0.9s ease-in-out infinite alternate; }
+  .vu:nth-child(2n) i { animation-delay: 0.15s; }
+  .vu:nth-child(3n) i { animation-delay: 0.3s; }
+  .vu:nth-child(5n) i { animation-delay: 0.45s; }
+  @keyframes bounce { from { height: 22%; } to { height: 92%; } }
+
+  /* stations */
+  .stations { padding: 12px 12px 6px; }
+  .sta { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid #2e2410; border-radius: 12px; margin-bottom: 8px; background: #14100a; }
+  .sta.live { border-color: #8a6d1f; background: #1d1608; }
+  .sta.invite { border-color: #3d5a8055; }
+  .sta.lock { opacity: 0.55; }
+  .sta-ic { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: rgba(245,214,123,0.08); border: 1px solid #3a2f14; }
+  .sta-main { flex: 1; min-width: 0; }
+  .sta-main b { font-size: 11.5px; display: block; }
+  .sta-main span { font-size: 7.5px; color: #8a7a5c; display: block; font-family: 'Courier New', monospace; }
+  .sta-main .inv-note { font-size: 6.5px; color: #7ab3ec; display: block; margin-top: 2px; }
+  .sta-act { flex-shrink: 0; text-align: right; }
+  .live-pill { display: inline-block; font-size: 8px; font-weight: 900; padding: 7px 11px; border-radius: 9px; background: #f5b942; color: #1a1206; letter-spacing: 1px; animation: glow 1.6s infinite; }
+  @keyframes glow { 50% { box-shadow: 0 0 14px #f5b94288; } }
+  .cnt-pill { display: inline-block; font-size: 7px; font-weight: 900; padding: 5px 9px; border-radius: 7px; background: rgba(245,185,66,0.12); color: #f5b942; border: 1px solid rgba(245,185,66,0.3); }
+  .inv-pill { display: inline-block; font-size: 7px; font-weight: 900; padding: 5px 9px; border-radius: 7px; background: rgba(122,179,236,0.12); color: #7ab3ec; border: 1px solid rgba(122,179,236,0.3); }
+  .done-pill { display: inline-block; font-size: 7px; font-weight: 900; padding: 5px 9px; border-radius: 7px; background: rgba(255,255,255,0.05); color: #6b6350; }
+
+  /* booth q&a */
+  .booth { border-top: 1px solid #2e2410; padding: 12px 14px; }
+  .booth-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .booth-h b { font-size: 11px; letter-spacing: 1.5px; color: #f5d67b; }
+  .booth-h span { font-size: 7.5px; color: #7a7260; font-family: 'Courier New', monospace; }
+  .mic-q { display: flex; gap: 9px; margin-bottom: 11px; }
+  .mic-av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #8a6d1f, #4a3a10); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .q-bub { background: rgba(245,214,123,0.06); border: 1px solid #3a2f14; border-radius: 4px 13px 13px 13px; padding: 10px 12px; flex: 1; }
+  .q-bub .who { font-size: 7px; color: #f5d67b; font-weight: 900; display: block; margin-bottom: 2px; letter-spacing: 1px; }
+  .q-bub p { font-size: 11px; line-height: 1.45; font-weight: 600; }
+  .q-tags { display: flex; gap: 4px; margin-top: 6px; }
+  .qt { font-size: 6px; font-weight: 900; padding: 2px 6px; border-radius: 3px; }
+  .qt.caller { background: rgba(245,185,66,0.15); color: #f5b942; }
+  .qt.career { background: rgba(122,179,236,0.15); color: #7ab3ec; }
+  .qt.fan { background: rgba(95,214,164,0.15); color: #5fd6a4; }
+
+  .ans { display: flex; gap: 8px; align-items: center; padding: 9px 11px; border: 1px solid #2e2410; border-radius: 10px; margin-bottom: 6px; background: #100d07; }
+  .ans .arch { min-width: 48px; text-align: center; font-size: 6.5px; font-weight: 900; padding: 5px 3px; border-radius: 6px; flex-shrink: 0; }
+  .ar-humble { background: rgba(95,214,164,0.13); color: #5fd6a4; }
+  .ar-witty { background: rgba(245,185,66,0.13); color: #f5b942; }
+  .ar-bold { background: rgba(224,69,94,0.13); color: #ff8fa3; }
+  .ar-honest { background: rgba(122,179,236,0.13); color: #7ab3ec; }
+  .ar-flirt { background: rgba(207,157,240,0.13); color: #cf9df0; }
+  .ans p { font-size: 9px; color: #d8cdb4; line-height: 1.4; flex: 1; }
+  .ans .fx { font-size: 6px; color: #7a7260; font-family: 'Courier New', monospace; text-align: right; flex-shrink: 0; line-height: 1.6; }
+
+  .results { border-top: 1px solid #2e2410; padding: 12px 14px 14px; }
+  .res-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 9px; }
+  .rk { background: #14100a; border: 1px solid #2e2410; border-radius: 10px; padding: 9px 4px; text-align: center; }
+  .rk span { font-size: 6.5px; color: #7a7260; display: block; }
+  .rk b { font-size: 12px; font-family: 'Courier New', monospace; }
+  .res-note { font-size: 8px; color: #7a7260; line-height: 1.5; }
+  .claim { width: 100%; padding: 12px; border: none; border-radius: 11px; background: #f5b942; color: #1a1206; font-size: 11px; font-weight: 900; margin-top: 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Radio Option A · The Dial — retro console, live meters, station list</div>
+  <div class="deck">
+    <div class="dial-head">
+      <div class="dial-h-l">
+        <div class="knob">📻</div>
+        <div><b>The Dial</b><span>ON-AIR BOOKINGS · REAL OFFERS ONLY</span></div>
+      </div>
+      <div class="freq-display"><b>97.1 FM</b><span>TUNED · HOT 97</span></div>
+    </div>
+
+    <div class="vu-row">
+      <div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div><div class="vu"><i></i></div>
+    </div>
+
+    <div class="stations">
+      <div class="sta live">
+        <div class="sta-ic">🎤</div>
+        <div class="sta-main"><b>Hot 97 — Morning Show</b><span>HIP-HOP · 3.2M LISTENERS · NO REQUIREMENT</span></div>
+        <div class="sta-act"><span class="live-pill">🔴 ON AIR</span></div>
+      </div>
+      <div class="sta">
+        <div class="sta-ic">🎵</div>
+        <div class="sta-main"><b>KIIS FM — Ryan's Countdown</b><span>TOP 40 · 2.6M LISTENERS · 200 FAME REQ</span></div>
+        <div class="sta-act"><span class="cnt-pill">BOOKED · 2 WKS</span></div>
+      </div>
+      <div class="sta invite">
+        <div class="sta-ic">🛰️</div>
+        <div class="sta-main"><b>SiriusXM — The Spotlight</b><span>SATELLITE · 5.1M LISTENERS · 1000 FAME REQ</span>
+          <span class="inv-note">✉ producer invitation waiting — unlocks at 1,000 fame</span></div>
+        <div class="sta-act"><span class="inv-pill">INVITED</span></div>
+      </div>
+      <div class="sta">
+        <div class="sta-ic">🎙️</div>
+        <div class="sta-main"><b>Power 105.1 — Breakfast Club</b><span>URBAN · 2.9M LISTENERS · 400 FAME REQ</span></div>
+        <div class="sta-act"><span class="done-pill">AIRED ✓</span></div>
+      </div>
+      <div class="sta lock">
+        <div class="sta-ic">🌍</div>
+        <div class="sta-main"><b>BBC Radio 1 — Breakfast</b><span>INTERNATIONAL · 7.4M LISTENERS · 1500 FAME REQ</span></div>
+        <div class="sta-act"><span class="done-pill">🔒 LOCKED</span></div>
+      </div>
+      <p class="mono" style="font-size:7px;color:#4a4234;text-align:center;padding:4px 0 2px">20+ STATIONS · GHOST NOTICES GONE — EVERY ALERT IS A REAL OFFER</p>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Radio Option A · In The Booth — caller questions, rotating archetypes, toned rewards</div>
+  <div class="deck">
+    <div class="dial-head">
+      <div class="dial-h-l"><div class="knob">🎙️</div><div><b>Hot 97 · Segment 2/5</b><span>CALLER LINE 3 IS LIVE</span></div></div>
+      <div class="freq-display"><b>ON AIR</b><span>3.2M LISTENING</span></div>
+    </div>
+
+    <div class="booth">
+      <div class="booth-h"><b>🎙️ CALLER LINE</b><span>ENDLESS Q POOL</span></div>
+      <div class="mic-q">
+        <div class="mic-av">📞</div>
+        <div class="q-bub">
+          <span class="who">CALLER · MARCUS, INGLEWOOD</span>
+          <p>Big fan! Real talk — the rumor that you turned down a huge franchise role. Why would anybody do that?</p>
+          <div class="q-tags"><span class="qt caller">LIVE CALLER</span><span class="qt career">CAREER</span></div>
+        </div>
+      </div>
+
+      <div class="ans">
+        <span class="arch ar-honest">HONEST</span>
+        <p>Schedule didn't work. Saying no to one thing is saying yes to something better.</p>
+        <span class="fx">REP +2<br>FANS ×1.5</span>
+      </div>
+      <div class="ans">
+        <span class="arch ar-witty">WITTY</span>
+        <p>Marcus, if I told you, my agent would tell ME. And nobody wants that call.</p>
+        <span class="fx">REP +2<br>FANS ×1.7</span>
+      </div>
+      <div class="ans">
+        <span class="arch ar-flirt">PLAYFUL</span>
+        <p>Depends who's asking… and Inglewood asks nice.</p>
+        <span class="fx">REP +1<br>FANS ×1.8<br>RISK 10%</span>
+      </div>
+      <div class="ans">
+        <span class="arch ar-bold">BOLD</span>
+        <p>Because that script was trash and my name deserves better. Next caller.</p>
+        <span class="fx">REP −3<br>FANS ×2.0<br>RISK 25%</span>
+      </div>
+      <p class="mono" style="font-size:7px;color:#4a4234;text-align:center;padding:2px 0 6px">ARCHETYPES ROTATE PER QUESTION · 1000+ COMBINATIONS · NO REPEATS</p>
+    </div>
+
+    <div class="results">
+      <div class="res-grid">
+        <div class="rk"><span>NEW FANS</span><b style="color:#5fd6a4">+410</b></div>
+        <div class="rk"><span>APPEARANCE</span><b style="color:#f5b942">$450</b></div>
+        <div class="rk"><span>FAME XP</span><b style="color:#7ab3ec">+1</b></div>
+        <div class="rk"><span>REP</span><b style="color:#5fd6a4">+3</b></div>
+      </div>
+      <p class="res-note">Radio pays in presence: fans and fees roughly 60% lower than before, scaled to real listener counts. No notification without a live booking; invitations wait visibly on locked stations.</p>
+      <button class="claim">CLAIM & SIGN OFF</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
