@@ -1166,6 +1166,50 @@ const INITIAL_WHALES: NpcWhale[] = [
   },
 ];
 
+/** Generate the remaining whale roster procedurally (47 total: 3 curated + 44 generated) */
+const WHALE_NAMES_A = ['Dmitri', 'Ingrid', 'Rajesh', 'Camille', 'Stefan', 'Yuki', 'Baptiste', 'Olga', 'Kwame', 'Priya', 'Lars', 'Fatima', 'Viktor', 'Renata', 'Dario', 'Sanne', 'Tariq', 'Mei', 'Jonas', 'Alba', 'Ferran', 'Zofia', 'Idris', 'Nadia', 'Cato', 'Lucia', 'Emre', 'Solveig', 'Amadou', 'Bianca', 'Ravi', 'Kirsten', 'Mateo', 'Anouk', 'Farid', 'Delia', 'Bruno', 'Esme', 'Kiran', 'Petra', 'Silas', 'Vera', 'Omar', 'Talia', 'Nils', 'Rosa'];
+const WHALE_NAMES_B = ['Kovac', 'Lindqvist', 'Mehta', 'Beaumont', 'Novak', 'Tanaka', 'Laurent', 'Petrov', 'Mensah', 'Rao', 'Berg', 'Al-Rashid', 'Degen', 'Costa', 'Hoffman', 'Visser', 'Aziz', 'Chen', 'Weber', 'Marin', 'Sato', 'Kowalski', 'Bakker', 'Sokolov', 'Yilmaz', 'Nielsen', 'Diallo', 'Moretti', 'Okafor', 'Nakamura', 'Petit', 'Larsen', 'Silva', 'de Vries', 'Haddad', 'Rossi', 'Fischer', 'Dubois', 'Sharma', 'Horak', 'Jansen', 'Marchetti', 'Diop', 'Fontaine', 'Andersen', 'Vargas'];
+const WHALE_STRATS: NpcWhale['strategy'][] = ['Value Investor', 'Growth Tech', 'Crypto Degen', 'Momentum', 'Distressed Assets'];
+const WHALE_AVATARS = [
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop',
+];
+// Deterministic-seeded so the roster is stable across loads
+function buildWhaleRoster(): NpcWhale[] {
+  let seed = 20260816;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) | 0; return Math.abs(seed) / 2147483647; };
+  const roster: NpcWhale[] = [...INITIAL_WHALES];
+  for (let i = 0; i < 44; i++) {
+    const name = `${WHALE_NAMES_A[i]} ${WHALE_NAMES_B[i]}`;
+    const capital = Math.floor(20000000 + rnd() * 900000000);
+    // top positions from the real coin pool + stocks
+    const coinPicks = ['$HOLLYWOOD', '$AIFILM', '$OSCAR', '$RED', '$STUDIO', '$BOX', '$GOSSIP', '$SCRIPT'];
+    const stockPicks = ['DIS', 'NFLX', 'AAPL', 'SONY', 'A24', 'UVX'];
+    const top: string[] = [];
+    const nPos = 2 + Math.floor(rnd() * 2);
+    for (let p = 0; p < nPos; p++) top.push(rnd() < 0.5 ? coinPicks[Math.floor(rnd() * coinPicks.length)] : stockPicks[Math.floor(rnd() * stockPicks.length)]);
+    roster.push({
+      id: `w_gen_${i}`,
+      name,
+      handle: `@${WHALE_NAMES_A[i]}${WHALE_NAMES_B[i]}`,
+      avatar: WHALE_AVATARS[i % WHALE_AVATARS.length],
+      capital,
+      strategy: WHALE_STRATS[Math.floor(rnd() * WHALE_STRATS.length)],
+      winRatePct: 48 + Math.floor(rnd() * 45),
+      totalProfit: Math.floor(capital * (rnd() * 1.8)),
+      topPositions: [...new Set(top)],
+      copyTradeActive: false,
+      copyTradeFeePct: Math.round((1 + rnd() * 3.5) * 10) / 10,
+    });
+  }
+  return roster;
+}
+const FULL_WHALE_ROSTER = buildWhaleRoster();
+
 // ============================================================
 // ENDLESS COIN GENERATOR — real-market style. Hundreds of
 // possible names/symbols; coins list with real market caps,
@@ -1328,7 +1372,7 @@ export class MarketEngineService {
             stocks: parsed.stocks,
             cryptoCoins: parsed.cryptoCoins,
             ipos: Array.isArray(parsed.ipos) ? parsed.ipos : INITIAL_IPOS,
-            whales: Array.isArray(parsed.whales) ? parsed.whales : INITIAL_WHALES,
+            whales: parsed.whales && parsed.whales.length >= 40 ? parsed.whales : FULL_WHALE_ROSTER,
             transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
             news: Array.isArray(parsed.news) ? parsed.news : [],
             cryptoWire: Array.isArray((parsed as any).cryptoWire) ? (parsed as any).cryptoWire : [],
@@ -1429,7 +1473,7 @@ export class MarketEngineService {
       pendingCryptoGains: 0,
       pendingCryptoLosses: 0,
       nextStudioLaunchWeek: 2026 * 52 + 1 + 11,
-      whales: INITIAL_WHALES,
+      whales: FULL_WHALE_ROSTER,
       news: [
         {
           id: 'n_init_1',
@@ -1482,6 +1526,8 @@ export class MarketEngineService {
     cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
     /** Forced-liquidation proceeds credited to the player this week */
     delistPayouts: number;
+    /** Net whale copy-trade P&L this week (real cash, applied by caller) */
+    whaleCopyPnl: number;
     /** Studio casting calls → real NPC roles for the player's callboard */
     studioCastingCalls: StudioCastingCall[];
     /** Studio events (new studio listings, big releases) → inbox messages */
@@ -1739,6 +1785,12 @@ export class MarketEngineService {
     }
     if (playerYear * 52 + playerWeek >= s.nextStudioLaunchWeek) {
       const fresh = generateEndlessStudio() as StockCompany;
+      // normalize to the full StockCompany shape: generator returns a
+      // single news string + omits player position fields (crash source)
+      fresh.news = Array.isArray(fresh.news) ? fresh.news : [String(fresh.news)];
+      fresh.playerSharesOwned = 0;
+      fresh.playerAvgBuyPrice = 0;
+      fresh.playerBoardMember = false;
       fresh.isFilmStudio = true;
       fresh.slate = seedSlate(fresh.id);
       fresh.slateHealth = 55 + Math.floor(Math.random() * 25);
@@ -1972,6 +2024,41 @@ export class MarketEngineService {
 
     s.cryptoWire = wire;
 
+    // 3b. WHALE COPY-TRADE — copied whales mirror their coin moves into
+    //     the player's P&L weekly, sized to the player's cash. Wins and
+    //     losses are real; the fee applies to profits only.
+    {
+      const copiers = s.whales.filter((w) => w.copyTradeActive);
+      if (copiers.length > 0) {
+        const copyEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
+        let copyPnlTotal = 0;
+        for (const w of copiers) {
+          const sym = w.topPositions.find((p) => p.startsWith('$'));
+          const coin = sym ? s.cryptoCoins.find((c) => c.symbol === sym && (c.status === 'Active' || c.status === 'TopLeader')) : undefined;
+          if (!coin) continue;
+          const alloc = Math.min(Math.max(500, Math.floor(playerMoney * (0.02 + Math.random() * 0.06))), Math.floor(playerMoney * 0.10));
+          if (alloc <= 0) continue;
+          const fee = (w.copyTradeFeePct || 2) / 100;
+          const coinMove = coin.change24h / 100; // the coin's real drift this week
+          const whaleWin = Math.random() * 100 < w.winRatePct;
+          const pnl = Math.floor(alloc * (coinMove !== 0 ? coinMove : (whaleWin ? 0.03 + Math.random() * 0.09 : -0.02 - Math.random() * 0.06)));
+          const feeDue = pnl > 0 ? Math.floor(pnl * fee) : 0;
+          copyPnlTotal += pnl - feeDue;
+          copyEvents.push({
+            kind: 'COPY',
+            subject: `🐋 Copy-trade ${pnl - feeDue >= 0 ? 'profit' : 'loss'}: ${w.name} (${pnl - feeDue >= 0 ? '+' : '−'}$${Math.abs(pnl - feeDue).toLocaleString()})`,
+            body: `${w.name} (${w.strategy}, ${w.winRatePct}% WR) ${pnl >= 0 ? 'closed a winning' : 'took a losing'} ${coin.symbol} position this week${coinMove !== 0 ? ` — the coin moved ${(coinMove * 100).toFixed(1)}%` : ''}.\n\nYour mirrored P&L: ${pnl >= 0 ? '+' : '−'}$${Math.abs(pnl).toLocaleString()}\nCopy fee (${w.copyTradeFeePct}% of profit): ${feeDue > 0 ? `−$${feeDue.toLocaleString()}` : '$0'}\nNET: ${pnl - feeDue >= 0 ? '+' : '−'}$${Math.abs(pnl - feeDue).toLocaleString()}`,
+            important: false,
+          });
+        }
+        if (copyPnlTotal !== 0) (s as any).__whaleCopyPnl = copyPnlTotal;
+        if (copyEvents.length > 0) {
+          const prev = (s as any).cryptoEvents || [];
+          (s as any).cryptoEvents = [...copyEvents, ...prev];
+        }
+      }
+    }
+
     // 4. PROCESS IPOS & NEW LAUNCHES
     s.ipos = s.ipos.map((ipo) => {
       if (ipo.status === 'Upcoming') {
@@ -2085,8 +2172,12 @@ export class MarketEngineService {
 
     this.saveMarketState(s);
     const delistPayouts = (s as any)._delistPayouts || 0;
+    const whaleCopyPnl = (s as any).__whaleCopyPnl || 0;
+    const whaleEvents = ((s as any).cryptoEvents as any[] | undefined) || [];
     delete (s as any)._delistPayouts;
-    return { updatedState: s, headlineNews, cryptoEvents, delistPayouts, studioCastingCalls, studioEvents };
+    delete (s as any).__whaleCopyPnl;
+    delete (s as any).cryptoEvents;
+    return { updatedState: s, headlineNews, cryptoEvents: [...whaleEvents, ...cryptoEvents], delistPayouts, whaleCopyPnl, studioCastingCalls, studioEvents };
   }
 
   /**
@@ -2595,7 +2686,12 @@ export function processEndlessMarket(s: any, playerWeek: number, playerYear: num
   if (playerWeek % 4 === 0) {
     const publicCount = (s.stocks || []).filter((x: any) => x.status === 'Public').length;
     if (publicCount < 12) {
-      const newStudio = generateEndlessStudio();
+      const newStudio = generateEndlessStudio() as StockCompany;
+      // normalize to the full StockCompany shape (news array + player fields)
+      newStudio.news = Array.isArray(newStudio.news) ? newStudio.news : [String(newStudio.news)];
+      newStudio.playerSharesOwned = 0;
+      newStudio.playerAvgBuyPrice = 0;
+      newStudio.playerBoardMember = false;
       (newStudio as any).listedWeek = playerWeek;
       (newStudio as any).listedYear = playerYear;
       s.stocks.push(newStudio);

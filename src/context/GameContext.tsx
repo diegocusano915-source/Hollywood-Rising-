@@ -2894,9 +2894,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       for (const ce of marketResult.cryptoEvents) {
         newInboxMessages.unshift({
           id: `msg_crypto_${ce.kind}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: ce.kind === 'REGIME' ? 'FINANCE' : 'BUSINESS',
+          category: ce.kind === 'REGIME' ? 'FINANCE' : ce.kind === 'COPY' ? 'FINANCE' : 'BUSINESS',
           sender: 'Star Exchange',
-          senderRole: ce.kind === 'LISTING' ? 'New Listings Desk' : ce.kind === 'DELISTED' || ce.kind === 'DELIST_VOTE' ? 'Delisting Committee' : 'Market Surveillance',
+          senderRole: ce.kind === 'LISTING' ? 'New Listings Desk' : ce.kind === 'COPY' ? 'Whale Copy-Trade Desk' : ce.kind === 'DELISTED' || ce.kind === 'DELIST_VOTE' ? 'Delisting Committee' : 'Market Surveillance',
           subject: ce.subject,
           body: ce.body,
           date: dateInfo.fullDateText,
@@ -2922,6 +2922,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dateWeek: newWeek,
         dateYear: newYear,
       });
+    }
+
+    // Whale copy-trade P&L — real cash from mirrored positions
+    if (marketResult?.whaleCopyPnl && marketResult.whaleCopyPnl !== 0) {
+      p.money = Math.max(0, p.money + marketResult.whaleCopyPnl);
     }
 
     const updatedInbox = [...newInboxMessages, ...saveData.inbox];

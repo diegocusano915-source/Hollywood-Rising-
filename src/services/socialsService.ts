@@ -1586,15 +1586,18 @@ export class SocialsService {
       const playerHandle = SocialsService.getHandle(pid, player);
       // Writer's specialty colors the voice — pool writer from SOCIAL_WRITER_POOL
       const poolWriter = SOCIAL_WRITER_POOL.find((w) => w.id === hiredWriter.id);
+      // WRITER-POST REACH IS TIER-DRIVEN (real floors, not follower-scaled):
+      // T1 5K-50K · T2 50K-150K · T3 150K-500K · T4 500K-2M per post.
+      // Likes scale from the impressions at realistic ratios.
+      const wrTier = poolWriter?.tier ?? 1;
+      const tierFloor = [5000, 50000, 150000, 500000][wrTier - 1] || 5000;
+      const tierCeil = [50000, 150000, 500000, 2000000][wrTier - 1] || 50000;
+      const wrViews = Math.floor(tierFloor + Math.random() * (tierCeil - tierFloor));
+      const wrLikes = Math.floor(wrViews * (0.02 + Math.random() * 0.03));
+      const wrShares = Math.floor(wrViews * 0.008);
+      const wrComments = Math.floor(wrViews * 0.004);
       for (let i = 0; i < count; i++) {
         const autoPostText = drawWriterPoolPost(poolWriter?.specialty || 'Film Reviewer', writerPostData, usedWriterTexts);
-        const currentFollowers = state.followers[feed] || 100;
-        const eng = this.calculatePostEngagement(currentFollowers, state.verification[feed] || 'NONE', player, true);
-
-        const boostFactor = 1 + (hiredWriter.qualityBoost || 15) / 100;
-        eng.likes = Math.floor(eng.likes * boostFactor);
-        eng.shares = Math.floor(eng.shares * boostFactor);
-        eng.followerGain = Math.floor(eng.followerGain * boostFactor);
 
         const newPost: SocialPost = {
           id: `post_auto_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1604,10 +1607,11 @@ export class SocialsService {
           platform: feed,
           tab: 'PLAYER_FEED',
           text: autoPostText,
-          likes: eng.likes,
-          comments: eng.commentsCount,
-          retweets: eng.shares,
-          shares: eng.shares,
+          likes: wrLikes,
+          comments: wrComments,
+          retweets: wrShares,
+          shares: wrShares,
+          views: wrViews,
           timestamp: 'Just now',
           isPlayer: true,
           isNpc: false,
@@ -1621,9 +1625,11 @@ export class SocialsService {
         state.playerPosts[feed].unshift(newPost);
         state.postComments[newPost.id] = autoComments;
 
-        // Separate fans: gains land ONLY on this writer's platform
-        state.followers[feed] = Math.min(500000000000, (state.followers[feed] || 0) + eng.followerGain);
-        fanGrowth += eng.followerGain;
+        // Separate fans: gains land ONLY on this writer's platform —
+        // real reach converts to followers at 0.4-0.9% (impressions-driven)
+        const wrFollowers = Math.floor(wrViews * (0.004 + Math.random() * 0.005));
+        state.followers[feed] = Math.min(500000000000, (state.followers[feed] || 0) + wrFollowers);
+        fanGrowth += wrFollowers;
       }
 
       // writer activity counts as platform activity for organic growth
@@ -1761,7 +1767,7 @@ export class SocialsService {
     }
 
     // 7. Update YouTube Channel Stats & Organic Algorithm Simulation
-    if (state.createdPlatforms.YouTube) {
+    if (this.hasAccount('youtube', player)) {
       // 7a. Monetization Application Review Processing
       if (state.youtubeMonetizationStatus === 'UNDER_REVIEW') {
         state.youtubeReviewWeeksLeft = Math.max(0, (state.youtubeReviewWeeksLeft || 1) - 1);
@@ -1957,7 +1963,7 @@ export class SocialsService {
     //     account's TRUE follower count, and bonus revenue only accrues to
     //     the IG mini-bank once the account passes 10K real followers.
     let igAccruedThisWeek = 0;
-    if (state.createdPlatforms.Instagram) {
+    if (this.hasAccount('instagram', player)) {
       const igTier = igAuthorityTier(state.instagramAuthorityXp || 0);
       const igFollowersNow = state.followers.Instagram || 0;
       // REVENUE GATE: Gram Creator Bonuses require an ACTIVE PREMIUM
@@ -2057,7 +2063,7 @@ export class SocialsService {
     //     impressions convert at a small real rate into the account's TRUE
     //     follower count; ad payouts accrue to the X mini-bank only after
     //     the 5,000 real-follower gate.
-    if (state.createdPlatforms.Twitter) {
+    if (this.hasAccount('twitter', player)) {
       const twTier = twAuthorityTier(state.twitterAuthorityXp || 0);
       const twFollowersNow = state.followers.Twitter || 0;
       // REVENUE GATE: ads revenue requires an ACTIVE PREMIUM subscription —
@@ -2195,9 +2201,9 @@ export class SocialsService {
       if (eligibleForFloor && me.accrued < SOCIAL_MONTHLY_FLOOR) {
         const topUp = SOCIAL_MONTHLY_FLOOR - me.accrued;
         me.accrued = SOCIAL_MONTHLY_FLOOR;
-        if (ytMonetized && state.createdPlatforms.YouTube) state.youtubeBalance = (state.youtubeBalance || 0) + topUp;
-        else if (premiumActive && state.createdPlatforms.Instagram) state.instagramBalance = (state.instagramBalance || 0) + topUp;
-        else if (premiumActive && state.createdPlatforms.Twitter) state.twitterBalance = (state.twitterBalance || 0) + topUp;
+        if (ytMonetized && this.hasAccount('youtube', player)) state.youtubeBalance = (state.youtubeBalance || 0) + topUp;
+        else if (premiumActive && this.hasAccount('instagram', player)) state.instagramBalance = (state.instagramBalance || 0) + topUp;
+        else if (premiumActive && this.hasAccount('twitter', player)) state.twitterBalance = (state.twitterBalance || 0) + topUp;
         socialPosts.push(`🏦 CREATOR SUPPORT: monthly earnings topped up to the $${SOCIAL_MONTHLY_FLOOR.toLocaleString()} floor (active creator minimum).`);
       }
 
@@ -2300,7 +2306,7 @@ export class SocialsService {
     hasActiveMovie: boolean;
   }): { success: boolean; message: string; score?: number } {
     const state = this.getState();
-    if (!state.createdPlatforms.YouTube) return { success: false, message: 'Create your YouTube account first.' };
+    if (!this.hasAccount('youtube')) return { success: false, message: 'Create your YouTube account first.' };
     const title = input.title.trim();
     if (!title) return { success: false, message: 'Enter a title — the algorithm scans it.' };
 
@@ -2392,7 +2398,7 @@ export class SocialsService {
     hasActiveMovie: boolean;
   }): { success: boolean; message: string; score?: number } {
     const state = this.getState();
-    if (!state.createdPlatforms.Instagram) return { success: false, message: 'Create your Instagram account first.' };
+    if (!this.hasAccount('instagram')) return { success: false, message: 'Create your Instagram account first.' };
     const caption = input.caption.trim();
     if (!caption) return { success: false, message: 'Write a caption — the algorithm scans the first line.' };
 
@@ -2490,7 +2496,7 @@ export class SocialsService {
     hasActiveMovie: boolean;
   }): { success: boolean; message: string; score?: number } {
     const state = this.getState();
-    if (!state.createdPlatforms.Twitter) return { success: false, message: 'Create your X account first.' };
+    if (!this.hasAccount('twitter')) return { success: false, message: 'Create your X account first.' };
     const text = input.text.trim();
     if (!text) return { success: false, message: 'Write the tweet — the algorithm scans the hook.' };
 
@@ -3839,17 +3845,14 @@ export function processSocialHubWeek(
     }
   }
 
-  // 3. CREATOR STUDIO — ad revenue share (Premium only, real impressions)
+  // 3. CREATOR STUDIO — impressions tracking for the analytics panel only.
+  //    ALL revenue flows through the platform BANKS (monthly payout system);
+  //    this legacy path no longer pays money directly to the wallet.
+  //    NOTE: creatorStudio.weeklyAdRevenue holds the YT engine's accrual —
+  //    do not zero it here.
   const totalPosts = Object.values(state.playerPosts || {}).reduce((a: number, arr: any[]) => a + (arr?.length || 0), 0);
   const impressions = totalPosts * Math.floor(500 + fameXp * 3);
   state.creatorStudio.totalImpressions += impressions;
-  if (premium.tier !== 'none') {
-    weeklyAdRevenue = Math.floor(impressions * 0.004 * (premium.tier === 'pro' ? 2 : premium.tier === 'plus' ? 1.5 : 1));
-    state.creatorStudio.totalAdRevenue += weeklyAdRevenue;
-    state.creatorStudio.weeklyAdRevenue = weeklyAdRevenue;
-    moneyDelta = weeklyAdRevenue;
-    if (weeklyAdRevenue > 0) messages.push(`💰 Creator Studio ad revenue: +$${weeklyAdRevenue.toLocaleString()} (${impressions.toLocaleString()} impressions)`);
-  }
 
   // 4. Reddit karma from real engagement
   state.redditKarma = (state.redditKarma || 0) + Math.floor(state.redditPosts.filter((p) => p.isPlayer).length * (2 + fameXp * 0.05));

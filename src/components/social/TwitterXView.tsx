@@ -142,7 +142,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <button onClick={() => engage(post.id, 'like')} className="flex items-center gap-1 cursor-pointer hover:text-rose-400">
             <Heart className="w-3.5 h-3.5" /> {post.likes || 0}
           </button>
-          <span className="flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" /> {Math.max(10, Math.floor((post.likes || 0) * 3))}</span>
+          <span className="flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" /> {((post.views || 0) > 0 ? post.views : Math.max(10, Math.floor((post.likes || 0) * 3))).toLocaleString()}</span>
           <button onClick={() => engage(post.id, 'bookmark')} className="cursor-pointer hover:text-amber-400"><Bookmark className="w-3.5 h-3.5" /></button>
           <button className="cursor-pointer hover:text-sky-400"><Share className="w-3.5 h-3.5" /></button>
         </div>

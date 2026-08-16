@@ -525,24 +525,54 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
             </div>
           )}
 
-          {/* ============ WHALES TAB ============ */}
-          {activeTab === 'WHALES' && (
-            <div className="rounded-2xl border border-[#1b212c] bg-[#0e1117] overflow-hidden">
-              {marketState.whales.map((w) => (
-                <div key={w.id} className="flex items-center gap-3 px-4 py-3 border-b border-[#141924] last:border-b-0">
-                  <img src={w.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <b className="text-[11px] text-gray-100 block truncate">{w.name}</b>
-                    <span className="text-[8.5px] text-[#6b7484] block truncate">{w.strategy} · {w.topPositions.slice(0, 3).join(' · ')}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <b className="text-[10.5px] font-mono text-[#f5b942] block">{fmtCap(w.capital)}</b>
-                    <span className="text-[8.5px] text-[#6b7484] font-mono">{w.winRatePct}% WR</span>
-                  </div>
+          {/* ============ WHALES TAB — 47 whales, copy-trade connected ============ */}
+          {activeTab === 'WHALES' && (() => {
+            const [whaleSearch, setWhaleSearch] = useState('');
+            const filtered = marketState.whales.filter((w) => !whaleSearch || w.name.toLowerCase().includes(whaleSearch.toLowerCase()) || w.strategy.toLowerCase().includes(whaleSearch.toLowerCase()));
+            const copied = marketState.whales.filter((w) => w.copyTradeActive);
+            const copyWhale = (id: string) => {
+              const s = MarketEngineService.getMarketState();
+              const w = s.whales.find((x) => x.id === id);
+              if (!w) return;
+              // Real cost check: the copy-trade fee hits your cash monthly via the market
+              if (w.copyTradeActive) { w.copyTradeActive = false; MarketEngineService.saveMarketState(s); setMarketState({ ...MarketEngineService.getMarketState() }); return; }
+              w.copyTradeActive = true;
+              MarketEngineService.saveMarketState(s);
+              setMarketState({ ...MarketEngineService.getMarketState() });
+            };
+            return (
+              <>
+                <div className="flex gap-1.5 items-center">
+                  <input value={whaleSearch} onChange={(e) => setWhaleSearch(e.target.value)} placeholder={`Search ${marketState.whales.length} whales...`}
+                    className="flex-1 bg-[#0e1117] border border-[#1b212c] rounded-xl px-3 py-2 text-[10px] text-gray-200 outline-none" />
+                  {copied.length > 0 && <span className="text-[8px] font-black text-emerald-300 bg-emerald-400/10 border border-emerald-400/30 px-2 py-1.5 rounded-lg shrink-0">COPYING {copied.length}</span>}
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="rounded-2xl border border-[#1b212c] bg-[#0e1117] overflow-hidden">
+                  {filtered.map((w) => (
+                    <div key={w.id} className={`flex items-center gap-3 px-4 py-3 border-b border-[#141924] last:border-b-0 ${w.copyTradeActive ? 'bg-emerald-500/5' : ''}`}>
+                      <img src={w.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <b className="text-[11px] text-gray-100 block truncate">{w.name} {w.copyTradeActive && <span className="text-[7px] text-emerald-300">● COPYING</span>}</b>
+                        <span className="text-[8.5px] text-[#6b7484] block truncate">{w.strategy} · {w.topPositions.slice(0, 3).join(' · ')}</span>
+                        <span className="text-[7.5px] text-[#6b7484] block font-mono">fee {w.copyTradeFeePct}%/mo of copied profits · lifetime profit {fmtCap(w.totalProfit)}</span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <b className="text-[10.5px] font-mono text-[#f5b942] block">{fmtCap(w.capital)}</b>
+                        <span className="text-[8.5px] text-[#6b7484] font-mono">{w.winRatePct}% WR</span>
+                        <button onClick={() => copyWhale(w.id)}
+                          className={`mt-1 px-2.5 py-1 rounded-lg text-[8px] font-black cursor-pointer block ml-auto ${w.copyTradeActive ? 'bg-emerald-500 text-emerald-950' : 'bg-white/10 text-gray-300 border border-white/15'}`}>
+                          {w.copyTradeActive ? 'STOP' : 'COPY'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[7.5px] text-[#5c6470] font-mono leading-relaxed px-1">
+                  COPY-TRADE: the whale's coin positions mirror into your portfolio weekly (same buys/sells, sized to your cash) · fee % applies to copied profits only · wins and losses are REAL
+                </p>
+              </>
+            );
+          })()}
 
           {/* ============ TX TAB ============ */}
           {activeTab === 'TX' && (

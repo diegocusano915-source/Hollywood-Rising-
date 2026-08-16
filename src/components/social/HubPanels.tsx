@@ -252,8 +252,8 @@ export const WriterSheet: React.FC<{ state: SocialsState; platform: string; onRe
 export const CreatorStudioPanel: React.FC<{ state: SocialsState }> = ({ state }) => {  const premium = state.premium || { tier: 'none' as const };
   const totalPosts = Object.values(state.playerPosts || {}).reduce((a: number, arr: any[]) => a + (arr?.length || 0), 0);
   const impressions = state.creatorStudio?.totalImpressions || 0;
-  const adRevenue = state.creatorStudio?.totalAdRevenue || 0;
-  const weekly = state.creatorStudio?.weeklyAdRevenue || 0;
+  const bankTotal = (state.youtubeBalance || 0) + (state.instagramBalance || 0) + (state.twitterBalance || 0);
+  const weekly = (state.instagramAccruedLastWeek || 0) + (state.twitterAccruedLastWeek || 0) + (state.creatorStudio?.weeklyAdRevenue || 0);
 
   return (
     <div className="space-y-3">
@@ -279,16 +279,17 @@ export const CreatorStudioPanel: React.FC<{ state: SocialsState }> = ({ state })
             <span className="text-lg font-black text-white">{impressions.toLocaleString()}</span>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-emerald-500/30">
-            <span className="text-[9px] text-gray-400 uppercase block font-bold">Total Ad Revenue</span>
-            <span className="text-lg font-black text-emerald-400">${adRevenue.toLocaleString()}</span>
+            <span className="text-[9px] text-gray-400 uppercase block font-bold">Creator Banks</span>
+            <span className="text-lg font-black text-emerald-400">${bankTotal.toLocaleString()}</span>
+            <span className="text-[7px] text-gray-500 block">YT + IG + X balances — pays out monthly</span>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-emerald-500/30">
-            <span className="text-[9px] text-gray-400 uppercase block font-bold">This Week</span>
+            <span className="text-[9px] text-gray-400 uppercase block font-bold">Accrued Last Week</span>
             <span className="text-lg font-black text-emerald-300">+${weekly.toLocaleString()}</span>
           </div>
         </div>
       )}
-      <p className="text-[9px] text-gray-500">Impressions are real — from your actual posts across all platforms. Ad share paid weekly (X-style model).</p>
+      <p className="text-[9px] text-gray-500">Impressions are real — from your actual posts across all platforms. Revenue accrues in your platform Banks (YouTube / Instagram / X) and pays out automatically at month-end. YouTube is the only taxed platform.</p>
     </div>
   );
 };
