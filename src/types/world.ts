@@ -305,6 +305,8 @@ export interface HiredWriter {
   agencyName?: string;
   minFame?: number;
   minLeadRoles?: number;
+  minMovies?: number;
+  minFans?: number;
   bio?: string;
   avatar?: string;
   platform?: string; // lowercase platform id this writer is retained for (e.g. 'twitter')

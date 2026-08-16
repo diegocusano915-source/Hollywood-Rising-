@@ -1252,6 +1252,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
     if (socialsResult.socialReputation) socialReputation.push(...socialsResult.socialReputation);
 
+    // Writer contracts that ran out this week — send formal goodbye to Inbox
+    if (socialsResult.expiredWriters && socialsResult.expiredWriters.length > 0) {
+      for (const ex of socialsResult.expiredWriters) {
+        const platLabel = SocialsService.PLATFORM_LABEL[ex.platform || 'twitter'] || 'social';
+        newInboxMessages.unshift({
+          id: `msg_writer_expired_${ex.name.replace(/\s+/g, '_')}_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+          category: 'SOCIAL',
+          sender: ex.name,
+          senderRole: ex.agencyName || 'PR & Ghostwriting Agency',
+          senderAvatar: ex.avatar,
+          subject: `CONTRACT COMPLETE — ${ex.name} signs off from ${platLabel}`,
+          body: `Dear ${p.firstName},\n\nOur ${platLabel} retainer has reached its final week, and per the terms of our agreement, my services for your account conclude today.\n\nIt has been a genuine pleasure shaping your voice on ${platLabel}. The growth we built together doesn't stop here — the audience we activated keeps listening.\n\nIf you'd like to renew, you know where to find me. My calendar fills fast, but former clients always get the first call.\n\nWith respect,\n${ex.name}\n${ex.agencyName || 'Hollywood PR Media Group'}`,
+          date: `Week ${newWeek}, ${newYear}`,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+
     fansGainedThisWeek = (fansGainedThisWeek || 0) + (socialsResult.fanGrowth || 0);
     prRetainerExpensesThisWeek = repResult.prWeeklyCost || 0;
     legalRetainerExpensesThisWeek = repResult.lawWeeklyCost || 0;

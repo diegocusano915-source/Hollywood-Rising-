@@ -1074,6 +1074,7 @@ export class SocialsService {
     weeklySponsorshipIncome: number;
     writerWeeklyCost?: number;
     youtubeRevenue?: number;
+    expiredWriters?: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }>;
   } {
     const state = this.getState();
 
@@ -1085,6 +1086,7 @@ export class SocialsService {
     const socialPosts: string[] = [];
     const socialTrending: string[] = [];
     const socialReputation: string[] = [];
+    const expiredWriters: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }> = [];
     let fanGrowth = 0;
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
@@ -1185,6 +1187,7 @@ export class SocialsService {
       if (hiredWriter.contractWeeksRemaining <= 0) {
         hiredWriter.hired = false;
         socialPosts.push(`📄 ${hiredWriter.name}'s ${SocialsService.PLATFORM_LABEL[hiredWriter.platform || 'twitter'] || ''} retainer expired.`);
+        expiredWriters.push({ name: hiredWriter.name, agencyName: hiredWriter.agencyName, platform: hiredWriter.platform, avatar: hiredWriter.avatar });
         continue;
       }
 
@@ -1526,6 +1529,7 @@ export class SocialsService {
       weeklySponsorshipIncome,
       writerWeeklyCost,
       youtubeRevenue: totalYtRevenueThisWeek,
+      expiredWriters,
     };
   }
 
@@ -2158,9 +2162,11 @@ export interface SocialWriter {
   weeklyCost: number;
   postsPerWeek: number;
   qualityBoost: number;
-  maxContractWeeks: number;
+  maxContractWeeks: number;  // absolute max player can choose (40)
   cancelFee: number;
   minFame: number;
+  minMovies: number;
+  minFans: number;
   bio: string;
   avatar: string;
   agencyName: string;
@@ -2175,36 +2181,36 @@ const WRITER_AVATARS = [
   'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop',
 ];
 
-// 24-WRITER POOL: 4 tiers x 6 specialties
+// 24-WRITER POOL: 4 tiers x 6 specialties — player picks contract length 5-40 weeks
 export const SOCIAL_WRITER_POOL: SocialWriter[] = [
-  // TIER 1 — Junior Bloggers ($250-400/wk)
-  { id: 'w_j1', name: 'Nina Vale', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 250, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 500, minFame: 0, bio: 'Fresh film blog voice covering indie releases.', avatar: WRITER_AVATARS[0], agencyName: 'The Daily Marquee Blog' },
-  { id: 'w_j2', name: 'Caleb Frost', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Gossip & Celebrity', weeklyCost: 275, postsPerWeek: 3, qualityBoost: 9, maxContractWeeks: 30, cancelFee: 550, minFame: 0, bio: 'Sunset Strip gossip columnist in training.', avatar: WRITER_AVATARS[1], agencyName: 'Sunset Scoop' },
-  { id: 'w_j3', name: 'Rhea Patel', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Lifestyle & Brand', weeklyCost: 260, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 520, minFame: 0, bio: 'Lifestyle writer for emerging talent.', avatar: WRITER_AVATARS[2], agencyName: 'La La Life Blog' },
-  { id: 'w_j4', name: 'Oscar Bennet', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 240, postsPerWeek: 2, qualityBoost: 7, maxContractWeeks: 30, cancelFee: 480, minFame: 0, bio: 'Movie lover writing honest reviews.', avatar: WRITER_AVATARS[3], agencyName: 'Popcorn Prophet' },
-  { id: 'w_j5', name: 'Lena Cruz', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Awards Watch', weeklyCost: 280, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 560, minFame: 0, bio: 'Tracks the awards season calendar.', avatar: WRITER_AVATARS[4], agencyName: 'The Reel Report' },
-  { id: 'w_j6', name: 'Dante Fox', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Business & Trade', weeklyCost: 300, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 600, minFame: 0, bio: 'Reports on Hollywood money moves.', avatar: WRITER_AVATARS[5], agencyName: 'Studio Gate' },
-  // TIER 2 — Content Writers ($600-900/wk)
-  { id: 'w_c1', name: 'Ava Reed', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 650, postsPerWeek: 4, qualityBoost: 18, maxContractWeeks: 30, cancelFee: 1500, minFame: 300, bio: 'Hollywood Insider blogger covering releases and red carpets.', avatar: WRITER_AVATARS[0], agencyName: 'Hollywood Insider Blog Network' },
-  { id: 'w_c2', name: 'Jaxon Cole', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Gossip & Celebrity', weeklyCost: 600, postsPerWeek: 5, qualityBoost: 20, maxContractWeeks: 30, cancelFee: 1400, minFame: 500, bio: 'Gossip Wire specialist in celebrity news.', avatar: WRITER_AVATARS[1], agencyName: 'Gossip Wire Media' },
-  { id: 'w_c3', name: 'Sierra Lane', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 750, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 1700, minFame: 600, bio: 'Cinema Review Collective critic.', avatar: WRITER_AVATARS[2], agencyName: 'Cinema Review Collective' },
-  { id: 'w_c4', name: 'Dylan Cross', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Awards Watch', weeklyCost: 800, postsPerWeek: 5, qualityBoost: 24, maxContractWeeks: 30, cancelFee: 1800, minFame: 800, bio: 'AwardsWatch blogger with insider buzz.', avatar: WRITER_AVATARS[3], agencyName: 'AwardsWatch Blog Network' },
-  { id: 'w_c5', name: 'Mika Sato', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'International', weeklyCost: 900, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 2000, minFame: 1000, bio: 'Tokyo cinema blogger with global reach.', avatar: WRITER_AVATARS[4], agencyName: 'Asia Cinema Blog Network' },
-  { id: 'w_c6', name: 'Ethan Brooks', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Business & Trade', weeklyCost: 850, postsPerWeek: 4, qualityBoost: 21, maxContractWeeks: 30, cancelFee: 1900, minFame: 900, bio: 'Trade reporter for financing and deals.', avatar: WRITER_AVATARS[5], agencyName: 'The Marquee Trade Desk' },
-  // TIER 3 — Senior Publicists ($1,200-2,000/wk)
-  { id: 'w_s1', name: 'Sophia Sterling', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'PR & Lifestyle', weeklyCost: 1250, postsPerWeek: 6, qualityBoost: 35, maxContractWeeks: 30, cancelFee: 4000, minFame: 2000, bio: 'Sterling PR Media Group senior publicist.', avatar: WRITER_AVATARS[0], agencyName: 'Sterling PR Media Group' },
-  { id: 'w_s2', name: 'Marcus Hayes', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Awards Watch', weeklyCost: 1500, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 5000, minFame: 2500, bio: 'Beverly Hills PR specialist for campaigns.', avatar: WRITER_AVATARS[1], agencyName: 'Beverly Hills PR Specialists' },
-  { id: 'w_s3', name: 'Isabella Fontaine', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Film Reviewer', weeklyCost: 1400, postsPerWeek: 6, qualityBoost: 38, maxContractWeeks: 30, cancelFee: 4600, minFame: 2200, bio: 'Trades-level critic and reporter.', avatar: WRITER_AVATARS[2], agencyName: 'Redwood Review Desk' },
-  { id: 'w_s4', name: 'Andre Whitfield', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Business & Trade', weeklyCost: 1600, postsPerWeek: 7, qualityBoost: 42, maxContractWeeks: 30, cancelFee: 5200, minFame: 3000, bio: 'Variety-style entertainment business reporter.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Business Desk' },
-  { id: 'w_s5', name: 'Camille Dubois', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Gossip & Celebrity', weeklyCost: 1300, postsPerWeek: 7, qualityBoost: 36, maxContractWeeks: 30, cancelFee: 4200, minFame: 2000, bio: 'Celebrity features writer with sources.', avatar: WRITER_AVATARS[4], agencyName: 'Fame Focus Media' },
-  { id: 'w_s6', name: 'Lucas Meyer', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'International', weeklyCost: 2000, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 6000, minFame: 3500, bio: 'Global press tour specialist.', avatar: WRITER_AVATARS[5], agencyName: 'Global Press Group' },
-  // TIER 4 — Elite Ghostwriters ($3,000-5,000/wk)
-  { id: 'w_e1', name: 'Vanguard Global PR', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'PR & Lifestyle', weeklyCost: 3200, postsPerWeek: 8, qualityBoost: 70, maxContractWeeks: 30, cancelFee: 12000, minFame: 6000, bio: 'Top-tier global PR agency with 24/7 account management.', avatar: WRITER_AVATARS[0], agencyName: 'Vanguard Global Communications Inc.' },
-  { id: 'w_e2', name: 'Julian Cross', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Awards Watch', weeklyCost: 3800, postsPerWeek: 9, qualityBoost: 80, maxContractWeeks: 30, cancelFee: 14000, minFame: 8000, bio: 'Oscar campaign whisperer.', avatar: WRITER_AVATARS[1], agencyName: 'Cross Campaigns' },
-  { id: 'w_e3', name: 'Victoria Reign', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Gossip & Celebrity', weeklyCost: 3500, postsPerWeek: 10, qualityBoost: 75, maxContractWeeks: 30, cancelFee: 13000, minFame: 7500, bio: 'The most connected celebrity writer in Hollywood.', avatar: WRITER_AVATARS[2], agencyName: 'Reign Media' },
-  { id: 'w_e4', name: 'Silas Monroe', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Film Reviewer', weeklyCost: 3000, postsPerWeek: 8, qualityBoost: 65, maxContractWeeks: 30, cancelFee: 11000, minFame: 5000, bio: 'Legendary critic with a trusted byline.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Review' },
-  { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 30, cancelFee: 16000, minFame: 10000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
-  { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 30, cancelFee: 18000, minFame: 12000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
+  // TIER 1 — Junior Bloggers ($250-400/wk) — anyone can apply, 90% accept if meets reqs
+  { id: 'w_j1', name: 'Nina Vale', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 250, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 500, minFame: 0, minMovies: 0, minFans: 0, bio: 'Fresh film blog voice covering indie releases.', avatar: WRITER_AVATARS[0], agencyName: 'The Daily Marquee Blog' },
+  { id: 'w_j2', name: 'Caleb Frost', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Gossip & Celebrity', weeklyCost: 275, postsPerWeek: 3, qualityBoost: 9, maxContractWeeks: 40, cancelFee: 550, minFame: 0, minMovies: 0, minFans: 0, bio: 'Sunset Strip gossip columnist in training.', avatar: WRITER_AVATARS[1], agencyName: 'Sunset Scoop' },
+  { id: 'w_j3', name: 'Rhea Patel', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Lifestyle & Brand', weeklyCost: 260, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 520, minFame: 0, minMovies: 0, minFans: 0, bio: 'Lifestyle writer for emerging talent.', avatar: WRITER_AVATARS[2], agencyName: 'La La Life Blog' },
+  { id: 'w_j4', name: 'Oscar Bennet', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 240, postsPerWeek: 2, qualityBoost: 7, maxContractWeeks: 40, cancelFee: 480, minFame: 0, minMovies: 0, minFans: 0, bio: 'Movie lover writing honest reviews.', avatar: WRITER_AVATARS[3], agencyName: 'Popcorn Prophet' },
+  { id: 'w_j5', name: 'Lena Cruz', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Awards Watch', weeklyCost: 280, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 560, minFame: 0, minMovies: 0, minFans: 0, bio: 'Tracks the awards season calendar.', avatar: WRITER_AVATARS[4], agencyName: 'The Reel Report' },
+  { id: 'w_j6', name: 'Dante Fox', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Business & Trade', weeklyCost: 300, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 600, minFame: 0, minMovies: 0, minFans: 0, bio: 'Reports on Hollywood money moves.', avatar: WRITER_AVATARS[5], agencyName: 'Studio Gate' },
+  // TIER 2 — Content Writers ($600-900/wk) — need 1+ movie, 80% accept if meets reqs
+  { id: 'w_c1', name: 'Ava Reed', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 650, postsPerWeek: 4, qualityBoost: 18, maxContractWeeks: 40, cancelFee: 1500, minFame: 300, minMovies: 1, minFans: 0, bio: 'Hollywood Insider blogger covering releases and red carpets.', avatar: WRITER_AVATARS[0], agencyName: 'Hollywood Insider Blog Network' },
+  { id: 'w_c2', name: 'Jaxon Cole', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Gossip & Celebrity', weeklyCost: 600, postsPerWeek: 5, qualityBoost: 20, maxContractWeeks: 40, cancelFee: 1400, minFame: 500, minMovies: 1, minFans: 0, bio: 'Gossip Wire specialist in celebrity news.', avatar: WRITER_AVATARS[1], agencyName: 'Gossip Wire Media' },
+  { id: 'w_c3', name: 'Sierra Lane', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 750, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 40, cancelFee: 1700, minFame: 600, minMovies: 1, minFans: 0, bio: 'Cinema Review Collective critic.', avatar: WRITER_AVATARS[2], agencyName: 'Cinema Review Collective' },
+  { id: 'w_c4', name: 'Dylan Cross', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Awards Watch', weeklyCost: 800, postsPerWeek: 5, qualityBoost: 24, maxContractWeeks: 40, cancelFee: 1800, minFame: 800, minMovies: 2, minFans: 0, bio: 'AwardsWatch blogger with insider buzz.', avatar: WRITER_AVATARS[3], agencyName: 'AwardsWatch Blog Network' },
+  { id: 'w_c5', name: 'Mika Sato', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'International', weeklyCost: 900, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 40, cancelFee: 2000, minFame: 1000, minMovies: 2, minFans: 0, bio: 'Tokyo cinema blogger with global reach.', avatar: WRITER_AVATARS[4], agencyName: 'Asia Cinema Blog Network' },
+  { id: 'w_c6', name: 'Ethan Brooks', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Business & Trade', weeklyCost: 850, postsPerWeek: 4, qualityBoost: 21, maxContractWeeks: 40, cancelFee: 1900, minFame: 900, minMovies: 2, minFans: 0, bio: 'Trade reporter for financing and deals.', avatar: WRITER_AVATARS[5], agencyName: 'The Marquee Trade Desk' },
+  // TIER 3 — Senior Publicists ($1,200-2,000/wk) — need 3+ movies, 5K+ fans, 70% accept
+  { id: 'w_s1', name: 'Sophia Sterling', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'PR & Lifestyle', weeklyCost: 1250, postsPerWeek: 6, qualityBoost: 35, maxContractWeeks: 40, cancelFee: 4000, minFame: 2000, minMovies: 3, minFans: 5000, bio: 'Sterling PR Media Group senior publicist.', avatar: WRITER_AVATARS[0], agencyName: 'Sterling PR Media Group' },
+  { id: 'w_s2', name: 'Marcus Hayes', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Awards Watch', weeklyCost: 1500, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 40, cancelFee: 5000, minFame: 2500, minMovies: 3, minFans: 5000, bio: 'Beverly Hills PR specialist for campaigns.', avatar: WRITER_AVATARS[1], agencyName: 'Beverly Hills PR Specialists' },
+  { id: 'w_s3', name: 'Isabella Fontaine', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Film Reviewer', weeklyCost: 1400, postsPerWeek: 6, qualityBoost: 38, maxContractWeeks: 40, cancelFee: 4600, minFame: 2200, minMovies: 3, minFans: 5000, bio: 'Trades-level critic and reporter.', avatar: WRITER_AVATARS[2], agencyName: 'Redwood Review Desk' },
+  { id: 'w_s4', name: 'Andre Whitfield', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Business & Trade', weeklyCost: 1600, postsPerWeek: 7, qualityBoost: 42, maxContractWeeks: 40, cancelFee: 5200, minFame: 3000, minMovies: 4, minFans: 8000, bio: 'Variety-style entertainment business reporter.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Business Desk' },
+  { id: 'w_s5', name: 'Camille Dubois', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Gossip & Celebrity', weeklyCost: 1300, postsPerWeek: 7, qualityBoost: 36, maxContractWeeks: 40, cancelFee: 4200, minFame: 2000, minMovies: 3, minFans: 5000, bio: 'Celebrity features writer with sources.', avatar: WRITER_AVATARS[4], agencyName: 'Fame Focus Media' },
+  { id: 'w_s6', name: 'Lucas Meyer', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'International', weeklyCost: 2000, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 40, cancelFee: 6000, minFame: 3500, minMovies: 4, minFans: 8000, bio: 'Global press tour specialist.', avatar: WRITER_AVATARS[5], agencyName: 'Global Press Group' },
+  // TIER 4 — Elite Ghostwriters ($3,000-5,000/wk) — need 5+ movies, 50K+ fans, 60% accept
+  { id: 'w_e1', name: 'Vanguard Global PR', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'PR & Lifestyle', weeklyCost: 3200, postsPerWeek: 8, qualityBoost: 70, maxContractWeeks: 40, cancelFee: 12000, minFame: 6000, minMovies: 5, minFans: 50000, bio: 'Top-tier global PR agency with 24/7 account management.', avatar: WRITER_AVATARS[0], agencyName: 'Vanguard Global Communications Inc.' },
+  { id: 'w_e2', name: 'Julian Cross', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Awards Watch', weeklyCost: 3800, postsPerWeek: 9, qualityBoost: 80, maxContractWeeks: 40, cancelFee: 14000, minFame: 8000, minMovies: 5, minFans: 50000, bio: 'Oscar campaign whisperer.', avatar: WRITER_AVATARS[1], agencyName: 'Cross Campaigns' },
+  { id: 'w_e3', name: 'Victoria Reign', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Gossip & Celebrity', weeklyCost: 3500, postsPerWeek: 10, qualityBoost: 75, maxContractWeeks: 40, cancelFee: 13000, minFame: 7500, minMovies: 5, minFans: 50000, bio: 'The most connected celebrity writer in Hollywood.', avatar: WRITER_AVATARS[2], agencyName: 'Reign Media' },
+  { id: 'w_e4', name: 'Silas Monroe', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Film Reviewer', weeklyCost: 3000, postsPerWeek: 8, qualityBoost: 65, maxContractWeeks: 40, cancelFee: 11000, minFame: 5000, minMovies: 5, minFans: 50000, bio: 'Legendary critic with a trusted byline.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Review' },
+  { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 40, cancelFee: 16000, minFame: 10000, minMovies: 6, minFans: 75000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
+  { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 40, cancelFee: 18000, minFame: 12000, minMovies: 6, minFans: 100000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
 ];
 
 // ---------- PREMIUM ----------
@@ -2250,40 +2256,278 @@ export function youtubeAlgorithmViews(lifetimeVideos: number, fameXp: number, di
   return Math.floor(2000 + fameXp * 60 + Math.random() * fameXp * 20);
 }
 
-// ---------- WRITERS (SEPARATE per platform: 1 each, max 30 weeks, cancel fee) ----------
-export function hireSocialWriter(
+// ---------- WRITERS (SEPARATE per platform: 1 each, contract 5-40 weeks, cancel fee) ----------
+// Contract length the player may choose when applying
+export const WRITER_MIN_CONTRACT_WEEKS = 5;
+export const WRITER_MAX_CONTRACT_WEEKS = 40;
+export const WRITER_CONTRACT_CHOICES = [5, 10, 15, 20, 25, 30, 35, 40];
+
+// Base acceptance odds when the player MEETS every requirement, by tier.
+const WRITER_ACCEPT_BASE: Record<number, number> = { 1: 0.9, 2: 0.8, 3: 0.7, 4: 0.6 };
+// Lucky-break odds when portfolio requirements (movies/fans) are NOT met —
+// the "invisible checker". Fame is a hard lock; movies/fans only lower odds.
+const WRITER_ACCEPT_LONGSHOT = 0.15;
+
+interface WriterPitchContext {
+  writerName: string;
+  agency: string;
+  playerName: string;
+  tierLabel: string;
+  specialty: string;
+  platformLabel: string;
+  weeks: number;
+  weeklyCost: number;
+  totalCost: number;
+  fameXp: number;
+  movies: number;
+  fans: number;
+  missing: string[];
+}
+
+// 13 ACCEPTANCE templates — varied tone, all personalized with real data
+const WRITER_ACCEPT_TEMPLATES: Array<(c: WriterPitchContext) => { subject: string; body: string }> = [
+  (c) => ({
+    subject: `RETAINER ACCEPTED — ${c.writerName} is officially on your team!`,
+    body: `Dear ${c.playerName},\n\nI reviewed your portfolio this morning (${c.movies} credits, ${c.fans.toLocaleString()} fans, ${c.fameXp.toLocaleString()} Fame XP) and I'm signing on the dotted line. Great material to work with.\n\nFor the next ${c.weeks} weeks I'll publish 2 detailed strategic posts per week on your ${c.platformLabel} feed — real releases, real numbers, real momentum.\n\nWeekly retainer: $${c.weeklyCost.toLocaleString()}\nTotal contract value: $${c.totalCost.toLocaleString()}\n\nLet's build something. First post drops this week.\n\n— ${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `YES — let's work together (${c.weeks}-week retainer confirmed)`,
+    body: `Hey ${c.playerName}!\n\nHonestly? I've been watching your career from afar for a while. When your application landed on my desk I may have said "finally" out loud.\n\n${c.tierLabel} to ${c.specialty.toLowerCase()} — you came to the right desk. ${c.weeks} weeks, 2 posts a week on ${c.platformLabel}, zero fluff, all signal.\n\n$${c.weeklyCost.toLocaleString()}/wk starting immediately.\n\nTalk soon,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `CONTRACT EXECUTED: ${c.writerName} × ${c.playerName} (${c.weeks} weeks)`,
+    body: `${c.playerName},\n\nFollowing a standard audit of your public standing — Fame XP ${c.fameXp.toLocaleString()}, ${c.movies} completed projects, ${c.fans.toLocaleString()} fans — ${c.agency} is pleased to confirm acceptance of your retainer offer.\n\nTerms: ${c.weeks} weeks · $${c.weeklyCost.toLocaleString()}/week · ${c.platformLabel} exclusivity · 2 posts weekly.\n\nOur editorial calendar for your account is already drafted.\n\nRegards,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `You're in. I start Monday.`,
+    body: `${c.playerName},\n\nShort note: I read your application twice, checked your numbers, and called my editor. We're doing this.\n\n${c.weeks} weeks on ${c.platformLabel}. I know exactly the angle we're taking — your story writes itself if someone just pays attention. I do.\n\nInvoice: $${c.weeklyCost.toLocaleString()}/wk.\n\n— ${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `WELCOME ABOARD — ${c.agency} accepts your retainer!`,
+    body: `Dear ${c.playerName},\n\nOn behalf of the entire ${c.agency} team, welcome aboard! ${c.writerName} here will be your dedicated ${c.specialty.toLowerCase()} voice for the next ${c.weeks} weeks.\n\nYour profile passed our client criteria with room to spare:\n• Fame XP: ${c.fameXp.toLocaleString()}\n• Completed projects: ${c.movies}\n• Fanbase: ${c.fans.toLocaleString()}\n\nExpect your first ${c.platformLabel} post within days.\n\nWarm regards,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `Re: Your retainer application — ACCEPTED ✔`,
+    body: `${c.playerName},\n\nQuick reply to your application: yes.\n\nSlightly longer reply: yes, because your trajectory is exactly the kind of story my readers follow. ${c.movies} credits in and climbing — I know an ascending curve when I see one.\n\n${c.weeks} weeks · ${c.platformLabel} · $${c.weeklyCost.toLocaleString()}/wk. Locked in.\n\n${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `RETAINER CONFIRMED — the paperwork is done!`,
+    body: `Dear ${c.playerName},\n\nThe board reviewed your application over lunch and it was the fastest unanimous yes we've had all quarter.\n\n${c.writerName}, ${c.specialty}, at your service for ${c.weeks} weeks. Your ${c.platformLabel} feed is about to get a lot more interesting — expect release coverage, industry insight, and the kind of detail fans actually share.\n\nWeekly fee: $${c.weeklyCost.toLocaleString()}.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `We say yes to very few. You're one of them.`
+    , body: `${c.playerName},\n\nI'll be direct: I turn down most retainer offers because most profiles are noise. Yours has signal — ${c.movies} real credits and a fanbase that actually engages (${c.fans.toLocaleString()} strong).\n\n${c.weeks} weeks on ${c.platformLabel}. $${c.weeklyCost.toLocaleString()}/wk. I only take accounts I can be proud of a year from now.\n\nWelcome.\n\n— ${c.writerName}\n${c.agency}` }),
+  (c) => ({
+    subject: `ACCEPTANCE NOTICE: ${c.writerName} joins ${c.playerName}'s PR team`,
+    body: `Dear ${c.playerName},\n\nPlease find below confirmation of our agreed engagement:\n\n• Writer: ${c.writerName} (${c.tierLabel})\n• Specialty: ${c.specialty}\n• Platform: ${c.platformLabel} (exclusive)\n• Duration: ${c.weeks} weeks\n• Retainer: $${c.weeklyCost.toLocaleString()} per week\n• Deliverables: 2 detailed posts per week minimum\n\nWe look forward to an excellent collaboration.\n\nYours sincerely,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `Okay, I'm interested. Actually — I'm in.`
+    , body: `${c.playerName},\n\nI drafted a polite decline. Then I looked at your numbers again and deleted it.\n\n${c.fameXp.toLocaleString()} Fame XP, ${c.movies} credits, ${c.fans.toLocaleString()} fans — this is a career on the move, and ${c.platformLabel} is about to hear all about it. ${c.weeks} weeks. Let's go.\n\n$${c.weeklyCost.toLocaleString()}/wk — worth every cent, and I intend to prove it.\n\n${c.writerName}` }),
+  (c) => ({
+    subject: `CONGRATULATIONS — your application stood out!`,
+    body: `Dear ${c.playerName},\n\nWe received a high volume of retainer applications this month. Yours was among the very few we accepted.\n\nYour combination of momentum (${c.fameXp.toLocaleString()} Fame XP) and an engaged fanbase (${c.fans.toLocaleString()} fans) makes you an ideal client for ${c.writerName}'s ${c.specialty.toLowerCase()} desk.\n\n${c.weeks}-week engagement begins now. First ${c.platformLabel} post: this week.\n\nCongratulations again,\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `Signed, sealed, delivered — I'm yours for ${c.weeks} weeks`,
+    body: `Hey ${c.playerName}!\n\nContract's signed and my coffee's cold from reading through your entire filmography. ${c.movies} projects — some hidden gems in there the trades completely missed. That's content gold.\n\n${c.platformLabel} is getting 2 posts a week from me about your career, and people are going to notice.\n\n$${c.weeklyCost.toLocaleString()}/wk. Easiest money you'll spend this year.\n\nCheers,\n${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `FORMAL ACCEPTANCE — Retainer Agreement (${c.writerName})`,
+    body: `Dear ${c.playerName},\n\nThis letter confirms ${c.agency}'s acceptance of your retainer application.\n\nOur evaluation noted the following: consistent career progression, verifiable credits (${c.movies}), and measurable public support (${c.fans.toLocaleString()} fans). All client criteria satisfied.\n\nEngagement terms: ${c.weeks} weeks, $${c.weeklyCost.toLocaleString()} weekly, ${c.platformLabel} exclusivity, minimum 2 posts per week.\n\nWe are honored to represent your voice.\n\nFormally yours,\n${c.writerName}\n${c.agency}`,
+  }),
+];
+
+// 12 DECLINE templates — varied reasons and tones, all explain what's missing
+const WRITER_DECLINE_TEMPLATES: Array<(c: WriterPitchContext) => { subject: string; body: string }> = [
+  (c) => ({
+    subject: `RETAINER DECLINED — ${c.writerName}'s evaluation`,
+    body: `Dear ${c.playerName},\n\nThank you for your interest in my ${c.specialty.toLowerCase()} services.\n\nAfter reviewing your application, I'm unable to take you on at this time:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nThis isn't a no forever — it's a no for now. Build the portfolio and try me again.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `Re: Your application — not this time`,
+    body: `Hey ${c.playerName},\n\nI'll be straight with you: I can't sell a story that isn't there yet.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nThe good news? Stories change fast in this town. Go book the work, and my inbox stays open.\n\n${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `APPLICATION STATUS: Unsuccessful`,
+    body: `Dear ${c.playerName},\n\nThank you for applying for representation with ${c.agency}.\n\nFollowing our standard client audit, your application did not meet our current criteria:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe encourage you to reapply once these areas have developed. Applications are reassessed every season.\n\nRegards,\nClient Relations\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `I have to pass — here's why (and how to fix it)`,
+    body: `${c.playerName},\n\nNobody tells actors the truth in this town, so here it is: I can't take your account yet.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nBut you're reading a decline from someone who checks credits weekly. Get these numbers up and apply again — I keep notes.\n\n— ${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `RETAINER OFFER DECLINED — portfolio under review threshold`,
+    body: `Dear ${c.playerName},\n\n${c.agency} maintains strict client thresholds to protect both our writers and our readership. Unfortunately your current standing falls below them:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe wish you every success in your career and welcome future applications.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `Not yet, ${c.playerName}. Not yet.`
+    , body: `${c.playerName},\n\nI've been doing this long enough to know the difference between "no" and "not yet." This is the second one.\n\nWhat's holding it back:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nFix that, and the next email you send me gets a yes. I'd bet my byline on it.\n\n— ${c.writerName}` }),
+  (c) => ({
+    subject: `Your application — honest feedback enclosed`,
+    body: `Dear ${c.playerName},\n\nI'm declining your retainer offer, but I'm not going to leave you guessing like most agencies do.\n\nThe gaps:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWriters follow momentum. Give us something to write about and we will — eagerly.\n\nBest,\n${c.writerName}\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `DECLINED — ${c.agency} client roster at capacity for your tier`,
+    body: `Dear ${c.playerName},\n\nAfter careful consideration we must decline your application.\n\nOur assessment identified the following:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\n${c.agency} reassesses eligibility every quarter. Your application will remain on file.\n\nRespectfully,\nClient Services\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `The story isn't ready. You might be.`
+    , body: `${c.playerName},\n\nA good ${c.specialty.toLowerCase()} knows when there's enough story to tell. Right now there isn't — not for my rates, not for my readers.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nBut between you and me? The ones who get declined and come back swinging are the ones worth covering.\n\nSee you on the other side of it.\n${c.writerName}` }),
+  (c) => ({
+    subject: `RE: Retainer application — unable to accept`,
+    body: `Dear ${c.playerName},\n\nThank you for considering ${c.writerName} for your ${c.platformLabel} coverage.\n\nUnfortunately, our evaluation found your current profile below our minimum client standards:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe hope this changes soon — Hollywood moves fast.\n\nSincerely,\n${c.writerName}`,
+  }),
+  (c) => ({
+    subject: `Application outcome: DECLINED (details inside)`,
+    body: `Dear ${c.playerName},\n\nWe regret to inform you that your retainer application was unsuccessful this cycle.\n\nEvaluator notes:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nPlease note: declined applicants are welcome to reapply after material career developments.\n\nKind regards,\nThe Editorial Board\n${c.agency}`,
+  }),
+  (c) => ({
+    subject: `I said no — but read this part twice`,
+    body: `${c.playerName},\n\nThe no is because of this:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nNow the part to read twice: every single one of those numbers moves with one booking, one release, one break. Mine did too, once.\n\nReapply when they move. I'll remember this email.\n\n— ${c.writerName}\n${c.agency}`,
+  }),
+];
+
+/**
+ * Pitch a writer — the INVISIBLE CHECKER. The writer audits the player's real
+ * portfolio (fame, movies, fans) and rolls acceptance odds by tier. Fame below
+ * minimum is a hard lock; movies/fans shortfalls lower odds to a longshot.
+ * Always produces a personalized InboxMessage (accept or decline) drawn from
+ * 25 rotating templates. On acceptance the writer is hired for the chosen
+ * contract length (5-40 weeks).
+ */
+export function pitchSocialWriter(
   state: SocialsState,
   writerId: string,
   money: number,
-  platform?: string
-): { success: boolean; message: string; newMoney: number } {
+  player: { fameXp: number; moviesCompleted: number; fans: number; firstName: string; lastName: string; dateWeek: number; dateYear: number },
+  platform: string,
+  weeks: number
+): { success: boolean; message: string; inboxMsg: InboxMessage; newMoney: number; hired: boolean } {
   const pid = platform || 'twitter';
   const label = SocialsService.PLATFORM_LABEL[pid] || pid;
+  const emptyMsg = (subject: string, body: string): InboxMessage => ({
+    id: `msg_writer_error_${Date.now()}`,
+    category: 'SOCIAL',
+    sender: 'Writer Relations Desk',
+    senderRole: 'Automated Notice',
+    subject,
+    body,
+    date: `Week ${player.dateWeek || 1}, ${player.dateYear || 2026}`,
+    read: false,
+  });
+
   const existing = state.writers.find((w) => w.hired && (w.platform || 'twitter') === pid);
-  if (existing) return { success: false, message: `${label} already has a writer (${existing.name}). Cancel that contract first.`, newMoney: money };
+  if (existing) return { success: false, message: `${label} already has a writer (${existing.name}). Cancel that contract first.`, inboxMsg: emptyMsg('Application blocked', 'You already have a writer under contract for this platform.'), newMoney: money, hired: false };
   const busyElsewhere = state.writers.find((w) => w.hired && w.id === writerId);
-  if (busyElsewhere) return { success: false, message: `${busyElsewhere.name} is already retained for ${SocialsService.PLATFORM_LABEL[busyElsewhere.platform || 'twitter'] || 'another platform'}.`, newMoney: money };
+  if (busyElsewhere) return { success: false, message: `${busyElsewhere.name} is already retained for ${SocialsService.PLATFORM_LABEL[busyElsewhere.platform || 'twitter'] || 'another platform'}.`, inboxMsg: emptyMsg('Application blocked', 'This writer is already on another platform contract.'), newMoney: money, hired: false };
   const w = SOCIAL_WRITER_POOL.find((x) => x.id === writerId);
-  if (!w) return { success: false, message: 'Writer not found.', newMoney: money };
-  if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, newMoney: money };
+  if (!w) return { success: false, message: 'Writer not found.', inboxMsg: emptyMsg('Application error', 'Writer record not found.'), newMoney: money, hired: false };
+
+  // Clamp contract length to the legal range
+  const chosenWeeks = Math.max(WRITER_MIN_CONTRACT_WEEKS, Math.min(WRITER_MAX_CONTRACT_WEEKS, Math.floor(weeks || WRITER_MIN_CONTRACT_WEEKS)));
+
+  if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, inboxMsg: emptyMsg('Application blocked', 'You cannot cover the first week retainer.'), newMoney: money, hired: false };
+
+  // ----- INVISIBLE CHECKER: portfolio audit -----
+  const fameXp = player.fameXp || 0;
+  const movies = player.moviesCompleted || 0;
+  const fans = player.fans || 0;
+
+  const meetsFame = fameXp >= w.minFame;
+  const meetsMovies = movies >= w.minMovies;
+  const meetsFans = fans >= w.minFans;
+
+  const missing: string[] = [];
+  if (!meetsMovies && w.minMovies > 0) missing.push(`Requires ${w.minMovies} completed projects — you have ${movies}`);
+  if (!meetsFans && w.minFans > 0) missing.push(`Requires ${w.minFans.toLocaleString()} fans — you have ${fans.toLocaleString()}`);
+  if (!meetsFame) missing.push(`Requires ${w.minFame.toLocaleString()} Fame XP — you have ${fameXp.toLocaleString()}`);
+
+  const allMet = meetsFame && meetsMovies && meetsFans;
+  // "Barely" = meets everything but sits within 15% above a threshold
+  const barely = allMet && (
+    (w.minMovies > 0 && movies < w.minMovies * 1.15) ||
+    (w.minFans > 0 && fans < w.minFans * 1.15) ||
+    (w.minFame > 0 && fameXp < w.minFame * 1.15)
+  );
+
+  let acceptChance = allMet
+    ? (barely ? WRITER_ACCEPT_BASE[w.tier] - 0.15 : WRITER_ACCEPT_BASE[w.tier])
+    : WRITER_ACCEPT_LONGSHOT;
+  // Fame shortfall below 50% of requirement = automatic pass, no longshot
+  if (!meetsFame && fameXp < w.minFame * 0.5) acceptChance = 0;
+
+  const accepted = Math.random() < acceptChance;
+
+  const ctx: WriterPitchContext = {
+    writerName: w.name,
+    agency: w.agencyName,
+    playerName: `${player.firstName} ${player.lastName}`.trim(),
+    tierLabel: w.tierLabel,
+    specialty: w.specialty,
+    platformLabel: label,
+    weeks: chosenWeeks,
+    weeklyCost: w.weeklyCost,
+    totalCost: w.weeklyCost * chosenWeeks,
+    fameXp,
+    movies,
+    fans,
+    missing,
+  };
+
+  const templates = accepted ? WRITER_ACCEPT_TEMPLATES : WRITER_DECLINE_TEMPLATES;
+  const tpl = templates[Math.floor(Math.random() * templates.length)](ctx);
+
+  const inboxMsg: InboxMessage = {
+    id: `msg_writer_${accepted ? 'accept' : 'decline'}_${w.id}_${Date.now()}`,
+    category: 'SOCIAL',
+    sender: w.name,
+    senderRole: w.agencyName,
+    senderAvatar: w.avatar,
+    subject: tpl.subject,
+    body: tpl.body,
+    date: `Week ${player.dateWeek || 1}, ${player.dateYear || 2026}`,
+    read: false,
+    dateWeek: player.dateWeek,
+    dateYear: player.dateYear,
+  };
+
+  if (!accepted) {
+    return {
+      success: false,
+      message: `❌ ${w.name} DECLINED your offer — full evaluation sent to your Inbox.`,
+      inboxMsg,
+      newMoney: money,
+      hired: false,
+    };
+  }
+
   state.writers = state.writers.filter((wr) => !(wr.hired && (wr.platform || 'twitter') === pid));
   state.writers.push({
     id: w.id,
     name: w.name,
-    tier: w.tier === 1 ? 'Low' : w.tier === 2 ? 'Medium' : w.tier === 3 ? 'Elite' : 'Elite',
+    tier: w.tier === 1 ? 'Low' : w.tier === 2 ? 'Medium' : 'Elite',
     weeklyCost: w.weeklyCost,
     postsPerWeek: w.postsPerWeek,
-    contractWeeksRemaining: w.maxContractWeeks,
+    contractWeeksRemaining: chosenWeeks,
     postsThisWeek: 0,
     qualityBoost: w.qualityBoost,
     hired: true,
     agencyName: w.agencyName,
     minFame: w.minFame,
+    minMovies: w.minMovies,
+    minFans: w.minFans,
     bio: w.bio,
     avatar: w.avatar,
     platform: pid,
   });
-  return { success: true, message: `${w.name} (${w.agencyName}) hired for ${label} — ${w.maxContractWeeks} weeks!`, newMoney: money };
+  return {
+    success: true,
+    message: `✍️ ${w.name} ACCEPTED! ${chosenWeeks}-week ${label} contract — confirmation in Inbox.`,
+    inboxMsg,
+    newMoney: money,
+    hired: true,
+  };
 }
 
 export function fireSocialWriter(state: SocialsState, money: number, platform?: string): { success: boolean; message: string; newMoney: number } {
