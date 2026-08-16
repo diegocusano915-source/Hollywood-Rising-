@@ -143,6 +143,8 @@ interface GameContextType {
   selectedFycMovieId: string | null;
   setSelectedFycMovieId: (id: string | null) => void;
   awardCeremonyData: AwardCeremonyResult | null;
+  taxStatementData: import('../components/modals/TaxStatementModal').TaxStatementData | null;
+  setTaxStatementData: (data: import('../components/modals/TaxStatementModal').TaxStatementData | null) => void;
   setAwardCeremonyData: (data: AwardCeremonyResult | null) => void;
   launchFycCampaign: (
     movieId: string,
@@ -221,6 +223,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [selectedFycMovieId, setSelectedFycMovieId] = useState<string | null>(null);
   const [awardCeremonyData, setAwardCeremonyData] = useState<AwardCeremonyResult | null>(null);
+  const [taxStatementData, setTaxStatementData] = useState<import('../components/modals/TaxStatementModal').TaxStatementData | null>(null);
 
   // Notification Toast System State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -2763,6 +2766,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           read: false,
         });
         empireBusinesses.push(`🏛️ ${f.subject} — ${f.auditNote}`);
+        // Live dashboard popup — driven entirely by the real year-end filing
+        const fileRec = getTaxRecord(loadTaxState(), p.dateYear);
+        setTaxStatementData({
+          type: 'filing',
+          year: p.dateYear,
+          week: p.dateWeek,
+          refund: f.refund,
+          balanceDue: f.balanceDue,
+          totalIncome: fileRec.income,
+          deductions: fileRec.deductions,
+          taxable: fileRec.taxable,
+          liability: fileRec.liability,
+          effectiveRate: fileRec.effectiveRate,
+          ytdWithheld: fileRec.withheld,
+          audited: f.audited,
+          penalty: f.penalty,
+          auditNote: f.auditNote,
+          monthlyHistory: (fileRec.monthly || []).map((b) => ({ month: b.month, income: b.income, withheld: b.withheld, closed: b.closed, audited: b.audited })),
+          accountantTier: empireNow?.taxState?.accountantTier || 'None',
+        });
       }
 
       // Month-end statement: real monthly close + possible field audit penalty
@@ -2781,6 +2804,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           read: false,
         });
         empireBusinesses.push(`📜 ${m.month} closed: $${m.monthIncome.toLocaleString()} income / $${m.monthWithheld.toLocaleString()} withheld — ${m.auditNote}`);
+        // Live dashboard popup — driven entirely by the real monthly close
+        const monthRec = getTaxRecord(loadTaxState(), p.dateYear);
+        setTaxStatementData({
+          type: 'monthly',
+          year: p.dateYear,
+          week: p.dateWeek,
+          month: m.month,
+          monthIncome: m.monthIncome,
+          monthWithheld: m.monthWithheld,
+          ytdIncome: m.ytdIncome,
+          ytdWithheld: m.ytdWithheld,
+          ytdLiability: m.ytdLiability,
+          audited: m.audited,
+          penalty: m.penalty,
+          auditNote: m.auditNote,
+          monthlyHistory: (monthRec.monthly || []).map((b) => ({ month: b.month, income: b.income, withheld: b.withheld, closed: b.closed, audited: b.audited })),
+          accountantTier: empireNow?.taxState?.accountantTier || 'None',
+        });
       }
 
       // Keep empire taxState in sync with the REAL engine (dashboard + achievements)
@@ -3586,6 +3627,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSelectedFycMovieId,
         awardCeremonyData,
         setAwardCeremonyData,
+        taxStatementData,
+        setTaxStatementData,
         launchFycCampaign,
         addTimelineEvent,
         enrollInCourse,

@@ -15,6 +15,7 @@ import { GameHomeScreen } from './components/screens/GameHomeScreen';
 import { ProcessingWeekOverlay } from './components/common/ProcessingWeekOverlay';
 import { WeeklyRecapModal } from './components/modals/WeeklyRecapModal';
 import { AwardNightModal } from './components/modals/AwardNightModal';
+import { TaxStatementModal } from './components/modals/TaxStatementModal';
 import { ToastContainer } from './components/common/ToastContainer';
 
 // Modals
@@ -61,7 +62,7 @@ import {
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const AppContent: React.FC = () => {
-  const { currentScreen, activeModal, isProcessingWeek, selectedFycMovieId, releasedMovies, awardCeremonyData, setAwardCeremonyData, setActiveModal, toasts, dismissToast } = useGame();
+  const { currentScreen, activeModal, isProcessingWeek, selectedFycMovieId, releasedMovies, awardCeremonyData, setAwardCeremonyData, taxStatementData, setTaxStatementData, setActiveModal, toasts, dismissToast } = useGame();
 
   const fycMovie = releasedMovies.find((m) => m.id === selectedFycMovieId) || releasedMovies[0];
 
@@ -89,6 +90,11 @@ const AppContent: React.FC = () => {
             setActiveModal('weekly_recap');
           }}
         />
+      )}
+
+      {/* Tax statements — popup ONLY on real month-close / year-filing events */}
+      {taxStatementData && (
+        <TaxStatementModal data={taxStatementData} onClose={() => setTaxStatementData(null)} />
       )}
 
       {/* Modal Manager */}
