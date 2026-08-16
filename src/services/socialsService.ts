@@ -647,6 +647,8 @@ export interface SocialsState {
   twitterLifetimePosts?: number;
   twitterPostStreak?: number;
   twitterAccruedLastWeek?: number;
+  /** How many manual feed posts have been converted into tracked creator tweets */
+  twitterTrackedFeedCount?: number;
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -926,6 +928,10 @@ export class SocialsService {
           if (!Array.isArray(this.state.twitterCreatorPosts)) this.state.twitterCreatorPosts = [];
           if (typeof this.state.twitterLifetimePosts !== 'number') this.state.twitterLifetimePosts = 0;
           if (typeof this.state.twitterPostStreak !== 'number') this.state.twitterPostStreak = 0;
+          // Seed the tracked count so OLD feed posts don't retroactively convert
+          if (typeof this.state.twitterTrackedFeedCount !== 'number') {
+            this.state.twitterTrackedFeedCount = (this.state.playerPosts?.Twitter?.length) || 0;
+          }
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
           if (this.state.youtubeCopyrightStrikes === undefined) this.state.youtubeCopyrightStrikes = 0;
@@ -1592,10 +1598,16 @@ export class SocialsService {
     // 3. SEPARATE PER-PLATFORM ORGANIC GROWTH — each platform grows only from
     // ITS OWN activity (your posts + your writer there). Inactive platforms
     // are stagnant. No account = no growth at all.
+    // NOTE: Twitter, Instagram & YouTube are owned by their CREATOR HQ
+    // engines (tier-capped impressions/reach/views → real follower
+    // conversion) — the generic organic loop must NOT also grow them or
+    // it would double-count followers.
+    const HQ_PLATFORMS = new Set(['twitter', 'instagram', 'youtube']);
     const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
     const platformWeights: Record<string, number> = { twitter: 0.35, instagram: 0.40, youtube: 0.15, facebook: 0.05, reddit: 0.03, telegram: 0.02 };
     const growthLines: string[] = [];
     for (const pid of SocialsService.WRITER_PLATFORMS) {
+      if (HQ_PLATFORMS.has(pid)) continue;
       const feed = SocialsService.pidToFeed(pid)!;
       if (!this.hasAccount(pid, player)) continue;
       const posts = state.postsThisWeekByPlatform?.[pid] || 0;
@@ -2004,13 +2016,44 @@ export class SocialsService {
       const twFollowersNow = state.followers.Twitter || 0;
       const twPayoutsActive = twFollowersNow >= TW_PAYOUT_FOLLOWER_GATE;
 
-      // Publish scheduled tweets due this week
+      // Publish scheduled tweets due this week (scheduling API still available)
       const twPublished: TwitterCreatorPost[] = [];
       state.twitterScheduled = (state.twitterScheduled || []).filter((sched) => {
         const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
         if (due) { twPublished.push(sched); return false; }
         return true;
       });
+      // Convert NEW manual feed posts into tracked creator tweets — the
+      // composer on the platform drives the engine (no fake content).
+      const twFeed = state.playerPosts.Twitter || [];
+      const twTracked = state.twitterTrackedFeedCount ?? twFeed.length;
+      if (twFeed.length > twTracked) {
+        const freshPosts = twFeed.slice(0, twFeed.length - twTracked);
+        for (const fp of freshPosts) {
+          const inferred: TwitterCreatorPost['tweetType'] =
+            (fp.text || '').length > 180 ? 'THREAD' : (fp.text || '').includes('?') ? 'POLL' : 'HOT_TAKE';
+          const sc = computeTwAlgoScore({
+            text: fp.text || '',
+            tweetType: inferred,
+            slotBoost: 1.0,
+            authorityXp: state.twitterAuthorityXp || 0,
+            hasActiveMovie: false,
+          });
+          twPublished.push({
+            id: `twc_feed_${fp.id}`,
+            text: fp.text || '',
+            tweetType: inferred,
+            slotBoost: 1.0,
+            slotLabel: 'Standard post',
+            algoScore: sc.score,
+            publishWeek: player.dateWeek || 1,
+            publishYear: player.dateYear || 2026,
+            createdWeek: player.dateWeek || 1,
+            createdYear: player.dateYear || 2026,
+          });
+        }
+        state.twitterTrackedFeedCount = twFeed.length;
+      }
       for (const pub of twPublished) {
         state.twitterCreatorPosts = state.twitterCreatorPosts || [];
         state.twitterCreatorPosts.unshift({ ...pub, published: true });
