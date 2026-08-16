@@ -218,6 +218,102 @@ export const IG_SLOTS = [
 
 export const IG_PAYOUT_TAX_PCT = 0.2; // 20% withheld at IG transfer request
 
+// ============================================================
+// X CREATOR HQ — Twitter/X impressions-tier system. Same rules
+// as YouTube/Instagram: NO fake followers — impressions convert
+// at a small real rate into the account's TRUE follower count,
+// and ad-revenue payouts accrue to the X mini-bank only after
+// the real-follower gate (5,000) is passed.
+// ============================================================
+
+/** A scheduled/published X creator tweet */
+export interface TwitterCreatorPost {
+  id: string;
+  text: string;
+  tweetType: 'HOT_TAKE' | 'THREAD' | 'BTS_CLIP' | 'POLL' | 'TRENDING_REACT' | 'MEDIA_DROP';
+  slotBoost: number;
+  slotLabel: string;
+  algoScore: number;
+  publishWeek: number;
+  publishYear: number;
+  createdWeek: number;
+  createdYear: number;
+  published?: boolean;
+  impressions?: number;
+  likes?: number;
+  reposts?: number;
+  replies?: number;
+  followersGained?: number;
+  revenue?: number;
+}
+
+/** X impression tiers — HARD weekly caps per authority tier */
+export const TW_AUTHORITY_TIERS = [
+  { tier: 1, name: 'Testing You',     minXp: 0,    weeklyImpressionCap: 3000,   rpm: 0 },
+  { tier: 2, name: 'Getting Reach',   minXp: 110,  weeklyImpressionCap: 25000,  rpm: 1.6 },
+  { tier: 3, name: 'Timeline Regular', minXp: 380, weeklyImpressionCap: 160000, rpm: 2.6 },
+  { tier: 4, name: 'Trendsetter',     minXp: 880,  weeklyImpressionCap: 800000, rpm: 3.6 },
+  { tier: 5, name: 'X Elite',         minXp: 1600, weeklyImpressionCap: 2500000, rpm: 4.6 },
+] as const;
+
+export function twAuthorityTier(xp: number): (typeof TW_AUTHORITY_TIERS)[number] {
+  let t: (typeof TW_AUTHORITY_TIERS)[number] = TW_AUTHORITY_TIERS[0];
+  for (const tier of TW_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
+  return t;
+}
+
+/** X audience slots with real impression multipliers */
+export const TW_SLOTS = [
+  { id: 'mon_8am', label: 'Weekday 8AM', boost: 1.06, hint: 'morning-coffee scroll' },
+  { id: 'wed_12pm', label: 'Weekday Noon', boost: 1.08, hint: 'lunch-break timeline' },
+  { id: 'fri_6pm', label: 'Friday 6PM', boost: 1.12, hint: 'end-of-week dump' },
+  { id: 'sat_9pm', label: 'Saturday 9PM PRIME', boost: 1.16, hint: 'night-scroll peak' },
+] as const;
+
+export const TW_PAYOUT_TAX_PCT = 0.2;
+/** Payouts unlock at this many REAL followers (plus tier 2+) */
+export const TW_PAYOUT_FOLLOWER_GATE = 5000;
+
+/** X pre-flight algorithm score */
+export function computeTwAlgoScore(input: {
+  text: string;
+  tweetType: TwitterCreatorPost['tweetType'];
+  slotBoost: number;
+  authorityXp: number;
+  hasActiveMovie: boolean;
+}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
+  const t = input.text.trim();
+  let hookScore = 30;
+  if (t.length >= 20) hookScore += 8;
+  if (/\d/.test(t)) hookScore += 12;
+  if (/(nobody|everyone|truth|unpopular|hot take|day \d|thread|behind|just|finally|never)/i.test(t)) hookScore += 20;
+  if (/[?!]/.test(t)) hookScore += 6;
+  if (t.length > 0 && t.length < 10) hookScore -= 12;
+  hookScore = Math.max(5, Math.min(100, hookScore));
+
+  let typeScore = 55;
+  if (input.tweetType === 'BTS_CLIP') typeScore = input.hasActiveMovie ? 90 : 35;
+  else if (input.tweetType === 'HOT_TAKE') typeScore = 78;
+  else if (input.tweetType === 'THREAD') typeScore = 70;
+  else if (input.tweetType === 'TRENDING_REACT') typeScore = 72;
+  else if (input.tweetType === 'POLL') typeScore = 60;
+  else if (input.tweetType === 'MEDIA_DROP') typeScore = 62;
+
+  const slotScoreC = Math.max(30, Math.min(100, Math.round((input.slotBoost - 1) * 320 + 55)));
+  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
+
+  const score = Math.round(hookScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
+  return {
+    score,
+    factors: [
+      { label: 'Hook strength', value: hookScore, tip: /\d/.test(t) ? 'Number + pattern words — strong hook.' : 'Open with a number or "Nobody/Everyone/Truth" pattern for +12.' },
+      { label: 'Type fit', value: typeScore, tip: input.tweetType === 'BTS_CLIP' && !input.hasActiveMovie ? 'BTS clips score low without a movie in production/theaters.' : 'Good fit for your current career state.' },
+      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.14 ? 'Prime night-scroll window.' : 'Sat 9PM PRIME adds the biggest first-hour impressions.' },
+      { label: 'Account authority', value: authScore, tip: authScore < 40 ? 'Testing phase: impressions capped hard. Consistency is the only fix.' : 'Authority raising your impression ceiling.' },
+    ],
+  };
+}
+
 /** IG pre-flight algorithm score (caption hook, type fit, slot, authority) */
 export function computeIgAlgoScore(input: {
   caption: string;
@@ -542,6 +638,15 @@ export interface SocialsState {
   instagramPostStreak?: number;
   /** Creator Bonus accrued last week (bank display) */
   instagramAccruedLastWeek?: number;
+  // ---- X CREATOR HQ (Twitter v4) ----
+  twitterAuthorityXp?: number;
+  twitterBalance?: number;
+  twitterPendingPayouts?: YouTubePendingPayout[];
+  twitterScheduled?: TwitterCreatorPost[];
+  twitterCreatorPosts?: TwitterCreatorPost[];
+  twitterLifetimePosts?: number;
+  twitterPostStreak?: number;
+  twitterAccruedLastWeek?: number;
 }
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
@@ -810,6 +915,17 @@ export class SocialsService {
           if (!Array.isArray(this.state.instagramCreatorPosts)) this.state.instagramCreatorPosts = [];
           if (typeof this.state.instagramLifetimePosts !== 'number') this.state.instagramLifetimePosts = 0;
           if (typeof this.state.instagramPostStreak !== 'number') this.state.instagramPostStreak = 0;
+          // ---- X HQ MIGRATION (v4) ----
+          if (typeof this.state.twitterAuthorityXp !== 'number') {
+            const twFollowers = this.state.followers.Twitter || 0;
+            this.state.twitterAuthorityXp = Math.min(1500, Math.floor(twFollowers / 40));
+          }
+          if (typeof this.state.twitterBalance !== 'number') this.state.twitterBalance = 0;
+          if (!Array.isArray(this.state.twitterPendingPayouts)) this.state.twitterPendingPayouts = [];
+          if (!Array.isArray(this.state.twitterScheduled)) this.state.twitterScheduled = [];
+          if (!Array.isArray(this.state.twitterCreatorPosts)) this.state.twitterCreatorPosts = [];
+          if (typeof this.state.twitterLifetimePosts !== 'number') this.state.twitterLifetimePosts = 0;
+          if (typeof this.state.twitterPostStreak !== 'number') this.state.twitterPostStreak = 0;
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
           if (this.state.youtubeCopyrightStrikes === undefined) this.state.youtubeCopyrightStrikes = 0;
@@ -1339,6 +1455,8 @@ export class SocialsService {
     ytPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
     /** IG mini-bank payouts that cleared this week → credit + inbox */
     igPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
+    /** X mini-bank payouts that cleared this week → credit + inbox */
+    twPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
     /** YT ad revenue ACCRUED to the bank this week (display only — not wallet income) */
     youtubeAccruedToBank?: number;
     /** IG Creator Bonus ACCRUED to the bank this week (display only) */
@@ -1357,6 +1475,7 @@ export class SocialsService {
     const expiredWriters: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }> = [];
     const ytPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
     const igPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
+    const twPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
     let fanGrowth = 0;
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
@@ -1876,6 +1995,96 @@ export class SocialsService {
       (state as any).__igAccrued = igAccruedThisWeek;
     }
 
+    // 7g. X CREATOR HQ — Twitter impressions-tier engine. NO fake followers:
+    //     impressions convert at a small real rate into the account's TRUE
+    //     follower count; ad payouts accrue to the X mini-bank only after
+    //     the 5,000 real-follower gate.
+    if (state.createdPlatforms.Twitter) {
+      const twTier = twAuthorityTier(state.twitterAuthorityXp || 0);
+      const twFollowersNow = state.followers.Twitter || 0;
+      const twPayoutsActive = twFollowersNow >= TW_PAYOUT_FOLLOWER_GATE;
+
+      // Publish scheduled tweets due this week
+      const twPublished: TwitterCreatorPost[] = [];
+      state.twitterScheduled = (state.twitterScheduled || []).filter((sched) => {
+        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
+        if (due) { twPublished.push(sched); return false; }
+        return true;
+      });
+      for (const pub of twPublished) {
+        state.twitterCreatorPosts = state.twitterCreatorPosts || [];
+        state.twitterCreatorPosts.unshift({ ...pub, published: true });
+        state.twitterAuthorityXp = (state.twitterAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
+        state.twitterLifetimePosts = (state.twitterLifetimePosts || 0) + 1;
+        state.twitterPostStreak = (state.twitterPostStreak || 0) + 1;
+      }
+      if (twPublished.length === 0 && (state.twitterLifetimePosts || 0) > 0) {
+        state.twitterAuthorityXp = Math.max(0, (state.twitterAuthorityXp || 0) - 4);
+        state.twitterPostStreak = 0;
+      }
+
+      // Impressions on active tweets (last 3 weeks), tier-capped and shared
+      const twActive = (state.twitterCreatorPosts || []).filter(
+        (p) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (p.publishYear * 52 + p.publishWeek) <= 3
+      );
+      const twCapShare = twTier.weeklyImpressionCap / Math.max(1, Math.min(twActive.length, 4));
+      let twNewFollowers = 0;
+      let twAccrued = 0;
+      for (const post of twActive) {
+        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (post.publishYear * 52 + post.publishWeek));
+        let imps = twCapShare * (0.25 + (post.algoScore / 100) * 0.75);
+        if (post.tweetType === 'HOT_TAKE') imps *= 1.4;
+        else if (post.tweetType === 'THREAD' || post.tweetType === 'BTS_CLIP') imps *= 1.2;
+        else if (post.tweetType === 'POLL') imps *= 0.85;
+        imps *= post.slotBoost || 1;
+        imps *= 1 + Math.min(0.5, (player.fameXp || 0) / 3000);
+        const lifeMult = weeksOld === 0 ? 0.45 : weeksOld === 1 ? 1 : Math.pow(0.4, weeksOld - 1);
+        imps *= lifeMult;
+
+        const wkImps = Math.max(0, Math.floor(imps * (0.8 + Math.random() * 0.4)));
+        post.impressions = (post.impressions || 0) + wkImps;
+
+        // REAL engagement from real impressions
+        const likeRate = 0.03 + (post.algoScore / 100) * 0.035;
+        post.likes = (post.likes || 0) + Math.floor(wkImps * likeRate);
+        post.reposts = (post.reposts || 0) + Math.floor(wkImps * (0.004 + (post.algoScore / 100) * 0.006));
+        post.replies = (post.replies || 0) + Math.floor(wkImps * 0.003);
+
+        // REAL follower conversion — the true count only moves by this
+        const wkFollowers = Math.floor(wkImps * (0.004 + (post.algoScore / 100) * 0.005));
+        post.followersGained = (post.followersGained || 0) + wkFollowers;
+        twNewFollowers += wkFollowers;
+
+        // Ad-revenue payouts → X mini-bank (5K+ real followers only)
+        if (twPayoutsActive && wkImps > 0) {
+          const rev = Math.floor((wkImps / 1000) * (twTier.rpm + Math.random() * 0.6));
+          post.revenue = (post.revenue || 0) + rev;
+          twAccrued += rev;
+        }
+      }
+      if (twNewFollowers > 0) {
+        state.followers.Twitter = Math.min(500000000000, twFollowersNow + twNewFollowers);
+        fanGrowth += twNewFollowers;
+      }
+      if (twAccrued > 0) {
+        state.twitterBalance = (state.twitterBalance || 0) + twAccrued;
+        socialPosts.push(`𝕏 Ad revenue +$${twAccrued.toLocaleString()} → X Bank (balance $${(state.twitterBalance || 0).toLocaleString()}).`);
+      }
+      state.twitterAccruedLastWeek = twAccrued;
+
+      // X payout ticks
+      const twArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
+      state.twitterPendingPayouts = (state.twitterPendingPayouts || []).filter((po) => {
+        po.weeksRemaining -= 1;
+        if (po.weeksRemaining <= 0) {
+          twArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
+          return false;
+        }
+        return true;
+      });
+      twPayoutArrivals.push(...twArrivals);
+    }
+
     const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter((p) => state.createdPlatforms[p]);
 
     // 8. Record Social Analytics Snapshot
@@ -1913,6 +2122,7 @@ export class SocialsService {
       youtubeRevenue: accruedThisWeek,
       ytPayoutArrivals,
       igPayoutArrivals,
+      twPayoutArrivals,
       youtubeAccruedToBank: accruedThisWeek,
       instagramAccruedToBank: igAccrued,
       expiredWriters,
@@ -2095,6 +2305,99 @@ export class SocialsService {
     state.instagramPendingPayouts = state.instagramPendingPayouts || [];
     state.instagramPendingPayouts.push({
       id: `igp_${Date.now()}`,
+      gross: amt,
+      taxWithheld: tax,
+      net,
+      weeksRemaining: weeks,
+      totalWeeks: weeks,
+      requestedWeek: state.lastProcessedWeek || 1,
+      requestedYear: state.lastProcessedYear || 2026,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
+    };
+  }
+
+  /**
+   * X HQ — schedule a creator tweet for a future week + slot.
+   */
+  public static scheduleTwitterPost(input: {
+    text: string;
+    tweetType: TwitterCreatorPost['tweetType'];
+    slotId: string;
+    weeksFromNow: number;
+    hasActiveMovie: boolean;
+  }): { success: boolean; message: string; score?: number } {
+    const state = this.getState();
+    if (!state.createdPlatforms.Twitter) return { success: false, message: 'Create your X account first.' };
+    const text = input.text.trim();
+    if (!text) return { success: false, message: 'Write the tweet — the algorithm scans the hook.' };
+
+    const slot = TW_SLOTS.find((s) => s.id === input.slotId) || TW_SLOTS[0];
+    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
+    const curWeek = state.lastProcessedWeek || 1;
+    const curYear = state.lastProcessedYear || 2026;
+    let targetWeek = curWeek + weeks;
+    let targetYear = curYear;
+    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
+
+    const { score } = computeTwAlgoScore({
+      text,
+      tweetType: input.tweetType,
+      slotBoost: slot.boost,
+      authorityXp: state.twitterAuthorityXp || 0,
+      hasActiveMovie: input.hasActiveMovie,
+    });
+
+    state.twitterScheduled = state.twitterScheduled || [];
+    if (state.twitterScheduled.length >= 4) {
+      return { success: false, message: 'Max 4 scheduled tweets. Let some publish first.' };
+    }
+    state.twitterScheduled.push({
+      id: `twc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      text,
+      tweetType: input.tweetType,
+      slotBoost: slot.boost,
+      slotLabel: slot.label,
+      algoScore: score,
+      publishWeek: targetWeek,
+      publishYear: targetYear,
+      createdWeek: curWeek,
+      createdYear: curYear,
+    });
+    this.saveState(state);
+    return {
+      success: true,
+      message: `Scheduled — ${slot.label}, Week ${targetWeek}, ${targetYear}. Algorithm score ${score}.`,
+      score,
+    };
+  }
+
+  /**
+   * X HQ — transfer from the X mini-bank. Requires 5,000 REAL followers.
+   * 20% tax withheld up front; clears in 1-5 weeks with an inbox notice.
+   */
+  public static requestTwitterPayout(amount: number): { success: boolean; message: string } {
+    const state = this.getState();
+    const twFollowers = state.followers.Twitter || 0;
+    if (twFollowers < TW_PAYOUT_FOLLOWER_GATE) {
+      return { success: false, message: `Ad-revenue payouts unlock at ${TW_PAYOUT_FOLLOWER_GATE.toLocaleString()} REAL followers — you have ${twFollowers.toLocaleString()}.` };
+    }
+    const amt = Math.floor(amount);
+    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
+    const balance = state.twitterBalance || 0;
+    if (amt > balance) {
+      return { success: false, message: `Insufficient X Bank balance — available $${balance.toLocaleString()}.` };
+    }
+    const tax = Math.round(amt * TW_PAYOUT_TAX_PCT);
+    const net = amt - tax;
+    const weeks = 1 + Math.floor(Math.random() * 5);
+    state.twitterBalance = balance - amt;
+    state.twitterPendingPayouts = state.twitterPendingPayouts || [];
+    state.twitterPendingPayouts.push({
+      id: `twp_${Date.now()}`,
       gross: amt,
       taxWithheld: tax,
       net,

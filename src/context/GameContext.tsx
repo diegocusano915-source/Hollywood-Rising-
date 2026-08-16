@@ -1336,6 +1336,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // X mini-bank payouts that CLEARED this week — credit wallet + inbox.
+    if ((socialsResult as any).twPayoutArrivals && (socialsResult as any).twPayoutArrivals.length > 0) {
+      for (const arrival of (socialsResult as any).twPayoutArrivals) {
+        p.money += arrival.net;
+        newInboxMessages.unshift({
+          id: `msg_tw_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'FINANCE',
+          sender: 'X Creator Payouts',
+          senderRole: 'Ads Revenue Sharing Desk',
+          subject: `💰 X payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
+          body: `Your X Bank transfer has cleared.\n\n• Requested: $${arrival.gross.toLocaleString()}\n• Tax withheld (20%): −$${arrival.tax.toLocaleString()}\n• NET CREDITED: $${arrival.net.toLocaleString()}\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''}\n\nYour remaining X Bank balance keeps accruing ads revenue every week your tweets earn impressions.`,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+
     // Writer contracts that ran out this week — send formal goodbye to Inbox
     if (socialsResult.expiredWriters && socialsResult.expiredWriters.length > 0) {
       for (const ex of socialsResult.expiredWriters) {
