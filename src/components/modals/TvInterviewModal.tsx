@@ -17,11 +17,27 @@ interface TvInterviewModalProps {
   playerCtx: any;
   onComplete: (result: TvInterviewResult, chosen: TvAnswerChoice[]) => void;
   onClose: () => void;
+  /** 'TV' (default) or 'RADIO' — sets reward scaling + archetype styling */
+  medium?: 'TV' | 'RADIO';
 }
+
+// Archetype chips — TV and Radio use DIFFERENT pools with different colors
+const ARCHETYPE_META: Record<string, { icon: string; cls: string }> = {
+  HUMBLE: { icon: '🙏', cls: 'text-emerald-300' },
+  WITTY: { icon: '😏', cls: 'text-amber-300' },
+  BOLD: { icon: '🔥', cls: 'text-rose-300' },
+  DEFLECT: { icon: '🛡️', cls: 'text-sky-300' },
+  POLISHED: { icon: '✨', cls: 'text-indigo-300' },
+  DEADPAN: { icon: '😐', cls: 'text-violet-300' },
+  PLAYFUL: { icon: '😜', cls: 'text-pink-300' },
+  CANDID: { icon: '💬', cls: 'text-teal-300' },
+  BLUNT: { icon: '🗡️', cls: 'text-red-300' },
+  SINCERE: { icon: '❤️', cls: 'text-rose-200' },
+};
 
 type Phase = 'INTRO' | 'QUESTION' | 'REACTION' | 'RESULTS';
 
-export const TvInterviewModal: React.FC<TvInterviewModalProps> = ({ station, questions, playerCtx, onComplete, onClose }) => {
+export const TvInterviewModal: React.FC<TvInterviewModalProps> = ({ station, questions, playerCtx, onComplete, onClose, medium = 'TV' }) => {
   const [phase, setPhase] = useState<Phase>('INTRO');
   const [qIdx, setQIdx] = useState(0);
   const [chosen, setChosen] = useState<TvAnswerChoice[]>([]);
@@ -76,7 +92,8 @@ export const TvInterviewModal: React.FC<TvInterviewModalProps> = ({ station, que
       playerCtx,
       station,
       questions,
-      chosen
+      chosen,
+      medium
     ) as TvInterviewResult;
   };
 
@@ -157,8 +174,8 @@ export const TvInterviewModal: React.FC<TvInterviewModalProps> = ({ station, que
                   onClick={() => pick(ans)}
                   className="w-full text-left p-3.5 rounded-2xl border border-white/15 bg-white/5 hover:bg-sky-500/20 hover:border-sky-400/60 transition-all cursor-pointer"
                 >
-                  <span className="text-[9px] font-black uppercase tracking-wider text-sky-300 block mb-0.5">
-                    {ans.style === 'WITTY' ? '😏 Witty' : ans.style === 'HUMBLE' ? '🙏 Humble' : '🔥 Controversial'}
+                  <span className={`text-[9px] font-black uppercase tracking-wider block mb-0.5 ${(ARCHETYPE_META[ans.style] || ARCHETYPE_META.HUMBLE).cls}`}>
+                    {(ARCHETYPE_META[ans.style] || ARCHETYPE_META.HUMBLE).icon} {ans.style.toLowerCase()}
                   </span>
                   <span className="text-xs text-gray-100">{ans.text}</span>
                 </button>

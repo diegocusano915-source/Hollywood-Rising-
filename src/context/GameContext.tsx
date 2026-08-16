@@ -2549,7 +2549,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signedMgr.totalDealsSourced = (signedMgr.totalDealsSourced || 0) + 1;
       }
 
-      // TV/Radio interview booked every 6 weeks — now SCHEDULED via engine (countdown + inbox prep)
+      // TV interview booked every 6 weeks — booked ONLY via the engine on a
+      // station the player has unlocked; the engine's message fires iff a
+      // real offer was created (no more ghost notifications, no fake fees).
       if (p.dateWeek % 6 === 0) {
         const tvMsgs = scheduleTvInterview(p);
         tvMsgs.forEach((m) => newInboxMessages.unshift({
@@ -2560,33 +2562,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           senderRole: p.representation?.manager?.company || 'Management',
           senderAvatar: p.representation?.manager?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
         }));
-        const fee = Math.floor(2000 + (p.fameXp || 0) * 2);
-        const fameGain = Math.floor(15 + (p.fameXp || 0) * 0.02);
-        const fameGainApplied = Math.max(1, Math.floor(fameGain * FAME_XP_MULTIPLIER));
-        const fanGain = Math.floor(200 + (p.fans || 0) * 0.002);
-        mgrActivity.push(`🎙️ Booked a TV/Radio interview — fee $${fee.toLocaleString()} paid, +${fameGainApplied} XP, +${fanGain.toLocaleString()} fans`);
-        interviewFeeIncomeThisWeek += fee; // lands via weekly reconciliation (real)
-        fameGainedThisWeek += fameGain;
-        fansGainedThisWeek = (fansGainedThisWeek || 0) + fanGain;
-        newInboxMessages.unshift({
-          id: `msg_mgr_interview_${Date.now()}`,
-          category: 'CAREER',
-          sender: signedMgr.name,
-          senderRole: signedMgr.company,
-          senderAvatar: signedMgr.avatarUrl,
-          subject: '🎙️ INTERVIEW BOOKED BY YOUR MANAGER',
-          body: `Your manager ${signedMgr.name} (${signedMgr.company}) booked you on a major TV/Radio interview this week.\n\n• Appearance Fee: $${fee.toLocaleString()} (deposited)\n• Fame: +${fameGainApplied} XP\n• Fans: +${fanGain.toLocaleString()}\n\n${signedMgr.name} continues to build your public profile.`,
-          date: dateInfo.fullDateText,
-          read: false,
-        });
-        newTimelineEvents.push({
-          id: `tl_mgr_interview_${Date.now()}`,
-          year: newYear,
-          week: newWeek,
-          category: 'MILESTONE',
-          title: `Interview Booked: ${signedMgr.name}`,
-          description: `Your manager booked a TV/Radio interview (+$${fee.toLocaleString()} fee, +${fanGain.toLocaleString()} fans).`,
-        });
+        if (tvMsgs.length > 0) {
+          mgrActivity.push('🎙️ Booked a real TV interview — check TV Stations for the countdown');
+        }
       }
 
       // Always show baseline activity
