@@ -2237,7 +2237,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Trigger Breaking Hollywood Insider Article
           try {
-            HollywoodInsiderService.onMovieReleased(newReleasedMovie, p, true);
+            HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, newWeek, newYear);
           } catch (e) {
             console.error('Error triggering Hollywood Insider release article:', e);
           }
@@ -2293,9 +2293,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Trigger Hollywood Insider weekly trade news tick
+    // Trigger Hollywood Insider weekly trade news tick — REAL events only
     try {
-      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, p);
+      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, p, {
+        releasedMovies: newReleasedMovies,
+        bookedProjects: updatedBookedProjects,
+        relationships: saveData.relationships,
+      });
     } catch (e) {
       console.error('Error processing Hollywood Insider weekly news tick:', e);
     }
@@ -3550,7 +3554,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Publish Hollywood Insider Trade Article
     try {
-      HollywoodInsiderService.onMovieReleased(newReleasedMovie, saveData.player, true);
+      HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, saveData.player.dateWeek || 1, saveData.player.dateYear || 2026);
     } catch (e) {
       console.error('Error publishing Hollywood Insider release article:', e);
     }
