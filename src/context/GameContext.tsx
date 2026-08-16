@@ -2660,6 +2660,66 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       worldNews.push(...marketResult.headlineNews);
     }
 
+    // ============ STUDIO MARKET BRIDGE ============
+    // Real Wall Street West studios cast real NPC films — roles ship directly
+    // onto the player's Callboard, tagged with the studio + ticker.
+    if (marketResult?.studioCastingCalls && marketResult.studioCastingCalls.length > 0) {
+      const STUDIO_BRIDGE_POSTERS = [
+        'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400',
+        'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=400',
+        'https://images.unsplash.com/photo-1518173946687-a4c8a383392d?auto=format&fit=crop&q=80&w=400',
+        'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a0?auto=format&fit=crop&q=80&w=400',
+        'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=400',
+      ];
+      const STUDIO_BRIDGE_DIRECTORS = ['Christopher Nolan', 'Greta Gerwig', 'Denis Villeneuve', 'Ava DuVernay', 'Guillermo del Toro', 'Kathryn Bigelow', 'Jordan Peele', 'Chloé Zhao'];
+      const pickB = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+      const studioListings: CallboardProject[] = marketResult.studioCastingCalls
+        .filter((cc) => !updatedCallboard.some((p2) => p2.productionRef === cc.productionRef && p2.roleType === cc.role.roleType))
+        .map((cc) => ({
+          id: `cb_studio_${cc.productionRef}_${cc.role.roleType}`,
+          posterUrl: pickB(STUDIO_BRIDGE_POSTERS),
+          title: cc.title,
+          genre: cc.genre,
+          category: cc.budget >= 80000000 ? 'Feature Film' : cc.budget >= 20000000 ? 'Feature Film' : 'Independent Film',
+          productionCompany: cc.studioName,
+          studio: cc.studioName,
+          studioTicker: cc.studioTicker,
+          productionRef: cc.productionRef,
+          director: pickB(STUDIO_BRIDGE_DIRECTORS),
+          producer: cc.studioName,
+          budget: cc.budget,
+          filmingWeeks: cc.role.filmingWeeks,
+          estimatedReleaseWindow: `${['Spring', 'Summer', 'Fall', 'Holiday'][Math.floor(Math.random() * 4)]} ${newYear + (Math.random() < 0.4 ? 1 : 0)}`,
+          roleType: cc.role.roleType,
+          salary: cc.role.salary,
+          description: `A REAL ${cc.studioName} production (${cc.studioTicker}) straight off the studio lot — "${cc.title}" is a ${cc.genre.toLowerCase()} with a $${(cc.budget / 1000000).toFixed(0)}M budget now casting its ${cc.role.roleType.toLowerCase()} role. Book it and you're working for a studio you can actually own shares in — the film's box office will move the stock.`,
+          decisionTimeWeeks: 2 + Math.floor(Math.random() * 3),
+          requiredFameXp: cc.role.requiredFameXp,
+        }));
+      if (studioListings.length > 0) {
+        updatedCallboard = [...studioListings, ...updatedCallboard].slice(0, 35);
+      }
+    }
+
+    // Studio events (new studio listings, milestone releases) → Inbox
+    if (marketResult?.studioEvents && marketResult.studioEvents.length > 0) {
+      for (const se of marketResult.studioEvents) {
+        newInboxMessages.unshift({
+          id: `msg_studio_${se.kind}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'BUSINESS',
+          sender: 'Wall Street West',
+          senderRole: se.kind === 'STUDIO_LISTING' ? 'New Listings Desk' : 'Studio Desk',
+          subject: se.subject,
+          body: se.body,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+    }
+
     // Crypto living market — listings, delist reviews, regime shifts → Inbox.
     // Forced-liquidation proceeds from delistings are credited for real.
     if (marketResult?.cryptoEvents && marketResult.cryptoEvents.length > 0) {

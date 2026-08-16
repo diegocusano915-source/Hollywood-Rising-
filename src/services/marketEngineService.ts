@@ -21,6 +21,27 @@ export type VolatilityRating = 'Low' | 'Moderate' | 'High' | 'Volatile' | 'Extre
 export type CompanyRating = 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D';
 export type CompanyStatus = 'Public' | 'Acquired' | 'Bankrupt' | 'TakenPrivate' | 'Delisted' | 'Pre-IPO';
 
+/**
+ * A REAL studio production on a stock studio's slate. Films progress
+ * DEV → CASTING (roles ship to the player's callboard) → FILMING → POST →
+ * RELEASED (box office rolls, stock price reacts).
+ */
+export interface StudioProduction {
+  id: string;
+  title: string;
+  genre: string;
+  budget: number;
+  stage: 'DEVELOPMENT' | 'CASTING' | 'FILMING' | 'POST' | 'RELEASED';
+  weeksInStage: number;
+  stageWeeksTotal: number;
+  /** How many casting roles this film shipped to the callboard */
+  castingRolesSent?: number;
+  releasedWeek?: number;
+  releasedYear?: number;
+  gross?: number;
+  wasHit?: boolean;
+}
+
 export interface StockCompany {
   id: string;
   name: string;
@@ -31,36 +52,42 @@ export interface StockCompany {
   sharePrice: number;
   prevPrice: number;
   changePct: number;
-  marketCap: number; // calculated: sharePrice * sharesOutstanding
+  marketCap: number;
   sharesOutstanding: number;
-  revenue: number; // annual revenue $
-  profit: number; // annual profit $
-  debt: number; // total debt $
-  growthRate: number; // % annual growth
-  investorConfidence: number; // 0-100
-  ceoRating: number; // 0-100
-  newsSentiment: number; // -100 to +100
+  revenue: number;
+  profit: number;
+  debt: number;
+  growthRate: number;
+  investorConfidence: number;
+  ceoRating: number;
+  newsSentiment: number;
   volatility: VolatilityRating;
-  rating: CompanyRating;
+  rating: string;
   dividendYieldPct: number;
   history: string;
   movies: string[];
   series: string[];
   upcomingProjects: string[];
   news: string[];
-  chartData: number[]; // last 12 weeks
-  status: CompanyStatus;
+  chartData: number[];
+  status: string;
   weeksSinceListing?: number;
   weakStreak?: number;
   listedWeek?: number;
   listedYear?: number;
-  institutionalOwnershipPct: number;
-  insiderOwnershipPct: number;
-  publicOwnershipPct: number;
+  institutionalOwnershipPct?: number;
+  insiderOwnershipPct?: number;
+  publicOwnershipPct?: number;
   playerSharesOwned: number;
   playerAvgBuyPrice: number;
-  boardSeatsTotal: number;
-  playerBoardMember: boolean;
+  boardSeatsTotal?: number;
+  playerBoardMember?: boolean;
+  /** Live production slate — the studio's real pipeline */
+  slate?: StudioProduction[];
+  /** 0-100 rolling health of the slate (hits vs flops) */
+  slateHealth?: number;
+  /** Film-producing studios get slates; tech/exhibitor stocks don't */
+  isFilmStudio?: boolean;
 }
 
 export interface IpoCompany {
@@ -142,6 +169,22 @@ export interface CryptoWireEvent {
   sub: string;
 }
 
+/** A studio production casting role shipped to the player's callboard */
+export interface StudioCastingCall {
+  productionRef: string;
+  title: string;
+  genre: string;
+  budget: number;
+  studioName: string;
+  studioTicker: string;
+  role: {
+    roleType: 'Lead' | 'Principal' | 'Support';
+    salary: number;
+    requiredFameXp: number;
+    filmingWeeks: number;
+  };
+}
+
 export interface MarketTransaction {
   id: string;
   assetType: 'STOCK' | 'CRYPTO' | 'IPO';
@@ -210,6 +253,22 @@ export interface EconomyMarketState {
   pendingCryptoGains?: number;
   /** Realized crypto losses this week, offset gains before taxing */
   pendingCryptoLosses?: number;
+  /** Absolute week (year*52+week) when the next new STUDIO launches (IPO) */
+  nextStudioLaunchWeek?: number;
+}
+
+/** Seed slates + flags on the studio list (used at init AND save migration) */
+function ensureStudioSlates(stocks: StockCompany[], week: number, year: number): void {
+  const FILM_IDS = new Set(['disney', 'netflix', 'wbd', 'paramount', 'sony', 'a24']);
+  for (const st of stocks) {
+    if (typeof st.isFilmStudio !== 'boolean') {
+      st.isFilmStudio = FILM_IDS.has(st.id) || st.industry.includes('Cinema') || st.industry.includes('Studio') || st.industry.includes('Film') || st.industry.includes('Streaming');
+    }
+    if (st.isFilmStudio && (!st.slate || st.slate.length === 0)) {
+      st.slate = seedSlate(st.id);
+      st.slateHealth = 50 + Math.floor(Math.random() * 30);
+    }
+  }
 }
 
 const LOCAL_STORAGE_KEY = 'HOLLYWOOD_RISING_MARKET_ENGINE_V2';
@@ -535,6 +594,349 @@ const INITIAL_STOCKS: StockCompany[] = [
     playerAvgBuyPrice: 0,
     boardSeatsTotal: 9,
     playerBoardMember: false,
+    isFilmStudio: false,
+  },
+  {
+    id: 'universal',
+    name: 'Universal Pictures',
+    ticker: 'UVX',
+    industry: 'Film & TV Studio',
+    ceo: 'Donna Langley',
+    logo: '🌐',
+    sharePrice: 62.4,
+    prevPrice: 60.8,
+    changePct: 2.6,
+    marketCap: 57000000000,
+    sharesOutstanding: 913000000,
+    revenue: 32000000000,
+    profit: 4200000000,
+    debt: 22000000000,
+    growthRate: 6.8,
+    investorConfidence: 84,
+    ceoRating: 86,
+    newsSentiment: 25,
+    volatility: 'Moderate',
+    rating: 'A',
+    dividendYieldPct: 1.6,
+    history: 'Oldest surviving American film studio, home of the Fast saga and Jurassic World.',
+    movies: ['Fast X: Part 2', 'Jurassic World: Rebirth'],
+    series: [],
+    upcomingProjects: ['Wicked: For Good'],
+    news: ['Theme park revenue crosses $10B annual run-rate.'],
+    chartData: [57, 58.4, 57.9, 59.8, 60.1, 60.8, 62.4],
+    status: 'Public',
+    institutionalOwnershipPct: 78,
+    insiderOwnershipPct: 5,
+    publicOwnershipPct: 17,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 11,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'lionsgate',
+    name: 'Lionsgate Films',
+    ticker: 'LGF',
+    industry: 'Independent Cinema',
+    ceo: 'Jon Feltheimer',
+    logo: '🦁',
+    sharePrice: 9.7,
+    prevPrice: 9.3,
+    changePct: 4.3,
+    marketCap: 2200000000,
+    sharesOutstanding: 227000000,
+    revenue: 3900000000,
+    profit: 120000000,
+    debt: 2200000000,
+    growthRate: 3.4,
+    investorConfidence: 66,
+    ceoRating: 74,
+    newsSentiment: 15,
+    volatility: 'High',
+    rating: 'BB',
+    dividendYieldPct: 0.0,
+    history: 'Independent powerhouse behind John Wick and The Hunger Games.',
+    movies: ['John Wick: Ballerina', 'Hunger Games: Sunrise'],
+    series: [],
+    upcomingProjects: ['Now You See Me 3'],
+    news: ['John Wick TV spin-off ordered to series.'],
+    chartData: [8.2, 8.5, 8.4, 8.9, 9.0, 9.3, 9.7],
+    status: 'Public',
+    institutionalOwnershipPct: 68,
+    insiderOwnershipPct: 8,
+    publicOwnershipPct: 24,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 9,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'blumhouse',
+    name: 'Blumhouse Productions',
+    ticker: 'BLUM',
+    industry: 'Independent Cinema',
+    ceo: 'Jason Blum',
+    logo: '👻',
+    sharePrice: 17.3,
+    prevPrice: 15.9,
+    changePct: 8.8,
+    marketCap: 1700000000,
+    sharesOutstanding: 98000000,
+    revenue: 620000000,
+    profit: 95000000,
+    debt: 180000000,
+    growthRate: 14.2,
+    investorConfidence: 78,
+    ceoRating: 88,
+    newsSentiment: 40,
+    volatility: 'High',
+    rating: 'BB+',
+    dividendYieldPct: 0.0,
+    history: 'Micro-budget horror empire: $5M films, $200M grosses.',
+    movies: ['Five Nights at Freddys 2', 'The Exorcism'],
+    series: [],
+    upcomingProjects: ['M3GAN Universe Expansion'],
+    news: ['Horror slate averages 8.2x return on production budget.'],
+    chartData: [12.8, 13.5, 13.2, 14.4, 14.9, 15.9, 17.3],
+    status: 'Public',
+    institutionalOwnershipPct: 55,
+    insiderOwnershipPct: 18,
+    publicOwnershipPct: 27,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 7,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'legendary',
+    name: 'Legendary Entertainment',
+    ticker: 'LGND',
+    industry: 'Film & TV Studio',
+    ceo: 'Josh Grode',
+    logo: '🐉',
+    sharePrice: 41.8,
+    prevPrice: 39.5,
+    changePct: 5.8,
+    marketCap: 10400000000,
+    sharesOutstanding: 249000000,
+    revenue: 3400000000,
+    profit: 410000000,
+    debt: 2500000000,
+    growthRate: 9.6,
+    investorConfidence: 76,
+    ceoRating: 80,
+    newsSentiment: 22,
+    volatility: 'High',
+    rating: 'A-',
+    dividendYieldPct: 0.0,
+    history: 'Kaiju and blockbuster specialist — MonsterVerse and Dune.',
+    movies: ['Dune: Part Three', 'Godzilla x Kong 2'],
+    series: [],
+    upcomingProjects: ['MonsterVerse Series'],
+    news: ['Dune franchise crosses $1.4B combined gross.'],
+    chartData: [34.5, 35.9, 35.2, 37.4, 38.1, 39.5, 41.8],
+    status: 'Public',
+    institutionalOwnershipPct: 72,
+    insiderOwnershipPct: 9,
+    publicOwnershipPct: 19,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 9,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'mgm',
+    name: 'Amazon MGM Studios',
+    ticker: 'AMGM',
+    industry: 'Streaming Giant',
+    ceo: 'Jennifer Salke',
+    logo: '🦁',
+    sharePrice: 88.9,
+    prevPrice: 87.1,
+    changePct: 2.1,
+    marketCap: 94000000000,
+    sharesOutstanding: 1057000000,
+    revenue: 40000000000,
+    profit: 2100000000,
+    debt: 58000000000,
+    growthRate: 8.9,
+    investorConfidence: 88,
+    ceoRating: 85,
+    newsSentiment: 30,
+    volatility: 'Moderate',
+    rating: 'A+',
+    dividendYieldPct: 0.0,
+    history: 'MGM plus Amazon deep pockets — Bond franchise custodian.',
+    movies: ['Bond 26', 'Road House Legacy'],
+    series: [],
+    upcomingProjects: ['Bond TV Universe'],
+    news: ['Bond 26 director search narrows to three finalists.'],
+    chartData: [82, 83.5, 84.1, 85.9, 86.2, 87.1, 88.9],
+    status: 'Public',
+    institutionalOwnershipPct: 84,
+    insiderOwnershipPct: 6,
+    publicOwnershipPct: 10,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 12,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'searchlight',
+    name: 'Searchlight Pictures',
+    ticker: 'SLGT',
+    industry: 'Independent Cinema',
+    ceo: 'Matthew Greenfield',
+    logo: '🔎',
+    sharePrice: 28.6,
+    prevPrice: 27.9,
+    changePct: 2.5,
+    marketCap: 2600000000,
+    sharesOutstanding: 91000000,
+    revenue: 800000000,
+    profit: 90000000,
+    debt: 300000000,
+    growthRate: 5.2,
+    investorConfidence: 74,
+    ceoRating: 82,
+    newsSentiment: 28,
+    volatility: 'Moderate',
+    rating: 'BBB+',
+    dividendYieldPct: 0.8,
+    history: 'Awards-season specialists with 4 Best Picture wins.',
+    movies: ['The Banshees Follow-Up', 'Nomadland Director Next'],
+    series: [],
+    upcomingProjects: ['Untitled Awards Contender'],
+    news: ['Three films on this year\'s Best Picture longlist.'],
+    chartData: [25.9, 26.4, 26.2, 27.1, 27.4, 27.9, 28.6],
+    status: 'Public',
+    institutionalOwnershipPct: 61,
+    insiderOwnershipPct: 12,
+    publicOwnershipPct: 27,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 9,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'applefilms',
+    name: 'Apple Original Films',
+    ticker: 'APLF',
+    industry: 'Streaming Giant',
+    ceo: 'Matt Dentler',
+    logo: '🍎',
+    sharePrice: 214.5,
+    prevPrice: 209.8,
+    changePct: 2.2,
+    marketCap: 3200000000000,
+    sharesOutstanding: 14920000000,
+    revenue: 380000000000,
+    profit: 96000000000,
+    debt: 98000000000,
+    growthRate: 7.4,
+    investorConfidence: 94,
+    ceoRating: 90,
+    newsSentiment: 35,
+    volatility: 'Low',
+    rating: 'AAA',
+    dividendYieldPct: 0.5,
+    history: 'Bottomless budgets, A-list bidding wars, awards bait.',
+    movies: ['Killers of the Flower Moon Follow-Up'],
+    series: [],
+    upcomingProjects: ['$200M Sci-Fi Epic Deal'],
+    news: ['Signs first-look deal with A-list director for 3 pictures.'],
+    chartData: [198, 202, 204, 206, 207, 209.8, 214.5],
+    status: 'Public',
+    institutionalOwnershipPct: 80,
+    insiderOwnershipPct: 2,
+    publicOwnershipPct: 18,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 12,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'crunchyroll',
+    name: 'Crunchyroll Studios',
+    ticker: 'CRNY',
+    industry: 'Entertainment & Gaming',
+    ceo: 'Rahul Purini',
+    logo: '🍥',
+    sharePrice: 33.2,
+    prevPrice: 31.4,
+    changePct: 5.7,
+    marketCap: 7800000000,
+    sharesOutstanding: 235000000,
+    revenue: 1900000000,
+    profit: 210000000,
+    debt: 400000000,
+    growthRate: 18.4,
+    investorConfidence: 80,
+    ceoRating: 79,
+    newsSentiment: 32,
+    volatility: 'High',
+    rating: 'A-',
+    dividendYieldPct: 0.0,
+    history: 'Anime distribution giant moving into original production.',
+    movies: ['Demon Slayer: Infinity Trilogy'],
+    series: [],
+    upcomingProjects: ['Original Anime Slate x6'],
+    news: ['Anime box office share triples in 3 years.'],
+    chartData: [27.4, 28.6, 28.9, 30.1, 30.4, 31.4, 33.2],
+    status: 'Public',
+    institutionalOwnershipPct: 70,
+    insiderOwnershipPct: 7,
+    publicOwnershipPct: 23,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 9,
+    playerBoardMember: false,
+    isFilmStudio: true,
+  },
+  {
+    id: 'neon',
+    name: 'NEON Films',
+    ticker: 'NEON',
+    industry: 'Independent Cinema',
+    ceo: 'Tom Quinn',
+    logo: '🌕',
+    sharePrice: 12.1,
+    prevPrice: 11.2,
+    changePct: 8.0,
+    marketCap: 730000000,
+    sharesOutstanding: 60000000,
+    revenue: 210000000,
+    profit: 24000000,
+    debt: 60000000,
+    growthRate: 21.5,
+    investorConfidence: 72,
+    ceoRating: 81,
+    newsSentiment: 38,
+    volatility: 'High',
+    rating: 'B+',
+    dividendYieldPct: 0.0,
+    history: 'Indie upstart that keeps winning Oscars on shoestring budgets.',
+    movies: ['Parasite Director Next', 'Body Horror Breakout'],
+    series: [],
+    upcomingProjects: ['Festival Acquisition War Chest'],
+    news: ['Wins heated bidding war at Sundance — $17M.'],
+    chartData: [9.1, 9.8, 9.6, 10.4, 10.8, 11.2, 12.1],
+    status: 'Public',
+    institutionalOwnershipPct: 48,
+    insiderOwnershipPct: 22,
+    publicOwnershipPct: 30,
+    playerSharesOwned: 0,
+    playerAvgBuyPrice: 0,
+    boardSeatsTotal: 7,
+    playerBoardMember: false,
+    isFilmStudio: true,
   },
 ];
 
@@ -858,6 +1260,55 @@ const generateCoinBatch = (count: number, minCap: number, maxCap: number, existi
   return out;
 };
 
+// ============================================================
+// STUDIO PRODUCTION ENGINE — real slates that feed the callboard
+// ============================================================
+const FILM_TITLE_A = ['Midnight', 'Velvet', 'Crimson', 'Neon', 'Sable', 'Golden', 'Silent', 'Broken', 'Electric', 'Paper', 'Frozen', 'Hollow', 'Radiant', 'Wandering', 'Last', 'First', 'Wild', 'Scarlet', 'Marble', 'Distant'];
+const FILM_TITLE_B = ['Hour', 'Catechism', 'Symphony', 'Confessions', 'Kingdom', 'Requiem', 'Cathedral', 'Mirage', 'Protocol', 'Lullaby', 'Highway', 'Garden', 'Detective', 'Dynasty', 'Vertigo', 'Boulevard', 'Testament', 'Cassette', 'Aurora', 'Paradox'];
+const FILM_TITLE_PREFIX = ['The', 'A', 'Beyond the', 'After the', 'House of', 'Songs of', 'Chronicles of'];
+const FILM_GENRES = ['Drama', 'Thriller', 'Sci-Fi', 'Horror', 'Action', 'Comedy', 'Biopic', 'Crime Epic', 'Musical', 'War Film', 'Romance', 'Fantasy'];
+
+const genFilmTitle = (): string => {
+  const roll = Math.random();
+  if (roll < 0.4) return `${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
+  if (roll < 0.7) return `${pickStr(FILM_TITLE_PREFIX)} ${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
+  return `${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
+};
+function pickStr<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+/** Create one production for a studio slate */
+export function generateProduction(id: string): StudioProduction {
+  const budgetTier = Math.random();
+  const budget = budgetTier < 0.35 ? 5000000 + Math.floor(Math.random() * 15000000)      // indie $5-20M
+    : budgetTier < 0.75 ? 20000000 + Math.floor(Math.random() * 60000000)                 // mid $20-80M
+    : 80000000 + Math.floor(Math.random() * 180000000);                                    // tentpole $80-260M
+  return {
+    id: `prod_${id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    title: genFilmTitle(),
+    genre: pickStr(FILM_GENRES),
+    budget,
+    stage: 'DEVELOPMENT',
+    weeksInStage: 0,
+    stageWeeksTotal: 2 + Math.floor(Math.random() * 3), // dev 2-4 wks
+  };
+}
+
+/** Seed a full slate for a film studio (2-4 productions across stages) */
+function seedSlate(studioId: string): StudioProduction[] {
+  const slate: StudioProduction[] = [];
+  const n = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) {
+    const p = generateProduction(studioId);
+    // stagger stages so the pipeline feels alive from week one
+    const r = Math.random();
+    if (r < 0.3) { p.stage = 'CASTING'; p.weeksInStage = 0; p.stageWeeksTotal = 2 + Math.floor(Math.random() * 2); }
+    else if (r < 0.55) { p.stage = 'FILMING'; p.weeksInStage = Math.floor(Math.random() * 3); p.stageWeeksTotal = 4 + Math.floor(p.budget / 20000000) + Math.floor(Math.random() * 4); }
+    else if (r < 0.7) { p.stage = 'POST'; p.weeksInStage = Math.floor(Math.random() * 2); p.stageWeeksTotal = 3 + Math.floor(Math.random() * 5); }
+    slate.push(p);
+  }
+  return slate;
+}
+
 export class MarketEngineService {
   private static state: EconomyMarketState | null = null;
 
@@ -921,6 +1372,22 @@ export class MarketEngineService {
             if (typeof c.delistStreak !== 'number') c.delistStreak = 0;
             if (typeof c.athPrice !== 'number') c.athPrice = c.price;
           });
+          // ---- STUDIO MARKET MIGRATION (v4) ----
+          // Legacy saves: append the new launch studios (dedup by ticker)
+          const knownTickers = new Set(this.state.stocks.map((s) => s.ticker));
+          for (const st of INITIAL_STOCKS) {
+            if (!knownTickers.has(st.ticker)) {
+              const fresh = JSON.parse(JSON.stringify(st));
+              fresh.playerSharesOwned = 0;
+              fresh.playerAvgBuyPrice = 0;
+              fresh.playerBoardMember = false;
+              this.state.stocks.push(fresh);
+            }
+          }
+          ensureStudioSlates(this.state.stocks, this.state.currentWeek || 1, this.state.currentYear || 2026);
+          if (typeof this.state.nextStudioLaunchWeek !== 'number') {
+            this.state.nextStudioLaunchWeek = (this.state.currentYear || 2026) * 52 + (this.state.currentWeek || 1) + 10 + Math.floor(Math.random() * 3);
+          }
           return this.state;
         }
       }
@@ -961,6 +1428,7 @@ export class MarketEngineService {
       nextCryptoListingWeek: 2026 * 52 + 1 + 11,
       pendingCryptoGains: 0,
       pendingCryptoLosses: 0,
+      nextStudioLaunchWeek: 2026 * 52 + 1 + 11,
       whales: INITIAL_WHALES,
       news: [
         {
@@ -977,6 +1445,9 @@ export class MarketEngineService {
       playerCustomIposCount: 0,
       playerCustomCryptosCount: 0,
     };
+
+    // Seed live production slates on every film studio
+    ensureStudioSlates(this.state.stocks, 1, 2026);
 
     this.saveMarketState();
     return this.state;
@@ -1011,6 +1482,10 @@ export class MarketEngineService {
     cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
     /** Forced-liquidation proceeds credited to the player this week */
     delistPayouts: number;
+    /** Studio casting calls → real NPC roles for the player's callboard */
+    studioCastingCalls: StudioCastingCall[];
+    /** Studio events (new studio listings, big releases) → inbox messages */
+    studioEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
   } {
     const s = this.getMarketState();
     s.currentWeek = playerWeek;
@@ -1129,6 +1604,158 @@ export class MarketEngineService {
         chartData: newChart,
       };
     });
+
+    // 2b. STUDIO SLATE LIFECYCLE — real productions progress weekly; casting
+    //     stages ship NPC roles to the player's callboard; releases roll box
+    //     office and move the studio's stock. New studios list every 10-12 wks.
+    const studioCastingCalls: StudioCastingCall[] = [];
+    const studioEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
+
+    s.stocks = s.stocks.map((stock) => {
+      if (stock.status !== 'Public' || !stock.isFilmStudio) return stock;
+      let slate = stock.slate ? [...stock.slate] : [];
+      let sharePrice = stock.sharePrice;
+      let changePct = stock.changePct;
+      let newsSentiment = stock.newsSentiment;
+      let slateHealth = stock.slateHealth ?? 60;
+
+      slate = slate.map((prod) => {
+        const p = { ...prod, weeksInStage: prod.weeksInStage + 1 };
+
+        if (p.weeksInStage < p.stageWeeksTotal) return p;
+
+        // ---- STAGE TRANSITION ----
+        if (p.stage === 'DEVELOPMENT') {
+          p.stage = 'CASTING';
+          p.weeksInStage = 0;
+          p.stageWeeksTotal = 2 + Math.floor(Math.random() * 2);
+          headlineNews.push(`${stock.name} greenlights "${p.title}" (${p.genre}, $${(p.budget / 1000000).toFixed(0)}M) — casting opens.`);
+          return p;
+        }
+
+        if (p.stage === 'CASTING') {
+          p.stage = 'FILMING';
+          p.weeksInStage = 0;
+          p.stageWeeksTotal = 4 + Math.floor(p.budget / 25000000) + Math.floor(Math.random() * 5);
+          p.castingRolesSent = 1 + Math.floor(Math.random() * 2);
+          // >>> THE REAL CONNECTION: roles ship to the player's callboard <<<
+          const leadRoll = Math.random();
+          const roles: StudioCastingCall['role'][] = [];
+          const fameTier = p.budget >= 80000000 ? 300 + Math.floor(Math.random() * 500)
+            : p.budget >= 20000000 ? 80 + Math.floor(Math.random() * 250)
+            : Math.floor(Math.random() * 70);
+          if (leadRoll < 0.45 || p.castingRolesSent > 1) {
+            roles.push({
+              roleType: 'Lead',
+              salary: Math.round(p.budget * (0.008 + Math.random() * 0.012)),
+              requiredFameXp: fameTier,
+              filmingWeeks: p.stageWeeksTotal,
+            });
+          }
+          if (roles.length < p.castingRolesSent) {
+            roles.push({
+              roleType: 'Principal',
+              salary: Math.round(p.budget * (0.002 + Math.random() * 0.003)),
+              requiredFameXp: Math.floor(fameTier * 0.6),
+              filmingWeeks: p.stageWeeksTotal,
+            });
+          }
+          for (const r of roles) {
+            studioCastingCalls.push({
+              productionRef: p.id,
+              title: p.title,
+              genre: p.genre,
+              budget: p.budget,
+              studioName: stock.name,
+              studioTicker: stock.ticker,
+              role: r,
+            });
+          }
+          headlineNews.push(`CALLBOARD: ${stock.name} is casting ${roles.map((r) => r.roleType).join(' + ')} for "${p.title}" — apply now.`);
+          return p;
+        }
+
+        if (p.stage === 'FILMING') {
+          p.stage = 'POST';
+          p.weeksInStage = 0;
+          p.stageWeeksTotal = 3 + Math.floor(Math.random() * 5);
+          return p;
+        }
+
+        if (p.stage === 'POST') {
+          // RELEASE: roll real box office from budget + slate health + luck
+          p.stage = 'RELEASED';
+          p.weeksInStage = 0;
+          p.releasedWeek = playerWeek;
+          p.releasedYear = playerYear;
+          const luck = Math.random();
+          const healthBoost = (slateHealth - 50) / 220; // -0.23..+0.23
+          const mult = Math.max(0.15, 0.9 + healthBoost + (luck < 0.12 ? 2.2 + Math.random() * 1.6 : luck < 0.5 ? 0.4 + Math.random() * 0.8 : -0.35 + Math.random() * 0.55));
+          p.gross = Math.round(p.budget * mult);
+          p.wasHit = p.gross >= p.budget * 2;
+
+          // Stock reacts for real
+          const stockMove = p.wasHit ? 3 + Math.random() * 6 : p.gross >= p.budget * 1.2 ? 1 + Math.random() * 2 : -(1.5 + Math.random() * 5);
+          sharePrice = Math.max(0.5, Math.round(sharePrice * (1 + stockMove / 100) * 100) / 100);
+          changePct = Math.round((changePct + stockMove) * 100) / 100;
+          newsSentiment = Math.max(-100, Math.min(100, newsSentiment + (p.wasHit ? 15 : p.gross < p.budget * 0.8 ? -18 : 3)));
+          slateHealth = Math.max(5, Math.min(100, slateHealth + (p.wasHit ? 7 : p.gross < p.budget * 0.8 ? -8 : 1)));
+
+          const verdict = p.wasHit ? 'HIT' : p.gross >= p.budget * 1.2 ? 'SOLID' : p.gross >= p.budget * 0.8 ? 'SOFT' : 'FLOP';
+          const relNews = `${stock.name}'s "${p.title}" opens to $${(p.gross / 1000000).toFixed(1)}M worldwide — ${verdict}! ${stock.ticker} ${stockMove >= 0 ? '+' : ''}${stockMove.toFixed(1)}%.`;
+          headlineNews.push(relNews);
+          stock.news = [relNews, ...(stock.news || [])].slice(0, 5);
+          return p;
+        }
+        return p; // RELEASED stays archived
+      });
+
+      // Greenlight new developments to keep the pipeline alive (2-4 active)
+      const active = slate.filter((p) => p.stage !== 'RELEASED').length;
+      if (active < 2 || (active < 4 && Math.random() < 0.35 * (slateHealth / 70))) {
+        slate.push(generateProduction(stock.id));
+      }
+      // Archive trim: keep last 4 released
+      const released = slate.filter((p) => p.stage === 'RELEASED');
+      if (released.length > 4) {
+        const drop = new Set(released.slice(0, released.length - 4).map((p) => p.id));
+        slate = slate.filter((p) => !drop.has(p.id));
+      }
+
+      return {
+        ...stock,
+        slate,
+        slateHealth,
+        sharePrice,
+        changePct,
+        newsSentiment,
+        marketCap: Math.round(sharePrice * stock.sharesOutstanding),
+      };
+    });
+
+    // 2c. NEW STUDIO LAUNCH — every 10-12 weeks a new studio lists directly
+    if (typeof s.nextStudioLaunchWeek !== 'number') {
+      s.nextStudioLaunchWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
+    }
+    if (playerYear * 52 + playerWeek >= s.nextStudioLaunchWeek) {
+      const fresh = generateEndlessStudio() as StockCompany;
+      fresh.isFilmStudio = true;
+      fresh.slate = seedSlate(fresh.id);
+      fresh.slateHealth = 55 + Math.floor(Math.random() * 25);
+      fresh.listedWeek = playerWeek;
+      fresh.listedYear = playerYear;
+      fresh.weeksSinceListing = 0;
+      s.stocks.unshift(fresh);
+      const capM = (fresh.marketCap / 1000000).toFixed(0);
+      headlineNews.push(`NEW STUDIO LISTING: ${fresh.name} (${fresh.ticker}) lists on Wall Street West at $${fresh.sharePrice} — $${capM}M cap, slate already in production.`);
+      studioEvents.push({
+        kind: 'STUDIO_LISTING',
+        subject: `🏛️ NEW STUDIO LISTED: ${fresh.name} (${fresh.ticker})`,
+        body: `A new studio just listed on Wall Street West.\n\n• ${fresh.name} (${fresh.ticker})\n• Industry: ${fresh.industry}\n• Share price: $${fresh.sharePrice}\n• Market cap: $${capM}M\n• CEO: ${fresh.ceo}\n\n${fresh.history}\n\nThe studio already has ${fresh.slate.length} productions in its pipeline — its casting calls will appear on your Callboard. Shares are tradable now.`,
+        important: false,
+      });
+      s.nextStudioLaunchWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
+    }
 
     // 3. PROCESS CRYPTOCURRENCY MARKET — LIVING MARKET EDITION
     //    Regime cycles (bull/bear/pump/crash), per-coin events (pumps, dumps,
@@ -1392,7 +2019,15 @@ export class MarketEngineService {
             playerAvgBuyPrice: ipo.ipoPrice,
             boardSeatsTotal: 9,
             playerBoardMember: (ipo.playerSubscribedShares || 0) > launchShares * 0.05,
-          };
+          } as StockCompany;
+
+          // Media/film IPOs get a live production slate like any real studio
+          const filmIpo = /studio|film|entertainment|media|cinema|picture/i.test(ipo.industry);
+          if (filmIpo) {
+            newStock.isFilmStudio = true;
+            newStock.slate = seedSlate(newStock.id);
+            newStock.slateHealth = 55 + Math.floor(Math.random() * 20);
+          }
 
           s.stocks.unshift(newStock);
 
@@ -1451,7 +2086,7 @@ export class MarketEngineService {
     this.saveMarketState(s);
     const delistPayouts = (s as any)._delistPayouts || 0;
     delete (s as any)._delistPayouts;
-    return { updatedState: s, headlineNews, cryptoEvents, delistPayouts };
+    return { updatedState: s, headlineNews, cryptoEvents, delistPayouts, studioCastingCalls, studioEvents };
   }
 
   /**

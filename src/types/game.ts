@@ -245,6 +245,10 @@ export interface CallboardProject {
   tvSeason?: number;
   maxTvSeason?: number;
   proposedContract?: ProposedContract;
+  /** Links this listing to a real Wall Street West studio production */
+  productionRef?: string;
+  /** Ticker of the listed studio behind this production */
+  studioTicker?: string;
 }
 
 export interface AuditionApplication {
