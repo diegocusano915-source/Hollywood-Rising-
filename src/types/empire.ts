@@ -429,6 +429,38 @@ export interface EliteClubState {
   yearlyDuesPaid: boolean;
   eliteNpcs: EliteNPC[];
   eventHistory: EliteEventLog[];
+  // ---- BLACK CARD SOCIETY (v2) ----
+  /** Realms the player has unlocked (others hidden until fame/event gates) */
+  unlockedRealms?: string[];
+  /** Relationship score per contact id (0-100) */
+  relationships?: Record<string, number>;
+  /** DM threads: contact id → message log */
+  threads?: Record<string, Array<{ who: 'them' | 'me' | 'system'; text: string; dealId?: string }>>;
+  /** Unread flags per contact id */
+  unread?: Record<string, boolean>;
+  /** Open deals (accepted contracts pay real money; pending await reply) */
+  deals?: SocietyDeal[];
+  /** Week the yearly dues were last charged (absolute year*52+week) */
+  duesLastChargedWeek?: number;
+}
+
+/** A real-outcome deal generated inside a DM thread */
+export interface SocietyDeal {
+  id: string;
+  contactId: string;
+  contactName: string;
+  kind: 'BRAND' | 'INVEST' | 'FAVOR';
+  title: string;
+  /** BRAND: cashOut flat + fans. INVEST: player pays cashIn, earns weeklyPayout. FAVOR: effect only. */
+  cashOut?: number;
+  cashIn?: number;
+  fansBonus?: number;
+  fameXp?: number;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  createdWeek: number;
+  createdYear: number;
+  weeklyPayout?: number;
+  weeksRemaining?: number;
 }
 
 export interface AcademyStudent {

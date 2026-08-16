@@ -45,6 +45,7 @@ import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
+import { ensureSocietyState, processSocietyWeek } from '../services/societyEngine';
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
 import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
@@ -1287,6 +1288,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Process Services (Empire, Representation, Socials, Living World)
     const empireResult = EmpireService.processEndWeek(p);
+
+    // BLACK CARD SOCIETY weekly tick — annual dues + co-investment payouts.
+    // All amounts are real and hit the wallet immediately.
+    try {
+      const societyState = EmpireService.getState();
+      ensureSocietyState(societyState);
+      const socTick = processSocietyWeek(societyState, newWeek, newYear);
+      if (socTick.duesCharged > 0) {
+        p.money = Math.max(0, p.money - socTick.duesCharged);
+        newInboxMessages.unshift({
+          id: `msg_society_dues_${Date.now()}`,
+          category: 'FINANCE',
+          sender: 'Black Card Society',
+          senderRole: 'Memberships Office',
+          subject: `🖤 Annual dues charged — $${socTick.duesCharged.toLocaleString()}`,
+          body: `Your Black Card Society annual dues have been charged.\n\n• Amount: $${socTick.duesCharged.toLocaleString()}\n• Membership remains active — 140 contacts, the concierge desk and the contracts floor stay open.\n\nSee you at the next event.`,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+      if (socTick.investPayout > 0) {
+        p.money += socTick.investPayout;
+        socialPosts.push(`🖤 Society investments paid $${socTick.investPayout.toLocaleString()} this week.`);
+      }
+      for (const expired of socTick.expiredDeals) {
+        newInboxMessages.unshift({
+          id: `msg_society_mature_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'FINANCE',
+          sender: 'Black Card Society',
+          senderRole: 'Contracts Desk',
+          subject: `Investment matured: ${expired}`,
+          body: `"${expired}" has run its full term and paid out its final weekly return. The contract is now closed.\n\nGrow more relationships in the Network to unlock fresh co-investment seats.`,
+          date: dateInfo.fullDateText,
+          read: false,
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      }
+      EmpireService.saveState(societyState);
+    } catch (e) {
+      console.error('Society weekly tick error:', e);
+    }
+
     const repResult = RepresentationService.processEndWeek(p, saveData.bookedProjects, saveData.releasedMovies);
     const socialsResult = SocialsService.processEndWeek(p, saveData);
 
