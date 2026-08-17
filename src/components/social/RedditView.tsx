@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, ArrowUp, ArrowDown, MessageCircle, Award, Search, Home, Compass, Crown, Share2 } from 'lucide-react';
-import { PremiumPanel, WriterSheet } from './HubPanels';
+import { PremiumPanel } from './HubPanels';
 
 const SUBREDDITS: { name: string; members: number; verified: boolean }[] = [
   { name: 'r/HollywoodRising', members: 100000000, verified: true },
@@ -147,11 +147,6 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const submit = () => {
     if (!titleDraft.trim()) return;
-    if (SocialsService.playerPostsLeft('reddit') <= 0) {
-      setFb("You've already posted twice on Reddit this week — END WEEK to post again.");
-      setTimeout(() => setFb(null), 3500);
-      return;
-    }
     state.redditPosts = state.redditPosts || [];
     state.redditPosts.unshift({
       id: `rd_${Date.now()}`,
@@ -168,7 +163,6 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
-    SocialsService.notePlayerPost('reddit');
     SocialsService.saveState(state);
     setState({ ...state });
     setTitleDraft('');
@@ -179,11 +173,6 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const hostAMA = () => {
     if (!canAMA || !latest) return;
-    if (SocialsService.playerPostsLeft('reddit') <= 0) {
-      setFb("You've already posted twice on Reddit this week — END WEEK to post again.");
-      setTimeout(() => setFb(null), 3500);
-      return;
-    }
     state.redditPosts = state.redditPosts || [];
     state.redditPosts.unshift({
       id: `ama_${Date.now()}`,
@@ -200,7 +189,6 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
-    SocialsService.notePlayerPost('reddit');
     SocialsService.saveState(state);
     setState({ ...state });
     setFb('🎙️ AMA posted — fans are asking questions! (+fans)');
@@ -225,7 +213,7 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">🔴 Reddit</span>
-        <WriterSheet state={state} platform="reddit" onRefresh={() => setState({ ...SocialsService.getState() })} />
+        <Search className="w-4 h-4 text-gray-500" />
       </div>
 
       {tab === 'HOME' && (

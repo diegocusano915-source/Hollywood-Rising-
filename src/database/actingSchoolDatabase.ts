@@ -931,15 +931,14 @@ export const ACTING_COURSES_POOL: ActingCourse[] = [
 ];
 
 /**
- * Generate up to 4 random available courses for the weekly Acting School catalogue.
- * COMPLETED courses are graduated — never offered again. Active courses are
- * excluded so you can't double-enroll. When the catalog is exhausted the
- * school simply has nothing left to teach (no fallback to completed courses).
+ * Generate 4 random available courses for the weekly Acting School catalogue.
  */
-export function generateWeeklyCourses(completedCourseIds: string[] = [], activeCourseIds: string[] = []): ActingCourse[] {
-  const excluded = new Set([...completedCourseIds, ...activeCourseIds]);
-  const availablePool = ACTING_COURSES_POOL.filter(c => !excluded.has(c.id));
+export function generateWeeklyCourses(completedCourseIds: string[] = []): ActingCourse[] {
+  // Filter out courses already completed if desired, or pick from full pool
+  const availablePool = ACTING_COURSES_POOL.filter(c => !completedCourseIds.includes(c.id));
+  const poolToUse = availablePool.length >= 4 ? availablePool : ACTING_COURSES_POOL;
 
-  const shuffled = [...availablePool].sort(() => 0.5 - Math.random());
+  // Shuffle pool
+  const shuffled = [...poolToUse].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, 4);
 }

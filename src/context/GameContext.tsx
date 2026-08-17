@@ -30,7 +30,7 @@ import {
   TimelineEvent,
   ReleaseConfig,
 } from '../types/game';
-import { formatCalendarDate, monthOfWeek, closingMonthOfWeek } from '../utils/calendar';
+import { formatCalendarDate } from '../utils/calendar';
 import {
   StorageService,
   DEFAULT_PLAYER,
@@ -38,14 +38,12 @@ import {
   validateAndEnforceCallboardRoster,
   generateNpcProfiles,
   GIFT_ITEMS,
-  coursesRequiredFor,
 } from '../database/storageService';
 import { generateWeeklyCourses, ACTING_COURSES_POOL } from '../database/actingSchoolDatabase';
 import { soundService } from '../services/soundService';
 import { EmpireService } from '../services/empireService';
 import { getAgentById, getManagerById } from '../database/representationDatabase';
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
-import { ensureSocietyState, processSocietyWeek } from '../services/societyEngine';
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
 import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
@@ -54,19 +52,17 @@ import { SocialsService, processSocialHubWeek } from '../services/socialsService
 import { ToastMessage, ToastCategory } from '../components/common/ToastContainer';
 import { MarketEngineService } from '../services/marketEngineService';
 import { NetworkService } from '../services/networkService';
-import { BoxOfficeEngineService, PLAYER_MAX_WEEKS } from '../services/boxOfficeEngineService';
+import { BoxOfficeEngineService } from '../services/boxOfficeEngineService';
 import { RoyaltyEngineService } from '../services/royaltyService';
 import { AwardsService } from '../services/awardsService';
 import { AwardCeremonyResult } from '../types/game';
-import { FameService, FAME_XP_MULTIPLIER } from '../services/fameService';
+import { FameService } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
 import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
-import { RelationshipEngine } from '../services/relationshipService';
 import { ActiveJob, TransactionRecord } from '../types/network';
-import { ScandalItem } from '../types/representation';
 
 
 type MainTab = 'HOME' | 'TALENT' | 'WORLD' | 'NETWORK' | 'EMPIRE' | 'REPRESENTATION';
@@ -112,8 +108,8 @@ type ModalType =
 
 interface GameContextType {
   // Navigation & Main Tabs
-  currentScreen: 'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home';
-  setCurrentScreen: (screen: 'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home') => void;
+  currentScreen: 'splash' | 'main_menu' | 'character_creation' | 'game_home';
+  setCurrentScreen: (screen: 'splash' | 'main_menu' | 'character_creation' | 'game_home') => void;
   activeMainTab: MainTab;
   setActiveMainTab: (tab: MainTab) => void;
 
@@ -146,8 +142,6 @@ interface GameContextType {
   selectedFycMovieId: string | null;
   setSelectedFycMovieId: (id: string | null) => void;
   awardCeremonyData: AwardCeremonyResult | null;
-  taxStatementData: import('../components/modals/TaxStatementModal').TaxStatementData | null;
-  setTaxStatementData: (data: import('../components/modals/TaxStatementModal').TaxStatementData | null) => void;
   setAwardCeremonyData: (data: AwardCeremonyResult | null) => void;
   launchFycCampaign: (
     movieId: string,
@@ -218,7 +212,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSlot, setActiveSlot] = useState<number>(1);
   const [saveData, setSaveData] = useState<SaveData>(() => StorageService.loadSaveData(1));
-  const [currentScreen, setCurrentScreen] = useState<'splash' | 'disclaimer' | 'main_menu' | 'character_creation' | 'game_home'>('splash');
+  const [currentScreen, setCurrentScreen] = useState<'splash' | 'main_menu' | 'character_creation' | 'game_home'>('splash');
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('HOME');
   const [activeModal, setActiveModal] = useState<ModalType>('none');
   const [isProcessingWeek, setIsProcessingWeek] = useState<boolean>(false);
@@ -226,7 +220,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [selectedFycMovieId, setSelectedFycMovieId] = useState<string | null>(null);
   const [awardCeremonyData, setAwardCeremonyData] = useState<AwardCeremonyResult | null>(null);
-  const [taxStatementData, setTaxStatementData] = useState<import('../components/modals/TaxStatementModal').TaxStatementData | null>(null);
 
   // Notification Toast System State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -287,14 +280,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Centralized XP & Level Progression Engine
   const addFameXp = useCallback((amount: number, reason: string) => {
     if (!amount || amount <= 0) return;
-    // SLOW BURN: ALL instant XP (releases, red carpet, level-ups, signings)
-    // pays the same global fraction — no source bypasses the rule
-    const scaledAmount = Math.max(1, Math.floor(amount * FAME_XP_MULTIPLIER));
+    // SLOW BURN: instant XP (red carpet, level-ups) also runs at half speed
+    const halfAmount = Math.max(1, Math.floor(amount * 0.5));
 
     setSaveData((prevSave) => {
       const currentXp = prevSave.player.fameXp || 0;
       const oldLevelInfo = FameService.getFameLevelDetails(currentXp);
-      const newXp = currentXp + scaledAmount;
+      const newXp = currentXp + halfAmount;
       const newLevelInfo = FameService.getFameLevelDetails(newXp);
 
       const updatedPlayer: Player = {
@@ -351,7 +343,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addToast('Success', `LEVEL UP! Lvl ${newLevelInfo.level}`, `Reached ${newLevelInfo.title}! +$${rewardCash.toLocaleString()} Bonus Cash!`);
       } else {
-        addToast('Information', `+${scaledAmount} Fame XP`, reason);
+        addToast('Information', `+${amount} Fame XP`, reason);
       }
 
       const updatedSave: SaveData = {
@@ -572,50 +564,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Apply to Callboard Project
   const applyToCallboard = (projectId: string) => {
     const proj = saveData.callboard.find(p => p.id === projectId);
-    if (!proj) return { success: false, message: 'Project not found.', reasons: [] as string[] };
+    if (!proj) return { success: false, message: 'Project not found.' };
 
-    // ============================================================
-    // INVISIBLE CASTING CHECKER — audits the player's REAL career
-    // before the door opens. Every failed gate produces a specific
-    // decline reason. Applying is no longer enough: talent (completed
-    // acting courses), fame, skill, union status and representation
-    // are all checked against the listing's real requirements.
-    // ============================================================
-    const p = saveData.player;
-    const declineReasons: string[] = [];
-
-    if (p.energy < 20) {
-      declineReasons.push(`ENERGY: 20 required to self-tape and attend callbacks — you have ${p.energy}. Rest and come back.`);
-    }
-
-    const coursesDone = Math.max(p.completedCourseIds?.length || 0, p.completedCourseRecords?.length || 0);
-    const reqCourses = proj.requiredCourses ?? 0;
-    if (coursesDone < reqCourses) {
-      declineReasons.push(`TRAINING: ${reqCourses} completed acting course${reqCourses > 1 ? 's' : ''} required for a ${proj.roleType} role on a $${(proj.budget / 1000000).toFixed(1)}M production — you have ${coursesDone}. Graduate courses at Acting School.`);
-    }
-
-    if (proj.requiredFameXp && (p.fameXp || 0) < proj.requiredFameXp) {
-      declineReasons.push(`NAME RECOGNITION: ${proj.requiredFameXp} Fame XP required — you have ${(p.fameXp || 0).toLocaleString()}. CDs at this level won't read unknowns.`);
-    }
-
-    if (proj.requiredActing && (p.talents?.acting || 0) < proj.requiredActing) {
-      declineReasons.push(`CRAFT: Acting skill ${proj.requiredActing} required — yours is ${p.talents?.acting || 0}. Train the specific skill.`);
-    }
-
-    if (proj.budget > 50000000 && !p.isUnionMember) {
-      declineReasons.push(`UNION: SAG-AFTRA membership required on productions over $50M (you need 4 completed lead roles to join).`);
-    }
-
-    if (proj.budget > 120000000 && proj.roleType === 'Lead' && !(p as any).representation?.agent?.signed) {
-      declineReasons.push(`REPRESENTATION: A signed agent must submit you for Lead roles on $120M+ productions. Agents start pitching at Fame 250.`);
-    }
-
-    if (declineReasons.length > 0) {
-      return {
-        success: false,
-        message: `CASTING DIRECTOR DECLINED YOUR SUBMISSION — ${proj.roleType} role in "${proj.title}" (${proj.studio}). The door stays closed until requirements are met.`,
-        reasons: declineReasons,
-      };
+    if (saveData.player.energy < 20) {
+      return { success: false, message: 'Not enough energy! You need 20 Energy to apply.' };
     }
 
     soundService.playClick();
@@ -674,7 +626,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       success: true,
       message: `Applied for ${proj.roleType} role in "${proj.title}"! Moved to Auditions and recorded in Career History.`,
-      reasons: [] as string[],
     };
   };
 
@@ -697,17 +648,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!course) {
       return { success: false, message: 'Course not found in catalogue.' };
-    }
-
-    // GRADUATED courses are closed forever — the school never re-offers them
-    if ((saveData.player.completedCourseIds || []).includes(courseId) ||
-        (saveData.player.completedCourseRecords || []).some((r: any) => r.courseId === courseId)) {
-      return { success: false, message: `You already graduated from "${course.name}" — courses can only be taken once.` };
-    }
-
-    // Can't double-enroll a course you're currently attending
-    if (currentActive.some((c: any) => c.courseId === courseId)) {
-      return { success: false, message: `You're already enrolled in "${course.name}".` };
     }
 
     if (course.requiresUnionMember && !saveData.player.isUnionMember) {
@@ -1289,51 +1229,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Process Services (Empire, Representation, Socials, Living World)
     const empireResult = EmpireService.processEndWeek(p);
-
-    // BLACK CARD SOCIETY weekly tick — annual dues + co-investment payouts.
-    // All amounts are real and hit the wallet immediately.
-    try {
-      const societyState = EmpireService.getState();
-      ensureSocietyState(societyState);
-      const socTick = processSocietyWeek(societyState, newWeek, newYear);
-      if (socTick.duesCharged > 0) {
-        p.money = Math.max(0, p.money - socTick.duesCharged);
-        newInboxMessages.unshift({
-          id: `msg_society_dues_${Date.now()}`,
-          category: 'FINANCE',
-          sender: 'Black Card Society',
-          senderRole: 'Memberships Office',
-          subject: `🖤 Annual dues charged — $${socTick.duesCharged.toLocaleString()}`,
-          body: `Your Black Card Society annual dues have been charged.\n\n• Amount: $${socTick.duesCharged.toLocaleString()}\n• Membership remains active — 140 contacts, the concierge desk and the contracts floor stay open.\n\nSee you at the next event.`,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-      if (socTick.investPayout > 0) {
-        p.money += socTick.investPayout;
-        socialPosts.push(`🖤 Society investments paid $${socTick.investPayout.toLocaleString()} this week.`);
-      }
-      for (const expired of socTick.expiredDeals) {
-        newInboxMessages.unshift({
-          id: `msg_society_mature_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'FINANCE',
-          sender: 'Black Card Society',
-          senderRole: 'Contracts Desk',
-          subject: `Investment matured: ${expired}`,
-          body: `"${expired}" has run its full term and paid out its final weekly return. The contract is now closed.\n\nGrow more relationships in the Network to unlock fresh co-investment seats.`,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-      EmpireService.saveState(societyState);
-    } catch (e) {
-      console.error('Society weekly tick error:', e);
-    }
-
     const repResult = RepresentationService.processEndWeek(p, saveData.bookedProjects, saveData.releasedMovies);
     const socialsResult = SocialsService.processEndWeek(p, saveData);
 
@@ -1355,93 +1250,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
     if (socialsResult.socialReputation) socialReputation.push(...socialsResult.socialReputation);
 
-    // YT mini-bank payouts that CLEARED this week — credit wallet + inbox.
-    // (Tax was already withheld at transfer time; the net is post-tax.)
-    if ((socialsResult as any).ytPayoutArrivals && (socialsResult as any).ytPayoutArrivals.length > 0) {
-      for (const arrival of (socialsResult as any).ytPayoutArrivals) {
-        p.money += arrival.net;
-        newInboxMessages.unshift({
-          id: `msg_yt_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'FINANCE',
-          sender: 'YouTube Creator Payments',
-          senderRole: 'AdSense Payout Desk',
-          subject: `💰 YouTube monthly payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
-          body: `Your month-end YouTube payout has cleared.\n\n• Payout: $${arrival.gross.toLocaleString()}\n• Tax withheld (20% — YouTube is the only taxed platform): −$${arrival.tax.toLocaleString()}\n• NET CREDITED: $${arrival.net.toLocaleString()}\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''} from month-end\n\nNext month's ad revenue keeps accruing in your Creator Bank — it pays out automatically at the end of every month.`,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-
-    // IG mini-bank payouts that CLEARED this week — credit wallet + inbox.
-    if ((socialsResult as any).igPayoutArrivals && (socialsResult as any).igPayoutArrivals.length > 0) {
-      for (const arrival of (socialsResult as any).igPayoutArrivals) {
-        p.money += arrival.net;
-        newInboxMessages.unshift({
-          id: `msg_ig_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'FINANCE',
-          sender: 'Instagram Creator Payouts',
-          senderRole: 'Creator Bonus Desk',
-          subject: `💰 Instagram monthly payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
-          body: `Your month-end Instagram payout has cleared.\n\n• Payout: $${arrival.net.toLocaleString()}\n• Tax withheld: $0 — Instagram payouts are TAX-FREE (Premium benefit; only YouTube is taxed)\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''} from month-end\n\nNext month's Creator Bonus revenue keeps accruing in your Gram Bank — it pays out automatically at the end of every month.`,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-
-    // X mini-bank payouts that CLEARED this week — credit wallet + inbox.
-    if ((socialsResult as any).twPayoutArrivals && (socialsResult as any).twPayoutArrivals.length > 0) {
-      for (const arrival of (socialsResult as any).twPayoutArrivals) {
-        p.money += arrival.net;
-        newInboxMessages.unshift({
-          id: `msg_tw_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'FINANCE',
-          sender: 'X Creator Payouts',
-          senderRole: 'Ads Revenue Sharing Desk',
-          subject: `💰 X monthly payout cleared — $${arrival.net.toLocaleString()} added to your wallet`,
-          body: `Your month-end X payout has cleared.\n\n• Payout: $${arrival.net.toLocaleString()}\n• Tax withheld: $0 — X payouts are TAX-FREE (Premium benefit; only YouTube is taxed)\n• Clearing time: ${arrival.weeks} week${arrival.weeks > 1 ? 's' : ''} from month-end\n\nNext month's ads revenue keeps accruing in your X Bank — it pays out automatically at the end of every month.`,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-
-    // Writer contracts that ran out this week — send formal goodbye to Inbox
-    if (socialsResult.expiredWriters && socialsResult.expiredWriters.length > 0) {
-      for (const ex of socialsResult.expiredWriters) {
-        const platLabel = SocialsService.PLATFORM_LABEL[ex.platform || 'twitter'] || 'social';
-        newInboxMessages.unshift({
-          id: `msg_writer_expired_${ex.name.replace(/\s+/g, '_')}_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-          category: 'SOCIAL',
-          sender: ex.name,
-          senderRole: ex.agencyName || 'PR & Ghostwriting Agency',
-          senderAvatar: ex.avatar,
-          subject: `CONTRACT COMPLETE — ${ex.name} signs off from ${platLabel}`,
-          body: `Dear ${p.firstName},\n\nOur ${platLabel} retainer has reached its final week, and per the terms of our agreement, my services for your account conclude today.\n\nIt has been a genuine pleasure shaping your voice on ${platLabel}. The growth we built together doesn't stop here — the audience we activated keeps listening.\n\nIf you'd like to renew, you know where to find me. My calendar fills fast, but former clients always get the first call.\n\nWith respect,\n${ex.name}\n${ex.agencyName || 'Hollywood PR Media Group'}`,
-          date: `Week ${newWeek}, ${newYear}`,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-
     fansGainedThisWeek = (fansGainedThisWeek || 0) + (socialsResult.fanGrowth || 0);
     prRetainerExpensesThisWeek = repResult.prWeeklyCost || 0;
     legalRetainerExpensesThisWeek = repResult.lawWeeklyCost || 0;
     writerExpensesThisWeek = socialsResult.writerWeeklyCost || 0;
     sponsorshipIncomeThisWeek = socialsResult.weeklySponsorshipIncome || 0;
     endorsementIncomeThisWeek = repResult.weeklyEarnings || 0;
-    // YT ad revenue now accrues to the Creator Bank (mini-bank inside YouTube)
-    // — it reaches the wallet only via transfers that clear in 1-5 weeks.
-    socialYoutubeIncomeThisWeek = 0;
+    socialYoutubeIncomeThisWeek = socialsResult.youtubeRevenue || 0;
 
     if (prRetainerExpensesThisWeek > 0) repPr.push(`PR Agency Retainer: -$${prRetainerExpensesThisWeek.toLocaleString()}`);
     if (legalRetainerExpensesThisWeek > 0) repLawFirm.push(`Law Firm Retainer: -$${legalRetainerExpensesThisWeek.toLocaleString()}`);
@@ -1509,7 +1324,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((empireResult as any).achievementsCash > 0) {
       achievementRewardCash = (empireResult as any).achievementsCash || 0;
       achievementRewardXp = (empireResult as any).achievementsXp || 0;
-      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${Math.floor(achievementRewardCash * 0.5).toLocaleString()} cash & +${Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER))} Fame XP`);
+      empireBusinesses.push(`🏆 ACHIEVEMENT REWARDS: +$${achievementRewardCash.toLocaleString()} cash & +${achievementRewardXp} Fame XP`);
     }
     // Empire weekly yield is ONE real number covering businesses + commercial
     // real estate + acting academy net. It always counts — owning only a film
@@ -1521,24 +1336,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (repResult.notifications && repResult.notifications.length > 0) {
       repPr.push(...repResult.notifications);
-    }
-
-    // SCANDAL BREAKING NEWS: a fresh scandal gets a full inbox story so the
-    // player always SEES it — not just a cryptic fan-loss line in the recap
-    const newScandal = (repResult as any).newScandal as ScandalItem | null | undefined;
-    if (newScandal) {
-      const sevColor = newScandal.severity === 'CRITICAL' ? '🚨 CRITICAL' : newScandal.severity === 'MODERATE' ? '⚠️ MODERATE' : 'MINOR';
-      newInboxMessages.unshift({
-        id: `msg_scandal_${newScandal.id}`,
-        category: 'CRISIS',
-        sender: 'Hollywood Tabloid Circuit',
-        senderRole: 'Breaking News Desk',
-        senderAvatar: p.avatarUrl,
-        subject: `📰 ${sevColor} SCANDAL: ${newScandal.title}`,
-        body: `BREAKING COVERAGE\n\n${newScandal.story || newScandal.cause}\n\nSEVERITY: ${newScandal.severity}\nIMMEDIATE REPUTATION DAMAGE: -${newScandal.reputationDamage}\n\nWHILE UNRESOLVED (every week):\n• Fans unfollow (0.6% weekly, 1.5% for CRITICAL)\n• Public Reputation & Trust drain\n${newScandal.severity === 'CRITICAL' ? '• Sponsor payouts PAUSED + casting scores hurt\n' : ''}• Unhandled coverage fades on its own in ${newScandal.severity === 'CRITICAL' ? 6 : newScandal.severity === 'MODERATE' ? 5 : 4} weeks (with a lingering scar)\n\nHOW TO RESPOND:\nOpen Representation → Public Relations and choose a strategy: Lawyers, PR Offensive, Apologize, or Deny & Ride It Out.`,
-        date: dateInfo.fullDateText,
-        read: false,
-      });
     }
 
     // 4. Process Active Acting School Courses
@@ -1558,10 +1355,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newTalentVal = Math.min(100, currentTalentVal + course.talentReward.amount);
           p.talents[talentCategory] = newTalentVal;
 
-          // REAL GRADUATION XP: halved course payouts — fame XP scales by
-          // talent gain + course length, capped at 60 then cut 50%
-          const courseXp = Math.floor(Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5)) * 0.5);
-          const courseXpApplied = Math.max(1, Math.floor(courseXp * FAME_XP_MULTIPLIER));
+          // REAL GRADUATION XP: reduced rate (~50%) — course completion pays
+          // fame XP scaled by talent gain + course length, capped at 60
+          const courseXp = Math.min(60, Math.floor((course.talentReward?.amount || 5) * 3 + (course.totalWeeks || 2) * 5));
           fameGainedThisWeek += courseXp;
 
           completedCourseIds.push(course.courseId);
@@ -1576,7 +1372,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completionYear: newYear,
           });
 
-          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()}, +${courseXpApplied} Fame XP)`);
+          careerTraining.push(`GRADUATED: ${course.name} (+${course.talentReward.amount} ${talentCategory.toUpperCase()}, +${courseXp} Fame XP)`);
 
           newInboxMessages.unshift({
             id: `msg_course_done_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -1585,7 +1381,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             senderRole: 'Dean of Studies',
             senderAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
             subject: `COURSE GRADUATION: ${course.name}`,
-            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.\n\nFame XP earned: +${courseXpApplied}`,
+            body: `Congratulations! You have completed "${course.name}" taught by ${course.teacher}.\n\nYour ${talentCategory.toUpperCase()} talent increased by +${course.talentReward.amount}! Current level: ${newTalentVal}/100.\n\nFame XP earned: +${courseXp}`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -1626,10 +1422,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeCourses: remainingActiveCourses,
       completedCourseIds,
       completedCourseRecords,
-      availableSchoolCourses: generateWeeklyCourses(
-        completedCourseIds,
-        (p.activeCourses || []).map((c: any) => c.courseId)
-      ),
+      availableSchoolCourses: generateWeeklyCourses(completedCourseIds),
     };
 
     // 5. Process Auditions
@@ -2194,8 +1987,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             director: book.director || 'Denis Villeneuve',
             genre: book.genre || 'Drama',
             sequelCheckWeeks: 0,
-            // Studios don't rush franchise calls: 12–20 weeks of watching the run
-            sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
             sequelOffered: false,
             sequelTarget: Math.floor(baseBudget * 1.8),
             budget: book.budget || baseBudget,
@@ -2212,7 +2003,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           newReleasedMovies.unshift(newReleasedMovie);
 
           careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office! (Star Rating: ${starRatingPct}%)`);
-          careerTraining.push(`🌟 +${Math.max(1, Math.floor(releaseFame * FAME_XP_MULTIPLIER))} Fame XP - Theatrical Release of '${book.movieTitle}'`);
+          careerTraining.push(`🌟 +${releaseFame} Fame XP - Theatrical Release of '${book.movieTitle}'`);
 
           newTimelineEvents.push({
             id: `tl_rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -2237,7 +2028,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Trigger Breaking Hollywood Insider Article
           try {
-            HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, newWeek, newYear);
+            HollywoodInsiderService.onMovieReleased(newReleasedMovie, p, true);
           } catch (e) {
             console.error('Error triggering Hollywood Insider release article:', e);
           }
@@ -2293,13 +2084,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Trigger Hollywood Insider weekly trade news tick — REAL events only
+    // Trigger Hollywood Insider weekly trade news tick
     try {
-      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, p, {
-        releasedMovies: newReleasedMovies,
-        bookedProjects: updatedBookedProjects,
-        relationships: saveData.relationships,
-      });
+      HollywoodInsiderService.processWeeklyNewsTick(newWeek, newYear, p);
     } catch (e) {
       console.error('Error processing Hollywood Insider weekly news tick:', e);
     }
@@ -2315,11 +2102,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         awardsTrophies = awardsResult.newTrophies;
         awardsRecords = awardsResult.newRecords;
         awardsInbox = awardsResult.newInboxMessages;
-        // Apply fame, awards, and REAL award-night fans to player
+        // Apply fame and awards to player
         p.fameXp = awardsResult.updatedPlayer.fameXp;
         p.awardsWon = awardsResult.updatedPlayer.awardsWon;
         fameGainedThisWeek += awardsResult.fameGained;
-        if (awardsResult.fanGained > 0) fansGainedThisWeek += awardsResult.fanGained;
         // Queue inbox and world logs
         awardsInbox.forEach(msg => newInboxMessages.unshift(msg));
         awardsRecords.forEach(rec => {
@@ -2384,7 +2170,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const nextWeeks = chartItem.weeksReleased || movie.weeksInCinemas + 1;
-        const nextInCinemas = nextWeeks >= PLAYER_MAX_WEEKS ? false : (chartItem.inTheaters ?? movie.inCinemas);
+        const nextInCinemas = nextWeeks >= 20 ? false : (chartItem.inTheaters ?? movie.inCinemas);
 
         const currentWorldwide = movie.worldwideGross || movie.boxOfficeGross || 0;
         const currentDomestic = movie.domesticGross || 0;
@@ -2397,9 +2183,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const finalDomestic = Math.min(MAX_CAP * 0.45, Math.max(currentDomestic, chartDomestic));
         const finalInternational = Math.max(0, finalWorldwide - finalDomestic);
 
-        // Theatrical conclusion report fires the week the movie ACTUALLY leaves
-        // theaters — floor death or the 15-week cap, whichever comes first
-        if (movie.inCinemas && !nextInCinemas) {
+        // If movie completes its 15th week in cinemas, send official theatrical conclusion report to Inbox!
+        if (nextWeeks >= 15 && movie.inCinemas) {
           newInboxMessages.unshift({
             id: `msg_theatrical_end_${movie.id}_${Date.now()}`,
             category: 'CAREER',
@@ -2407,7 +2192,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             senderRole: 'VP Theatrical Distribution',
             senderAvatar: movie.posterUrl,
             subject: `THEATRICAL RUN CONCLUDED: "${movie.movieTitle}"`,
-            body: `THEATRICAL RUN CONCLUSION REPORT\n\nMovie: "${movie.movieTitle}"\nRole: ${movie.roleType}\n\nAfter a run of ${nextWeeks} weeks in cinemas, "${movie.movieTitle}" has officially concluded its theatrical exhibition run!\n\nFINAL BOX OFFICE TOTALS:\n• Lifetime Worldwide Gross: $${(finalWorldwide / 1000000).toFixed(1)}M\n• Domestic Box Office: $${(finalDomestic / 1000000).toFixed(1)}M\n• International Box Office: $${(finalInternational / 1000000).toFixed(1)}M\n• Final Rotten Tomatoes Rating: ${movie.audienceRating}%\n\nThe feature has now transitioned into permanent home streaming, digital licensing, and syndication catalogs. Weekly residuals and streaming royalties will continue to accrue automatically in your IMDb Releases tab!`,
+            body: `THEATRICAL RUN CONCLUSION REPORT\n\nMovie: "${movie.movieTitle}"\nRole: ${movie.roleType}\n\nAfter a long run of 15 weeks in cinemas, "${movie.movieTitle}" has officially concluded its theatrical exhibition run!\n\nFINAL BOX OFFICE TOTALS:\n• Lifetime Worldwide Gross: $${(finalWorldwide / 1000000).toFixed(1)}M\n• Domestic Box Office: $${(finalDomestic / 1000000).toFixed(1)}M\n• International Box Office: $${(finalInternational / 1000000).toFixed(1)}M\n• Final Rotten Tomatoes Rating: ${movie.audienceRating}%\n\nThe feature has now transitioned into permanent home streaming, digital licensing, and syndication catalogs. Weekly residuals and streaming royalties will continue to accrue automatically in your IMDb Releases tab!`,
             date: dateInfo.fullDateText,
             read: false,
           });
@@ -2426,16 +2211,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      // Movie not on the active chart anymore — keep totals, but kill stale
-      // weekly numbers so the Releases tab matches the weekly recap exactly
       const fallbackWeeks = movie.weeksInCinemas + 1;
       const fallbackGross = movie.worldwideGross || movie.boxOfficeGross || 0;
-      const fallbackStillRunning = fallbackWeeks < PLAYER_MAX_WEEKS && movie.inCinemas;
       return {
         ...movie,
         weeksInCinemas: fallbackWeeks,
-        inCinemas: fallbackStillRunning,
-        weeklyGross: fallbackStillRunning ? ((movie as any).weeklyGross || 0) : 0,
+        inCinemas: fallbackWeeks >= 20 ? false : movie.inCinemas,
         worldwideGross: fallbackGross,
         boxOfficeGross: fallbackGross,
         sequelCheckWeeks: movie.sequelCheckWeeks,
@@ -2443,18 +2224,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 7c. SEQUEL & RENEWAL GREENLIGHT TRACKER — weekly check while the movie is in the box
-    // office AND up to 40 weeks after (even after it leaves theaters). No instant greenlight:
-    // every release secretly rolls a 12–20 week studio watch period before any sequel or
-    // season offer can arrive. Studio offers when the target is met after that week.
-    // If a Manager is signed, the Manager negotiates better terms with the studio
-    // and sends the full offer to your Inbox.
+    // office AND up to 20 weeks after (even after it leaves theaters). No instant greenlight.
+    // Studio offers when the target is met. If a Manager is signed, the Manager negotiates
+    // better terms with the studio and sends the full offer to your Inbox.
     const finalReleasedMovies = updatedReleasedMovies.map((movie) => {
       const isTv = movie.isTvSeries || movie.category === 'TV Series';
       const currentPart = movie.franchisePart || 1;
       const currentSeason = movie.tvSeason || 1;
-      // ANY film can start a franchise: Part 1 earns Part 2 at the box office,
-      // and the chain is hard-capped at Part 5 (currentPart >= 5 ends it)
-      const maxPart = 5;
+      const maxPart = movie.isFranchise ? 5 : 1;
       const maxSeason = (movie as any).maxTvSeason || 15;
       if (movie.sequelOffered) return movie;
       if (!isTv && movie.roleType !== 'Lead' && movie.roleType !== 'Principal') return movie;
@@ -2462,19 +2239,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isTv && currentSeason >= maxSeason) return movie;
 
       const checks = (movie.sequelCheckWeeks || 0) + 1;
-      if (checks > 40) return movie; // greenlight decision window closed
+      if (checks > 20) return movie; // greenlight decision window closed
 
-      // Releases from old saves roll their studio watch period here (12–20 weeks)
-      const eligibleAfter = movie.sequelEligibleAfter || 12 + Math.floor(Math.random() * 9);
       const baseBudget = movie.budget || 1500000;
-      // FILMS: purely money-driven — the studio watches the full theatrical run
-      // for the rolled 12–20 weeks, then greenlights Part N+1 when worldwide
-      // gross clears 1.8x the budget. SERIES: same watch period plus the
-      // original rating + gross target.
-      const targetMet = isTv
-        ? checks >= eligibleAfter && (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8
-        : checks >= eligibleAfter && (movie.worldwideGross || 0) > baseBudget * 1.8;
-      if (!targetMet) return { ...movie, sequelCheckWeeks: checks, sequelEligibleAfter: eligibleAfter };
+      const targetMet =
+        (movie.audienceRating || 0) >= 60 && (movie.worldwideGross || 0) > baseBudget * 1.8;
+      if (!targetMet) return { ...movie, sequelCheckWeeks: checks };
 
       // TARGET MET — GREENLIGHT TIME (studio offer, or manager-negotiated offer)
       const managerSigned = !!p.representation?.manager?.signed;
@@ -2483,9 +2253,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (isTv) {
         const nextSeason = currentSeason + 1;
-        // Renewal pay scales with the SHOW's budget, not just the old paycheck:
-        // 35% raise over last season, floored at 2% of the production budget
-        const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2500000) * 1.35), Math.floor(baseBudget * 0.02));
+        const studioSalary = Math.floor((movie.playerEarnings || 2500000) * 1.35);
         const salary = managerSigned ? Math.floor(studioSalary * 1.2) : studioSalary;
         const shootWeeks = 6 + Math.floor(Math.random() * 3);
         const renewedProject: BookedProject = {
@@ -2520,8 +2288,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? `🤝 MANAGER NEGOTIATED: "${movie.parentMovieTitle || movie.movieTitle}" Season ${nextSeason}`
             : `SERIES RENEWED! "${movie.movieTitle}" Greenlit for Season ${nextSeason}!`,
           body: managerSigned
-            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter ${checks} weeks on air, "${movie.movieTitle}" met its renewal target (${movie.audienceRating}% audience rating, $${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the network'}.\n\nNEGOTIATED RENEWAL TERMS:\n• Next Season Salary: $${salary.toLocaleString()}\n• Backend: ${renewedProject.backendPercent}% | Profit Share: ${renewedProject.profitSharePercent}%\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
-            : `CONGRATULATIONS!\n\nAfter ${checks} weeks of stellar viewership (${movie.audienceRating}% audience rating), the network has officially renewed "${movie.parentMovieTitle || movie.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${salary.toLocaleString()} (+35% raise or better)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
+            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its renewal target (${movie.audienceRating}% audience rating, $${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the network'}.\n\nNEGOTIATED RENEWAL TERMS:\n• Next Season Salary: $${salary.toLocaleString()}\n• Backend: ${renewedProject.backendPercent}% | Profit Share: ${renewedProject.profitSharePercent}%\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+            : `CONGRATULATIONS!\n\nDue to stellar viewership (${movie.audienceRating}% audience rating), the network has officially renewed "${movie.parentMovieTitle || movie.movieTitle}" for Season ${nextSeason}!\n\nRENEWAL CONTRACT OFFER:\n• Next Season Salary: $${salary.toLocaleString()} (+35% pay raise)\n• Residual Payouts & Syndication bonus included.\n\nOpen your Production Hub to review and accept the renewal contract!`,
           date: dateInfo.fullDateText,
           read: false,
         });
@@ -2531,7 +2299,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           week: newWeek,
           category: 'RELEASE',
           title: `${movie.movieTitle} renewed for Season ${nextSeason}`,
-          description: `After ${checks} weeks, ${movie.movieTitle} met its renewal target and was greenlit for Season ${nextSeason}.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+          description: `${movie.movieTitle} met its renewal target and was greenlit for Season ${nextSeason}.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
         });
         return { ...movie, sequelOffered: true, sequelOfferedPart: nextSeason, sequelCheckWeeks: checks };
       }
@@ -2541,9 +2309,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
       const nextFranchiseTitle = `${movie.parentMovieTitle || movie.movieTitle} (Part ${nextPart}: ${subtitle})`;
       const nextBudget = Math.floor(baseBudget * 1.4);
-      // Sequel pay scales with the FRANCHISE's budget, not just the old paycheck:
-      // 50% raise over the original, floored at 3% of the (bigger) sequel budget
-      const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2000000) * 1.5), Math.floor(nextBudget * 0.03));
+      const studioSalary = Math.floor((movie.playerEarnings || 2000000) * 1.5);
       const salary = managerSigned ? Math.floor(studioSalary * 1.25) : studioSalary;
       const shootWeeks = 6 + Math.floor(Math.random() * 4);
       const backend = managerSigned ? 5.0 : 3.5;
@@ -2580,9 +2346,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subject: managerSigned
           ? `🤝 MANAGER NEGOTIATED: "${nextFranchiseTitle}" deal ready for review`
           : `FRANCHISE SEQUEL GREENLIT: "${nextFranchiseTitle}"!`,
-          body: managerSigned
-            ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter ${checks} weeks at the box office, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross vs $${(baseBudget * 1.8 / 1000000).toFixed(1)}M target), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the studio'}.\n\nNEGOTIATED TERMS:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Salary: $${salary.toLocaleString()} (+25% over standard studio offer)\n• Backend: ${sequelProject.backendPercent}% | Profit Share: ${sequelProject.profitSharePercent}%\n• Box Office Bonus: $${sequelProject.boxOfficeBonus.toLocaleString()}\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
-            : `BREAKING STUDIO GREENLIGHT!\n\nAfter ${checks} weeks at the box office, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide gross, ${movie.audienceRating}% audience rating), ${movie.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${salary.toLocaleString()} (+50% raise or better)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
+        body: managerSigned
+          ? `YOUR MANAGER CLOSED THE DEAL\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross vs $${(baseBudget * 1.8 / 1000000).toFixed(1)}M target), ${managerName} (${managerCompany}) negotiated directly with ${movie.studio || 'the studio'}.\n\nNEGOTIATED TERMS:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Salary: $${salary.toLocaleString()} (+25% over standard studio offer)\n• Backend: ${sequelProject.backendPercent}% | Profit Share: ${sequelProject.profitSharePercent}%\n• Box Office Bonus: $${sequelProject.boxOfficeBonus.toLocaleString()}\n\nReview the full agreement in your Production Hub — accept, reject, or negotiate further.`
+          : `BREAKING STUDIO GREENLIGHT!\n\nAfter "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide gross, ${movie.audienceRating}% audience rating), ${movie.studio || 'the studio'} has officially greenlit Part ${nextPart} of the franchise!\n\nSEQUEL DEAL OFFER:\n• Production Budget: $${(nextBudget / 1000000).toFixed(1)}M\n• Upfront Lead Salary: $${salary.toLocaleString()} (+50% raise)\n• Backend Profit Share: ${sequelProject.profitSharePercent}%\n\nVisit your Production Hub to review and accept the sequel agreement!`,
         date: dateInfo.fullDateText,
         read: false,
       });
@@ -2592,7 +2358,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         week: newWeek,
         category: 'RELEASE',
         title: `Sequel Greenlit: ${nextFranchiseTitle}`,
-        description: `After ${checks} weeks, "${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross) and Part ${nextPart} was greenlit.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
+        description: `"${movie.movieTitle}" met its greenlight target ($${((movie.worldwideGross || 0) / 1000000).toFixed(1)}M gross) and Part ${nextPart} was greenlit.${managerSigned ? ` Negotiated by ${managerName}.` : ''}`,
       });
       return { ...movie, sequelOffered: true, sequelOfferedPart: nextPart, sequelCheckWeeks: checks };
     });
@@ -2614,9 +2380,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signedMgr.totalDealsSourced = (signedMgr.totalDealsSourced || 0) + 1;
       }
 
-      // TV interview booked every 6 weeks — booked ONLY via the engine on a
-      // station the player has unlocked; the engine's message fires iff a
-      // real offer was created (no more ghost notifications, no fake fees).
+      // TV/Radio interview booked every 6 weeks — now SCHEDULED via engine (countdown + inbox prep)
       if (p.dateWeek % 6 === 0) {
         const tvMsgs = scheduleTvInterview(p);
         tvMsgs.forEach((m) => newInboxMessages.unshift({
@@ -2627,9 +2391,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           senderRole: p.representation?.manager?.company || 'Management',
           senderAvatar: p.representation?.manager?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
         }));
-        if (tvMsgs.length > 0) {
-          mgrActivity.push('🎙️ Booked a real TV interview — check TV Stations for the countdown');
-        }
+        const fee = Math.floor(2000 + (p.fameXp || 0) * 2);
+        const fameGain = Math.floor(15 + (p.fameXp || 0) * 0.02);
+        const fanGain = Math.floor(200 + (p.fans || 0) * 0.002);
+        mgrActivity.push(`🎙️ Booked a TV/Radio interview — fee $${fee.toLocaleString()} paid, +${fameGain} XP, +${fanGain.toLocaleString()} fans`);
+        interviewFeeIncomeThisWeek += fee; // lands via weekly reconciliation (real)
+        fameGainedThisWeek += fameGain;
+        fansGainedThisWeek = (fansGainedThisWeek || 0) + fanGain;
+        newInboxMessages.unshift({
+          id: `msg_mgr_interview_${Date.now()}`,
+          category: 'CAREER',
+          sender: signedMgr.name,
+          senderRole: signedMgr.company,
+          senderAvatar: signedMgr.avatarUrl,
+          subject: '🎙️ INTERVIEW BOOKED BY YOUR MANAGER',
+          body: `Your manager ${signedMgr.name} (${signedMgr.company}) booked you on a major TV/Radio interview this week.\n\n• Appearance Fee: $${fee.toLocaleString()} (deposited)\n• Fame: +${fameGain} XP\n• Fans: +${fanGain.toLocaleString()}\n\n${signedMgr.name} continues to build your public profile.`,
+          date: dateInfo.fullDateText,
+          read: false,
+        });
+        newTimelineEvents.push({
+          id: `tl_mgr_interview_${Date.now()}`,
+          year: newYear,
+          week: newWeek,
+          category: 'MILESTONE',
+          title: `Interview Booked: ${signedMgr.name}`,
+          description: `Your manager booked a TV/Radio interview (+$${fee.toLocaleString()} fee, +${fanGain.toLocaleString()} fans).`,
+        });
       }
 
       // Always show baseline activity
@@ -2788,145 +2575,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // MANDATORY FAILSAFE: Guarantee Minimum 2 Principal Roles, 2 Supporting Roles, 1 Minor Role EVERY WEEK
     updatedCallboard = validateAndEnforceCallboardRoster(updatedCallboard, p.fameXp);
 
-    // 9. Relationships — weeks tick, pregnancies advance, births fire
-    const birthsThisWeek: Array<{ motherName: string; child: any }> = [];
+    // 9. Relationships
     const updatedRelationships = saveData.relationships.map(rel => {
-      if (rel.stage === 'Stranger') return rel;
-      let next = { ...rel, weeksInCurrentStage: rel.weeksInCurrentStage + 1 };
-      // Pregnancy countdown → birth (real ChildRecord with the chosen name)
-      if (next.pregnancy) {
-        const res = RelationshipEngine.advancePregnancy(p, next);
-        next = res.updatedNpc;
-        if (res.bornChild) {
-          birthsThisWeek.push({ motherName: next.name, child: res.bornChild });
-          p.childrenCount = (p.childrenCount || 0) + 1;
-        }
+      if (rel.stage !== 'Stranger') {
+        return {
+          ...rel,
+          weeksInCurrentStage: rel.weeksInCurrentStage + 1,
+        };
       }
-      return next;
+      return rel;
     });
-
-    for (const birth of birthsThisWeek) {
-      newInboxMessages.unshift({
-        id: `msg_birth_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        category: 'RELATIONSHIPS',
-        sender: `${birth.motherName}`,
-        senderRole: 'Family',
-        subject: `👶 IT'S A ${birth.child.gender === 'Male' ? 'BOY' : birth.child.gender === 'Female' ? 'GIRL' : 'BABY'}! Welcome ${birth.child.name}`,
-        body: `${birth.motherName} gave birth this week!\n\n• Name: ${birth.child.name}\n• Gender: ${birth.child.gender}\n• Born: Week ${newWeek}, ${newYear}\n\nCongratulations — your family just grew. Visit Relationships → Family to watch ${birth.child.name} grow.`,
-        date: dateInfo.fullDateText,
-        read: false,
-        dateWeek: newWeek,
-        dateYear: newYear,
-      });
-      worldNews.push(`👶 ${p.firstName} ${p.lastName} and ${birth.motherName} welcomed baby ${birth.child.name}!`);
-    }
 
     // Invisible Market Engine Weekly Processing
     const marketResult = MarketEngineService.processEndWeek(newWeek, newYear, p.money);
     if (marketResult && marketResult.headlineNews && marketResult.headlineNews.length > 0) {
       worldNews.push(...marketResult.headlineNews);
-    }
-
-    // ============ STUDIO MARKET BRIDGE ============
-    // Real Wall Street West studios cast real NPC films — roles ship directly
-    // onto the player's Callboard, tagged with the studio + ticker.
-    if (marketResult?.studioCastingCalls && marketResult.studioCastingCalls.length > 0) {
-      const STUDIO_BRIDGE_POSTERS = [
-        'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1518173946687-a4c8a383392d?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a0?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=400',
-      ];
-      const STUDIO_BRIDGE_DIRECTORS = ['Christopher Nolan', 'Greta Gerwig', 'Denis Villeneuve', 'Ava DuVernay', 'Guillermo del Toro', 'Kathryn Bigelow', 'Jordan Peele', 'Chloé Zhao'];
-      const pickB = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-      const studioListings: CallboardProject[] = marketResult.studioCastingCalls
-        .filter((cc) => !updatedCallboard.some((p2) => p2.productionRef === cc.productionRef && p2.roleType === cc.role.roleType))
-        .map((cc) => ({
-          id: `cb_studio_${cc.productionRef}_${cc.role.roleType}`,
-          posterUrl: pickB(STUDIO_BRIDGE_POSTERS),
-          title: cc.title,
-          genre: cc.genre,
-          category: cc.budget >= 80000000 ? 'Feature Film' : cc.budget >= 20000000 ? 'Feature Film' : 'Independent Film',
-          productionCompany: cc.studioName,
-          studio: cc.studioName,
-          studioTicker: cc.studioTicker,
-          productionRef: cc.productionRef,
-          director: pickB(STUDIO_BRIDGE_DIRECTORS),
-          producer: cc.studioName,
-          budget: cc.budget,
-          filmingWeeks: cc.role.filmingWeeks,
-          estimatedReleaseWindow: `${['Spring', 'Summer', 'Fall', 'Holiday'][Math.floor(Math.random() * 4)]} ${newYear + (Math.random() < 0.4 ? 1 : 0)}`,
-          roleType: cc.role.roleType,
-          salary: cc.role.salary,
-          description: `A REAL ${cc.studioName} production (${cc.studioTicker}) straight off the studio lot — "${cc.title}" is a ${cc.genre.toLowerCase()} with a $${(cc.budget / 1000000).toFixed(0)}M budget now casting its ${cc.role.roleType.toLowerCase()} role. Book it and you're working for a studio you can actually own shares in — the film's box office will move the stock.`,
-          decisionTimeWeeks: 2 + Math.floor(Math.random() * 3),
-          requiredFameXp: cc.role.requiredFameXp,
-          requiredCourses: coursesRequiredFor(cc.budget, cc.role.roleType),
-        }));
-      if (studioListings.length > 0) {
-        updatedCallboard = [...studioListings, ...updatedCallboard].slice(0, 35);
-      }
-    }
-
-    // Studio events (new studio listings, milestone releases) → Inbox
-    if (marketResult?.studioEvents && marketResult.studioEvents.length > 0) {
-      for (const se of marketResult.studioEvents) {
-        newInboxMessages.unshift({
-          id: `msg_studio_${se.kind}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'BUSINESS',
-          sender: 'Wall Street West',
-          senderRole: se.kind === 'STUDIO_LISTING' ? 'New Listings Desk' : 'Studio Desk',
-          subject: se.subject,
-          body: se.body,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-
-    // Crypto living market — listings, delist reviews, regime shifts → Inbox.
-    // Forced-liquidation proceeds from delistings are credited for real.
-    if (marketResult?.cryptoEvents && marketResult.cryptoEvents.length > 0) {
-      for (const ce of marketResult.cryptoEvents) {
-        newInboxMessages.unshift({
-          id: `msg_crypto_${ce.kind}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: ce.kind === 'REGIME' ? 'FINANCE' : ce.kind === 'COPY' ? 'FINANCE' : 'BUSINESS',
-          sender: 'Star Exchange',
-          senderRole: ce.kind === 'LISTING' ? 'New Listings Desk' : ce.kind === 'COPY' ? 'Whale Copy-Trade Desk' : ce.kind === 'DELISTED' || ce.kind === 'DELIST_VOTE' ? 'Delisting Committee' : 'Market Surveillance',
-          subject: ce.subject,
-          body: ce.body,
-          date: dateInfo.fullDateText,
-          read: false,
-          dateWeek: newWeek,
-          dateYear: newYear,
-        });
-      }
-    }
-    if (marketResult?.delistPayouts && marketResult.delistPayouts > 0) {
-      const payout = marketResult.delistPayouts;
-      p.money += payout;
-      bankrollIncomeThisWeek += 0; // delist payout is return of capital, not income
-      newInboxMessages.unshift({
-        id: `msg_crypto_payout_${Date.now()}`,
-        category: 'FINANCE',
-        sender: 'Star Exchange Settlements',
-        senderRole: 'Forced Liquidation Desk',
-        subject: `Settlement complete — $${payout.toLocaleString()} credited from delist liquidation`,
-        body: `Your delisted token positions were liquidated at the contractual 40% delist discount.\n\nNet proceeds credited to your cash balance: $${payout.toLocaleString()}.\n\nThe exchange is sorry for the loss — delist reviews are announced in advance precisely so holders can exit before this happens.`,
-        date: dateInfo.fullDateText,
-        read: false,
-        dateWeek: newWeek,
-        dateYear: newYear,
-      });
-    }
-
-    // Whale copy-trade P&L — real cash from mirrored positions
-    if (marketResult?.whaleCopyPnl && marketResult.whaleCopyPnl !== 0) {
-      p.money = Math.max(0, p.money + marketResult.whaleCopyPnl);
     }
 
     const updatedInbox = [...newInboxMessages, ...saveData.inbox];
@@ -2993,8 +2656,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         studio: studioIncomeThisWeek,
         media: hubIncomeThisWeek + interviewFeeIncomeThisWeek,
         investment: bankrollIncomeThisWeek,
-        // Net realized crypto gains this week (losses offset) — taxable
-        crypto: MarketEngineService.consumePendingCryptoTax(),
       };
       const empireNow = empireResult?.updatedState;
       const repNow = RepresentationService.getState();
@@ -3013,8 +2674,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accountantTier: empireNow?.taxState?.accountantTier || 'None',
         incorporated: !!empireNow?.holdingCompany?.isFormed,
         lawyerActive: (repNow?.lawFirm?.hiredFirmTier || 'None') !== 'None',
-        currentMonth: monthOfWeek(p.dateWeek),
-        monthEnd: closingMonthOfWeek(p.dateWeek, newYear > p.dateYear),
       });
       taxesPaidThisWeek = taxResult.withheld || 0;
       endOfWeekExpensesThisWeek += taxesPaidThisWeek;
@@ -3037,62 +2696,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           read: false,
         });
         empireBusinesses.push(`🏛️ ${f.subject} — ${f.auditNote}`);
-        // Live dashboard popup — driven entirely by the real year-end filing
-        const fileRec = getTaxRecord(loadTaxState(), p.dateYear);
-        setTaxStatementData({
-          type: 'filing',
-          year: p.dateYear,
-          week: p.dateWeek,
-          refund: f.refund,
-          balanceDue: f.balanceDue,
-          totalIncome: fileRec.income,
-          deductions: fileRec.deductions,
-          taxable: fileRec.taxable,
-          liability: fileRec.liability,
-          effectiveRate: fileRec.effectiveRate,
-          ytdWithheld: fileRec.withheld,
-          audited: f.audited,
-          penalty: f.penalty,
-          auditNote: f.auditNote,
-          monthlyHistory: (fileRec.monthly || []).map((b) => ({ month: b.month, income: b.income, withheld: b.withheld, closed: b.closed, audited: b.audited })),
-          accountantTier: empireNow?.taxState?.accountantTier || 'None',
-        });
-      }
-
-      // Month-end statement: real monthly close + possible field audit penalty
-      if (taxResult.monthly) {
-        const m = taxResult.monthly;
-        if (m.penalty && m.penalty > 0) taxFilingAdjustment -= m.penalty;
-        newInboxMessages.unshift({
-          id: `msg_tax_month_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          category: 'FINANCE',
-          sender: 'Tax Authority',
-          senderRole: 'Monthly Compliance Office',
-          senderAvatar: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=100',
-          subject: m.subject,
-          body: m.body,
-          date: dateInfo.fullDateText,
-          read: false,
-        });
-        empireBusinesses.push(`📜 ${m.month} closed: $${m.monthIncome.toLocaleString()} income / $${m.monthWithheld.toLocaleString()} withheld — ${m.auditNote}`);
-        // Live dashboard popup — driven entirely by the real monthly close
-        const monthRec = getTaxRecord(loadTaxState(), p.dateYear);
-        setTaxStatementData({
-          type: 'monthly',
-          year: p.dateYear,
-          week: p.dateWeek,
-          month: m.month,
-          monthIncome: m.monthIncome,
-          monthWithheld: m.monthWithheld,
-          ytdIncome: m.ytdIncome,
-          ytdWithheld: m.ytdWithheld,
-          ytdLiability: m.ytdLiability,
-          audited: m.audited,
-          penalty: m.penalty,
-          auditNote: m.auditNote,
-          monthlyHistory: (monthRec.monthly || []).map((b) => ({ month: b.month, income: b.income, withheld: b.withheld, closed: b.closed, audited: b.audited })),
-          accountantTier: empireNow?.taxState?.accountantTier || 'None',
-        });
       }
 
       // Keep empire taxState in sync with the REAL engine (dashboard + achievements)
@@ -3110,20 +2713,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const netWeeklyChange = totalWeeklyIncome - endOfWeekExpensesThisWeek;
 
-    // SLOW BURN: ALL weekly fame sources (courses, releases, interviews,
-    // awards, appearances) pay the same global fraction, floor 1 XP.
-    const rawWeeklyFame = fameGainedThisWeek || 0;
-    fameGainedThisWeek = rawWeeklyFame > 0 ? Math.max(1, Math.floor(rawWeeklyFame * FAME_XP_MULTIPLIER)) : 0;
+    // SLOW BURN: fame grows at half speed across ALL weekly sources
+    // (courses, releases, interviews, awards, appearances).
+    fameGainedThisWeek = Math.floor((fameGainedThisWeek || 0) * 0.5);
 
     // Apply exact single-source-of-truth values to Player
     p.money = Math.max(0, startMoney + netWeeklyChange);
     p.fans = startFans + fansGainedThisWeek;
     p.fameXp = startFame + fameGainedThisWeek;
 
-    // Achievement rewards are REAL income — paid on top of the weekly total,
-    // at reduced rates: fame at the global slow-burn fraction, cash at half
-    if (achievementRewardCash > 0) p.money = (p.money || 0) + Math.floor(achievementRewardCash * 0.5);
-    if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + Math.max(1, Math.floor(achievementRewardXp * FAME_XP_MULTIPLIER));
+    // Achievement rewards are REAL income — paid on top of the weekly total
+    if (achievementRewardCash > 0) p.money = (p.money || 0) + achievementRewardCash;
+    if (achievementRewardXp > 0) p.fameXp = (p.fameXp || 0) + achievementRewardXp;
 
     // Year-end tax filing settles (refund deposited / balance due + audit penalty collected)
     if (taxFilingAdjustment !== 0) {
@@ -3506,10 +3107,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       director: proj.director,
       genre: proj.genre,
       budget: proj.budget,
-      sequelCheckWeeks: 0,
-      sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
-      sequelOffered: false,
-      sequelTarget: Math.floor(baseBudget * 1.8),
       releaseWeek: saveData.player.dateWeek + (config.releaseWeekOffset || 0),
       releaseYear: saveData.player.dateYear,
     };
@@ -3520,9 +3117,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Add to releasedMovies
     const updatedReleased = [newReleasedMovie, ...(saveData.releasedMovies || [])];
 
-    // Award Fame XP - unified base values with the weekly auto-release path
-    // (Lead 45 / Principal 32 / Supporting 20, then global slow-burn applies)
-    const releaseFame = proj.roleType === 'Lead' ? 45 : proj.roleType === 'Principal' ? 32 : 20;
+    // Award Fame XP - balanced (halved)
+    const releaseFame = proj.roleType === 'Lead' ? 35 : proj.roleType === 'Principal' ? 28 : 18;
 
     // Timeline event & inbox message
     const dateInfo = formatCalendarDate(saveData.player.dateYear, saveData.player.dateWeek);
@@ -3559,7 +3155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Publish Hollywood Insider Trade Article
     try {
-      HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, saveData.player.dateWeek || 1, saveData.player.dateYear || 2026);
+      HollywoodInsiderService.onMovieReleased(newReleasedMovie, saveData.player, true);
     } catch (e) {
       console.error('Error publishing Hollywood Insider release article:', e);
     }
@@ -3664,13 +3260,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedRels = saveData.relationships.map(rel => {
       if (rel.id === npcId) {
         const newLevel = Math.min(100, rel.relationshipLevel + gift.affinityBoost);
-        // Gifts raise affinity ONLY — stage advancement goes exclusively
-        // through RelationshipEngine.advanceStage (its gates check affinity,
-        // trust, compatibility AND weeks). No more fake 'Match'/'Chatting'
-        // stages corrupting the ladder.
+        let newStage = rel.stage;
+
+        // Stage progression rules:
+        // Match -> Chatting (level >= 30)
+        // Chatting -> Dating (level >= 50)
+        // Dating -> Exclusive (level >= 75)
+        if (rel.stage === 'Match' && newLevel >= 30) newStage = 'Chatting';
+        else if (rel.stage === 'Chatting' && newLevel >= 50) newStage = 'Dating';
+        else if (rel.stage === 'Dating' && newLevel >= 75) newStage = 'Exclusive';
+
         return {
           ...rel,
           relationshipLevel: newLevel,
+          stage: newStage,
         };
       }
       return rel;
@@ -3891,8 +3494,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSelectedFycMovieId,
         awardCeremonyData,
         setAwardCeremonyData,
-        taxStatementData,
-        setTaxStatementData,
         launchFycCampaign,
         addTimelineEvent,
         enrollInCourse,

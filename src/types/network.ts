@@ -434,26 +434,8 @@ export interface ForbesCelebrity {
   name: string;
   category: 'Actor' | 'Director' | 'Producer' | 'Musician' | 'Mogul';
   netWorth: number;
-  /** Last week's net worth — powers the ▲/▼ movement arrows */
-  prevNetWorth?: number;
   topAsset: string;
   isPlayer: boolean;
-  /** This week's headline event (mega-deal, scandal, IPO) from the world drift */
-  event?: string;
-}
-
-/** Persistent NPC entry of the living Forbes world — drifts every week */
-export interface ForbesNpc {
-  id: string;
-  name: string;
-  category: ForbesCelebrity['category'];
-  topAsset: string;
-  netWorth: number;
-  prevNetWorth: number;
-  /** Base weekly growth drift (can be negative — declining fortunes) */
-  growthRate: number;
-  /** Headline event rolled this week (cleared on next update) */
-  event?: string;
 }
 
 // 12. FINANCIAL ADVISOR
@@ -537,12 +519,4 @@ export interface NetworkFullState {
   watchlist: string[];
   forbesList?: ForbesCelebrity[];
   bankableStarsList?: BankableStar[];
-  /** Living Forbes world — NPCs drift weekly, rankings reshuffle */
-  forbesWorld?: ForbesNpc[];
-  /** Player's net worth as recorded at last week's Forbes update */
-  forbesPlayerPrevNet?: number;
-  /** How many times the #1 spot changed hands this year */
-  forbesLeaderChanges?: number;
-  /** id of the NPC currently at #1 (leader-change tracking) */
-  forbesLastLeaderId?: string;
 }

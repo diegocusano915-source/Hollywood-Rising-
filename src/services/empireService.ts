@@ -4,7 +4,6 @@
  */
 
 import { Player } from '../types/game';
-import { FAME_XP_MULTIPLIER } from './fameService';
 import {
   EmpireFullState,
   Executive,
@@ -1015,7 +1014,7 @@ export class EmpireService {
       });
       (state as any).achievementPayoutVersion = 1;
       if (achievementsCash > 0) {
-        logMessages.push(`🏆 ACHIEVEMENT BACKPAY: ${(state.achievements || []).filter((a) => a?.isUnlocked).length} unlocked achievement rewards paid out (+$${Math.floor(achievementsCash * 0.5).toLocaleString()} / +${Math.max(1, Math.floor(achievementsXp * FAME_XP_MULTIPLIER))} XP).`);
+        logMessages.push(`🏆 ACHIEVEMENT BACKPAY: ${(state.achievements || []).filter((a) => a?.isUnlocked).length} unlocked achievement rewards paid out (+$${achievementsCash.toLocaleString()} / +${achievementsXp} XP).`);
       }
     }
 
@@ -1117,7 +1116,7 @@ export class EmpireService {
       }
 
       if (shouldUnlock) {
-        logMessages.push(`🏆 ACHIEVEMENT UNLOCKED: "${ach.title}"! (+ $${Math.floor(ach.rewardCash * 0.5).toLocaleString()} / +${Math.max(1, Math.floor(ach.rewardFameXp * FAME_XP_MULTIPLIER))} XP)`);
+        logMessages.push(`🏆 ACHIEVEMENT UNLOCKED: "${ach.title}"! (+ $${ach.rewardCash.toLocaleString()} / +${ach.rewardFameXp} XP)`);
         // REAL PAYOUT: cash + XP returned via achievementsCash/achievementsXp and
         // paid out by GameContext at the end of the week (single source of truth —
         // direct mutation here would be overwritten by the weekly reconciliation)

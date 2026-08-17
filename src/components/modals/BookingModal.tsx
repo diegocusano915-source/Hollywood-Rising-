@@ -46,7 +46,6 @@ import { useGame } from '../../context/GameContext';
 import { BookedProject, CallboardProject } from '../../types/game';
 import { THEMES } from '../../theme/colors';
 import { soundService } from '../../services/soundService';
-import { FAME_XP_MULTIPLIER } from '../../services/fameService';
 import { RedCarpetPremiereModal } from './RedCarpetPremiereModal';
 import { ContractNegotiationModal } from './ContractNegotiationModal';
 import { ReleaseCenterModal } from './ReleaseCenterModal';
@@ -1224,7 +1223,7 @@ export const BookingModal: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Fame XP Gained:</span>
-                    <span className="font-bold text-amber-300">+{Math.max(1, Math.floor((currentProject.roleType === 'Lead' ? 45 : currentProject.roleType === 'Principal' ? 32 : 20) * FAME_XP_MULTIPLIER))} Fame XP (at release)</span>
+                    <span className="font-bold text-amber-300">+250 Fame XP</span>
                   </div>
                 </div>
 

@@ -1,270 +1,668 @@
 /**
- * HOLLYWOOD RISING — THE HOLLYWOOD INSIDER (Trade Paper, Option A)
- * Cream/gold newspaper: masthead, breaking ticker of real headlines,
- * 10-section rail with live counts, lead story + article rows each wearing
- * a SOURCE RECEIPT tracing to the real game event that filed it. Tapping
- * an article opens the long-form body (9-13 paragraphs) with 50-65
- * deduplicated comments. Sections refresh every 2-3 weeks; empty sections
- * say so honestly — nothing is padded, nothing is fake.
+ * HOLLYWOOD RISING - Hollywood Insider Sub-View
+ * Variety / Deadline / The Hollywood Reporter style entertainment trade news platform.
+ * Displays real game-generated 250-700 word articles, 50-150 NPC comments, threaded replies, and engagement metrics.
  */
-import React, { useState } from 'react';
-import { useGame } from '../../context/GameContext';
-import { HollywoodInsiderService } from '../../services/hollywoodInsiderService';
-import { HollywoodInsiderArticle, NewsCategory } from '../../types/hollywoodInsider';
-import { ArrowLeft, Search, X } from 'lucide-react';
 
-const CATEGORIES: NewsCategory[] = [
-  'Movies', 'Box Office', 'Awards', 'Casting', 'Legal News',
-  'Studios', 'Television & Streaming', 'Social Media', 'Scandals', 'Industry News',
+import React, { useState, useEffect } from 'react';
+import { useGame } from '../../context/GameContext';
+import { HollywoodInsiderArticle, NewsCategory, NPCComment } from '../../types/hollywoodInsider';
+import { HollywoodInsiderService } from '../../services/hollywoodInsiderService';
+import {
+  Newspaper,
+  ArrowLeft,
+  Search,
+  Bookmark,
+  Heart,
+  Share2,
+  Eye,
+  MessageSquare,
+  TrendingUp,
+  Sparkles,
+  Flame,
+  CheckCircle2,
+  Clock,
+  UserCheck,
+  Send,
+  X,
+  SlidersHorizontal,
+  Film,
+  Award,
+  DollarSign,
+  Scale,
+  Building2,
+  Tv,
+  Radio,
+  Zap,
+} from 'lucide-react';
+
+interface HollywoodInsiderViewProps {
+  onBack: () => void;
+}
+
+const CATEGORIES: { name: NewsCategory | 'ALL'; icon: React.ComponentType<{ className?: string }> }[] = [
+  { name: 'ALL', icon: Newspaper },
+  { name: 'Movies', icon: Film },
+  { name: 'Box Office', icon: DollarSign },
+  { name: 'Awards', icon: Award },
+  { name: 'Casting', icon: UserCheck },
+  { name: 'Legal News', icon: Scale },
+  { name: 'Studios', icon: Building2 },
+  { name: 'Television & Streaming', icon: Tv },
+  { name: 'Social Media', icon: Radio },
+  { name: 'Scandals', icon: Zap },
+  { name: 'Industry News', icon: GlobeIcon },
 ];
 
-const CAT_ICON: Record<string, string> = {
-  Movies: '🎬', 'Box Office': '💵', Awards: '🏆', Casting: '🎭', 'Legal News': '⚖️',
-  Studios: '🏢', 'Television & Streaming': '📺', 'Social Media': '📱', Scandals: '🌪️', 'Industry News': '🏭',
-};
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+    </svg>
+  );
+}
 
-const CMT_MODS = ['', '', '', ' 💯', ' 🔥', ' ❤️', ' Facts.', ' This.', ' Well said.'];
+export const HollywoodInsiderView: React.FC<HollywoodInsiderViewProps> = ({ onBack }) => {
+  const { player } = useGame();
+  const [insiderState, setInsiderState] = useState(() => HollywoodInsiderService.getState());
+  const [selectedCategory, setSelectedCategory] = useState<NewsCategory | 'ALL'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'TRENDING' | 'BOOKMARKED'>('ALL');
+  
+  // Selected Article for Reading Modal
+  const [activeArticle, setActiveArticle] = useState<HollywoodInsiderArticle | null>(null);
+  const [commentFilter, setCommentFilter] = useState<'ALL' | 'TOP' | 'VERIFIED'>('ALL');
+  const [playerCommentText, setPlayerCommentText] = useState('');
+  const [copiedToast, setCopiedToast] = useState(false);
 
-export const HollywoodInsiderView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { player, persistNow } = useGame();
-  const [state, setState] = useState(() => HollywoodInsiderService.getState());
-  const [cat, setCat] = useState<'ALL' | NewsCategory>('ALL');
-  const [search, setSearch] = useState('');
-  const [open, setOpen] = useState<HollywoodInsiderArticle | null>(null);
-  const [commentDraft, setCommentDraft] = useState('');
-  const [fb, setFb] = useState<string | null>(null);
-
-  const showFb = (m: string) => { setFb(m); setTimeout(() => setFb(null), 3500); };
-  const refresh = () => setState({ ...HollywoodInsiderService.getState() });
-
-  const counts = CATEGORIES.reduce((acc, c) => ({ ...acc, [c]: state.articles.filter((a) => a.category === c).length }), {} as Record<string, number>);
-
-  const filtered = state.articles.filter((a) => {
-    const matchCat = cat === 'ALL' || a.category === cat;
-    const q = search.toLowerCase();
-    const matchQ = !q || a.headline.toLowerCase().includes(q) || (a.subHeadline || '').toLowerCase().includes(q);
-    return matchCat && matchQ;
-  });
-
-  const lead = cat === 'ALL' && !search ? filtered[0] : null;
-  const rest = lead ? filtered.slice(1) : filtered;
-  const ticker = state.articles.slice(0, 6).map((a) => a.headline);
-
-  const like = (id: string) => { HollywoodInsiderService.toggleLikeArticle(id); refresh(); if (open?.id === id) setOpen(HollywoodInsiderService.getState().articles.find((a) => a.id === id) || null); };
-  const bookmark = (id: string) => { HollywoodInsiderService.toggleBookmark(id); refresh(); };
-  const submitComment = () => {
-    if (!open || !commentDraft.trim()) return;
-    HollywoodInsiderService.addPlayerComment(open.id, player, commentDraft.trim());
-    setCommentDraft('');
-    setOpen(HollywoodInsiderService.getState().articles.find((a) => a.id === open.id) || null);
-    refresh();
-    showFb('Comment posted.');
+  const refreshState = () => {
+    setInsiderState({ ...HollywoodInsiderService.getState() });
   };
 
-  // ============ ARTICLE READER ============
-  if (open) {
-    const receipt = (open as any).sourceReceipt || 'FILED FROM REAL EVENTS';
-    return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#0a0806' }}>
-        {/* bar */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#2e2410]" style={{ background: '#100d09' }}>
-          <button onClick={() => setOpen(null)} className="flex items-center gap-1.5 text-[10px] font-black text-[#c9a227] cursor-pointer">
-            <ArrowLeft className="w-3.5 h-3.5" /> FRONT PAGE
-          </button>
-          <div className="flex gap-2">
-            <button onClick={() => like(open.id)} className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black cursor-pointer ${open.userLiked ? 'bg-[#c9a227] text-[#1a1206]' : 'bg-white/5 text-[#b0a685] border border-[#2e2410]'}`}>
-              ♥ {open.likesCount.toLocaleString()}
-            </button>
-            <button onClick={() => bookmark(open.id)} className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black cursor-pointer ${state.bookmarkedIds.includes(open.id) ? 'bg-[#7dd3a8] text-[#06231a]' : 'bg-white/5 text-[#b0a685] border border-[#2e2410]'}`}>
-              🔖
-            </button>
-          </div>
-        </div>
+  useEffect(() => {
+    refreshState();
+  }, [player]);
 
-        <div className="flex-1 overflow-y-auto">
-          {/* receipt */}
-          <div className="px-4 pt-3">
-            <span className="inline-block text-[6.5px] font-black px-2.5 py-1.5 rounded tracking-wider" style={{ background: 'rgba(61,220,151,0.1)', color: '#5fd6a4', border: '1px solid rgba(61,220,151,0.3)', fontFamily: 'Courier New, monospace' }}>
-              ▣ SOURCE: {receipt}
-            </span>
-          </div>
+  const articles = insiderState.articles || [];
 
-          {/* headline */}
-          <div className="px-4 pt-2.5 pb-3 border-b border-[#2e2410]">
-            <h1 className="text-lg font-black leading-snug" style={{ color: '#f0e6cc', fontFamily: 'Georgia, serif' }}>{open.headline}</h1>
-            {open.subHeadline && <p className="text-[10px] italic mt-2 leading-relaxed" style={{ color: '#b0a685', fontFamily: 'Georgia, serif' }}>{open.subHeadline}</p>}
-            <div className="flex justify-between items-center mt-3 text-[7px]" style={{ color: '#6f6752', fontFamily: 'Arial, sans-serif' }}>
-              <span>By {open.authorName} · {open.authorRole}</span>
-              <span>{open.publishDate} · {open.readTimeMinutes} min read</span>
-            </div>
-            <div className="flex gap-3 text-[7px] mt-1.5" style={{ color: '#8a8069', fontFamily: 'Arial, sans-serif' }}>
-              <span>👁 {open.viewsCount.toLocaleString()}</span><span>♥ {open.likesCount.toLocaleString()}</span><span>💬 {open.commentCount}</span><span>↗ {open.sharesCount.toLocaleString()}</span>
-            </div>
-          </div>
+  // Filter logic
+  const filteredArticles = articles.filter((art) => {
+    const matchesCat = selectedCategory === 'ALL' || art.category === selectedCategory;
+    const matchesSearch =
+      searchQuery.trim() === '' ||
+      art.headline.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      art.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      art.relatedEntities?.movieTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      art.relatedEntities?.actorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      art.relatedEntities?.studioName?.toLowerCase().includes(searchQuery.toLowerCase());
 
-          {/* hero */}
-          <div className="mx-4 mt-3 rounded-lg overflow-hidden border border-[#2e2410]">
-            <img src={open.heroImageUrl} alt="" className="w-full h-36 object-cover opacity-80" />
-            {open.imageCaption && <p className="px-2.5 py-1.5 text-[7px] italic" style={{ background: '#0c0a07', color: '#6f6752' }}>{open.imageCaption}</p>}
-          </div>
+    let matchesType = true;
+    if (activeFilter === 'TRENDING') matchesType = !!art.isTrending;
+    if (activeFilter === 'BOOKMARKED') matchesType = !!art.userBookmarked;
 
-          {/* long-form body */}
-          <div className="px-4 py-4 space-y-3.5">
-            {open.contentParagraphs.map((p, i) => (
-              <p key={i} className={`leading-relaxed ${i === 0 ? 'text-[11px] font-bold first-letter:text-3xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:text-[#c9a227]' : 'text-[10.5px]'}`}
-                style={{ color: i === 0 ? '#e8dfc8' : '#c4b899', fontFamily: 'Georgia, serif' }}>
-                {p}
-              </p>
-            ))}
-          </div>
+    return matchesCat && matchesSearch && matchesType;
+  });
 
-          {/* comments */}
-          <div className="border-t-2 border-double border-[#c9a227] mx-4 mt-1">
-            <div className="flex justify-between items-center py-2.5">
-              <b className="text-[10px] tracking-wider" style={{ color: '#f0e6cc' }}>💬 COMMENTS ({open.comments.length})</b>
-              <span className="text-[6.5px]" style={{ color: '#6f6752', fontFamily: 'Courier New, monospace' }}>NEVER THE SAME TEXT TWICE</span>
-            </div>
+  const headlineArticle = articles.find((a) => a.isHeadlineBanner) || articles[0];
 
-            {/* player comment box */}
-            <div className="flex gap-1.5 pb-3">
-              <input value={commentDraft} onChange={(e) => setCommentDraft(e.target.value)} placeholder="Add your comment..."
-                className="flex-1 min-w-0 bg-[#0c0a07] border border-[#2e2410] rounded-lg px-3 py-2 text-[9.5px] outline-none" style={{ color: '#e8dfc8' }} />
-              <button onClick={submitComment} className="px-3 rounded-lg bg-[#c9a227] text-[#1a1206] text-[9px] font-black cursor-pointer">POST</button>
-            </div>
+  const handleToggleLike = (artId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    HollywoodInsiderService.toggleLikeArticle(artId);
+    refreshState();
+    if (activeArticle && activeArticle.id === artId) {
+      setActiveArticle((prev) =>
+        prev
+          ? {
+              ...prev,
+              userLiked: !prev.userLiked,
+              likesCount: prev.userLiked ? prev.likesCount - 1 : prev.likesCount + 1,
+            }
+          : null
+      );
+    }
+  };
 
-            <div className="max-h-[50vh] overflow-y-auto space-y-2.5 pb-4">
-              {open.comments.map((c) => (
-                <div key={c.id} className="flex gap-2.5">
-                  {c.authorAvatar ? <img src={c.authorAvatar} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 border" style={{ borderColor: c.isVerified ? '#c9a22755' : '#2e2410' }} /> :
-                    <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] bg-[#1a150c] border border-[#2e2410]">👤</div>}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <b className="text-[8.5px]" style={{ color: c.isVerified ? '#f0e6cc' : '#c4b899', fontFamily: 'Arial, sans-serif' }}>{c.authorName}</b>
-                      {c.isVerified && <span className="text-[6px] font-black" style={{ color: '#c9a227' }}>✔ {c.roleBadge}</span>}
-                      {c.isTopComment && <span className="text-[5.5px] font-black px-1.5 py-0.5 rounded" style={{ background: '#c9a22722', color: '#c9a227' }}>TOP</span>}
-                    </div>
-                    <p className="text-[8.5px] leading-relaxed mt-0.5" style={{ color: '#b0a685', fontFamily: 'Arial, sans-serif' }}>{c.text}</p>
-                    <span className="text-[6.5px] mt-1 block" style={{ color: '#6f6752', fontFamily: 'Courier New, monospace' }}>♥ {c.likesCount.toLocaleString()} · {c.timeAgo}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+  const handleToggleBookmark = (artId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    HollywoodInsiderService.toggleBookmark(artId);
+    refreshState();
+    if (activeArticle && activeArticle.id === artId) {
+      setActiveArticle((prev) =>
+        prev ? { ...prev, userBookmarked: !prev.userBookmarked } : null
+      );
+    }
+  };
 
-        {fb && <div className="p-2 text-center text-[9px] font-bold" style={{ background: '#1a150c', color: '#c9a227' }}>{fb}</div>}
-      </div>
-    );
-  }
+  const handleShareArticle = (art: HollywoodInsiderArticle, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2500);
+  };
 
-  // ============ FRONT PAGE ============
+  const handlePostPlayerComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeArticle || !playerCommentText.trim()) return;
+
+    HollywoodInsiderService.addPlayerComment(activeArticle.id, player, playerCommentText);
+    setPlayerCommentText('');
+    refreshState();
+
+    // Update active modal view
+    const updatedState = HollywoodInsiderService.getState();
+    const updatedArt = updatedState.articles.find((a) => a.id === activeArticle.id);
+    if (updatedArt) {
+      setActiveArticle(updatedArt);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0a0806' }}>
-      {/* top bar */}
-      <div className="flex items-center justify-between px-3 py-2.5">
-        <button onClick={onBack} className="px-3.5 py-2 rounded-xl text-[10px] font-black flex items-center gap-1.5 cursor-pointer" style={{ background: '#100d09', border: '1px solid #2e2410', color: '#b0a685' }}>
-          <ArrowLeft className="w-3.5 h-3.5 text-[#c9a227]" /> Back
-        </button>
-        <span className="text-[8px] font-black tracking-[2px]" style={{ color: '#5c5443', fontFamily: 'Courier New, monospace' }}>WK {player.dateWeek} · {player.dateYear}</span>
+    <div className="space-y-6 text-white select-none pb-20 max-w-6xl mx-auto">
+      {/* Toast Notification */}
+      {copiedToast && (
+        <div className="fixed top-6 right-6 z-50 bg-emerald-500 text-black px-4 py-2.5 rounded-2xl font-black text-xs shadow-2xl flex items-center gap-2 animate-bounce">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>Article link copied to clipboard!</span>
+        </div>
+      )}
+
+      {/* TOP TRADE MASTHEAD HEADER */}
+      <div className="bg-gradient-to-r from-red-950 via-black to-slate-950 p-5 sm:p-6 rounded-3xl border border-red-500/30 shadow-2xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-black transition-all cursor-pointer border border-white/10"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Representation</span>
+          </button>
+
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Week {player.dateWeek || 1}, Year {player.dateYear || 1} • Live Industry Desk</span>
+          </div>
+        </div>
+
+        {/* MASTHEAD LOGO & TITLE */}
+        <div className="text-center space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-[10px] font-black uppercase text-red-400 tracking-widest">
+            <Flame className="w-3 h-3 text-red-400 animate-pulse" />
+            OFFICIAL ENTERTAINMENT TRADE DESK
+          </div>
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-200 to-amber-500 font-serif">
+            HOLLYWOOD INSIDER
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-400 font-medium tracking-wide max-w-xl mx-auto">
+            Breaking Film, Box Office, Awards, Casting, Legal & Studio Trade News
+          </p>
+        </div>
+
+        {/* BREAKING TICKER */}
+        <div className="bg-black/60 rounded-2xl border border-amber-500/20 p-2.5 flex items-center gap-3 overflow-hidden text-xs">
+          <span className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-black text-[10px] uppercase shrink-0 tracking-wider flex items-center gap-1">
+            <Zap className="w-3 h-3" /> BREAKING
+          </span>
+          <div className="truncate text-gray-300 font-medium">
+            {headlineArticle ? (
+              <span>
+                <strong className="text-amber-300">{headlineArticle.headline}</strong> — Read full trade report inside.
+              </span>
+            ) : (
+              'Loading latest Hollywood trade reports...'
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* masthead */}
-      <div className="px-4 py-3 text-center border-y-[3px] border-double border-[#c9a227]" style={{ background: '#100d09' }}>
-        <h1 className="text-lg font-black tracking-[2px]" style={{ color: '#f0e6cc', fontFamily: 'Georgia, serif' }}>THE HOLLYWOOD INSIDER</h1>
-        <p className="text-[7px] tracking-[3px] mt-0.5" style={{ color: '#8a8069', fontFamily: 'Arial, sans-serif' }}>THE TRADE PAPER OF RECORD · FIRST WITH THE REAL STORY</p>
+      {/* CATEGORY NAV TABS */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none text-xs font-bold">
+        {CATEGORIES.map((cat) => {
+          const Icon = cat.icon;
+          const isSelected = selectedCategory === cat.name;
+          return (
+            <button
+              key={cat.name}
+              onClick={() => setSelectedCategory(cat.name)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                isSelected
+                  ? 'bg-amber-500 text-black font-black shadow-lg shadow-amber-500/20 scale-105'
+                  : 'bg-black/40 hover:bg-white/10 text-gray-300 border border-white/10'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{cat.name}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* breaking ticker */}
-      {ticker.length > 0 ? (
-        <div className="flex items-center gap-2 px-3 py-2 overflow-hidden" style={{ background: '#7a1e2e' }}>
-          <span className="text-[7px] font-black px-2 py-1 rounded shrink-0" style={{ background: '#f2ede4', color: '#7a1e2e', fontFamily: 'Arial, sans-serif', animation: 'insBlink 1.4s infinite' }}>● LIVE</span>
-          <div className="flex-1 overflow-hidden">
-            <div className="flex gap-8 whitespace-nowrap" style={{ animation: 'insTick 22s linear infinite', width: 'max-content' }}>
-              {[...ticker, ...ticker].map((t, i) => (
-                <span key={i} className="text-[8.5px] font-bold" style={{ fontFamily: 'Arial, sans-serif', color: '#f2ede4' }}>{t}</span>
-              ))}
+      {/* SEARCH & FILTERS BAR */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-black/40 p-3.5 rounded-2xl border border-white/10">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search titles, actors, studios..."
+            className="w-full bg-black/60 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end text-xs">
+          {[
+            { id: 'ALL', label: 'All Stories' },
+            { id: 'TRENDING', label: '🔥 Trending' },
+            { id: 'BOOKMARKED', label: '🔖 Saved' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setActiveFilter(f.id as any)}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                activeFilter === f.id
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'text-gray-400 hover:text-white bg-black/40 border border-white/5'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* FEATURED HEADLINE BANNER (If not filtering) */}
+      {selectedCategory === 'ALL' && !searchQuery && activeFilter === 'ALL' && headlineArticle && (
+        <div
+          onClick={() => setActiveArticle(headlineArticle)}
+          className="relative rounded-3xl border border-amber-500/30 overflow-hidden group cursor-pointer shadow-2xl transition-all hover:border-amber-400"
+        >
+          <div className="h-80 sm:h-96 w-full relative">
+            <img
+              src={headlineArticle.heroImageUrl}
+              alt={headlineArticle.headline}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-red-600 text-white font-black text-[10px] uppercase tracking-wider">
+                FEATURED BREAKING COVERAGE
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-black/60 border border-white/20 text-amber-300 font-bold text-[10px]">
+                {headlineArticle.category}
+              </span>
+              <span className="text-[11px] text-gray-300 font-medium">
+                {headlineArticle.publishDate} • {headlineArticle.readTimeMinutes} min read
+              </span>
+            </div>
+
+            <h2 className="text-xl sm:text-3xl font-black text-white group-hover:text-amber-300 transition-colors font-serif leading-tight">
+              {headlineArticle.headline}
+            </h2>
+
+            <p className="text-xs sm:text-sm text-gray-300 line-clamp-2 max-w-3xl">
+              {headlineArticle.excerpt}
+            </p>
+
+            <div className="flex items-center justify-between pt-2 text-xs text-gray-400 border-t border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white">{headlineArticle.authorName}</span>
+                <span>• {headlineArticle.authorRole}</span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5 text-amber-400" /> {headlineArticle.viewsCount.toLocaleString()}</span>
+                <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-rose-400" /> {headlineArticle.likesCount.toLocaleString()}</span>
+                <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5 text-sky-400" /> {headlineArticle.commentCount} Comments</span>
+              </div>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* search */}
-      <div className="px-3 py-2 flex items-center gap-2 border-b border-[#2e2410]" style={{ background: '#0c0a07' }}>
-        <Search className="w-3.5 h-3.5 text-[#5c5443]" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search the archive..."
-          className="flex-1 min-w-0 bg-transparent border-none outline-none text-[10px]" style={{ color: '#e8dfc8' }} />
-      </div>
+      {/* ARTICLE FEED GRID */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between text-xs font-bold text-gray-400 border-b border-white/10 pb-2">
+          <span>SHOWING {filteredArticles.length} ARTICLES</span>
+          <span>HOLLYWOOD INSIDER PRESS ARCHIVES</span>
+        </div>
 
-      {/* section rail */}
-      <div className="flex gap-1 px-3 py-2 overflow-x-auto border-b border-[#2e2410]" style={{ background: '#0c0a07' }}>
-        <button onClick={() => setCat('ALL')} className={`text-[7.5px] font-black px-2.5 py-1.5 rounded-full shrink-0 cursor-pointer border ${cat === 'ALL' ? 'bg-[#c9a227] text-[#1a1206] border-[#c9a227]' : 'bg-[#1a150c] text-[#8a8069] border-[#2e2410]'}`} style={{ fontFamily: 'Arial, sans-serif' }}>
-          ALL ({state.articles.length})
-        </button>
-        {CATEGORIES.map((c) => (
-          <button key={c} onClick={() => setCat(c)} className={`text-[7.5px] font-black px-2.5 py-1.5 rounded-full shrink-0 cursor-pointer border ${cat === c ? 'bg-[#c9a227] text-[#1a1206] border-[#c9a227]' : 'bg-[#1a150c] text-[#8a8069] border-[#2e2410]'}`} style={{ fontFamily: 'Arial, sans-serif' }}>
-            {CAT_ICON[c]} {c.split(' ')[0].toUpperCase()} {counts[c] ? `(${counts[c]})` : ''}
-          </button>
-        ))}
-      </div>
-
-      <style>{`@keyframes insTick { from { transform: translateX(10%); } to { transform: translateX(-100%); } } @keyframes insBlink { 50% { opacity: 0.35; } }`}</style>
-
-      {/* feed */}
-      <div className="flex-1 overflow-y-auto pb-6">
-        {filtered.length === 0 ? (
-          <div className="text-center py-14 px-6">
-            <span className="text-3xl block">🗞️</span>
-            <p className="text-[11px] font-bold mt-3" style={{ color: '#b0a685', fontFamily: 'Georgia, serif' }}>
-              {state.articles.length === 0 ? 'THE PRESSES ARE QUIET' : 'NOTHING FILED IN THIS SECTION'}
+        {filteredArticles.length === 0 ? (
+          <div className="p-8 sm:p-12 text-center rounded-3xl border border-white/10 bg-black/40 space-y-3">
+            <Newspaper className="w-12 h-12 text-gray-500 mx-auto" />
+            <h3 className="text-base font-black text-white uppercase">NO MATCHING ARTICLES FOUND</h3>
+            <p className="text-xs text-gray-400 max-w-md mx-auto">
+              No news stories match your active search or saved bookmarks filter.
             </p>
-            <p className="text-[8.5px] mt-2 leading-relaxed" style={{ color: '#6f6752', fontFamily: 'Arial, sans-serif' }}>
-              {state.articles.length === 0
-                ? 'No stories yet — the Insider reports only REAL events. Release a movie, book a role, hit a milestone, and the desk will file it.'
-                : 'This section has no filed stories this cycle — new events will fill it. Nothing is padded.'}
-            </p>
+            <button
+              onClick={() => {
+                setSelectedCategory('ALL');
+                setActiveFilter('ALL');
+                setSearchQuery('');
+              }}
+              className="px-4 py-2 rounded-xl bg-amber-400 text-black font-black text-xs hover:bg-amber-300 transition-all cursor-pointer shadow"
+            >
+              Reset Filters & View All Stories
+            </button>
           </div>
         ) : (
-          <>
-            {/* lead story */}
-            {lead && (
-              <button onClick={() => setOpen(lead)} className="w-full text-left px-4 py-3.5 border-b border-[#2e2410] cursor-pointer hover:bg-[#100d09]" style={{ background: lead.isBreaking ? '#140e0a' : 'transparent' }}>
-                <span className="inline-block text-[6px] font-black px-2 py-1 rounded mb-2 tracking-wider" style={{ background: 'rgba(61,220,151,0.1)', color: '#5fd6a4', border: '1px solid rgba(61,220,151,0.3)', fontFamily: 'Courier New, monospace' }}>
-                  ▣ SOURCE: {(lead as any).sourceReceipt || 'REAL EVENTS'}
-                </span>
-                <h2 className="text-[14px] font-black leading-snug" style={{ color: '#f0e6cc', fontFamily: 'Georgia, serif' }}>{lead.headline}</h2>
-                {lead.subHeadline && <p className="text-[9.5px] italic mt-1.5 leading-relaxed" style={{ color: '#b0a685', fontFamily: 'Georgia, serif' }}>{lead.subHeadline}</p>}
-                <div className="flex justify-between items-center mt-2.5 text-[7px]" style={{ color: '#6f6752', fontFamily: 'Arial, sans-serif' }}>
-                  <span>{lead.authorName} · {lead.publishDate}</span>
-                  <span>👁 {lead.viewsCount.toLocaleString()} · 💬 {lead.commentCount}</span>
-                </div>
-              </button>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredArticles.map((art) => (
+              <div
+                key={art.id}
+                onClick={() => setActiveArticle(art)}
+                className="rounded-2xl border border-white/10 bg-black/60 hover:border-amber-500/50 backdrop-blur-md overflow-hidden flex flex-col justify-between group cursor-pointer transition-all hover:-translate-y-1 shadow-lg"
+              >
+                <div>
+                  {/* Hero Thumbnail */}
+                  <div className="h-44 w-full relative overflow-hidden">
+                    <img
+                      src={art.heroImageUrl}
+                      alt={art.headline}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 rounded-md bg-black/80 border border-white/20 text-amber-300 font-black text-[9px] uppercase">
+                        {art.category}
+                      </span>
+                      {art.isTrending && (
+                        <span className="px-2 py-0.5 rounded-md bg-red-600 text-white font-black text-[9px] uppercase flex items-center gap-1">
+                          <Flame className="w-2.5 h-2.5" /> TRENDING
+                        </span>
+                      )}
+                    </div>
 
-            {/* article rows */}
-            {rest.map((a) => (
-              <button key={a.id} onClick={() => setOpen(a)} className="w-full flex gap-2.5 px-4 py-3 border-b border-[#1c160c] text-left cursor-pointer hover:bg-[#100d09]">
-                <div className="flex-1 min-w-0">
-                  <span className="inline-block text-[5.5px] font-black px-1.5 py-0.5 rounded mb-1 tracking-wider" style={{ background: 'rgba(61,220,151,0.08)', color: '#5fd6a4', border: '1px solid rgba(61,220,151,0.25)', fontFamily: 'Courier New, monospace' }}>
-                    ▣ {(a as any).sourceReceipt || 'REAL EVENTS'}
-                  </span>
-                  <h4 className="text-[10.5px] font-black leading-snug" style={{ color: '#e8dfc8', fontFamily: 'Georgia, serif' }}>{a.headline}</h4>
-                  <p className="text-[7.5px] mt-1 leading-snug line-clamp-2" style={{ color: '#8a8069', fontFamily: 'Arial, sans-serif' }}>{a.subHeadline || a.excerpt}</p>
-                  <div className="text-[6.5px] mt-1.5" style={{ color: '#6f6752', fontFamily: 'Arial, sans-serif' }}>
-                    {CAT_ICON[a.category]} {a.category} · {a.publishDate} · 👁 {a.viewsCount.toLocaleString()}
+                    <button
+                      onClick={(e) => handleToggleBookmark(art.id, e)}
+                      className={`absolute top-2.5 right-2.5 p-1.5 rounded-full border backdrop-blur-md transition-all ${
+                        art.userBookmarked
+                          ? 'bg-amber-500 text-black border-amber-400'
+                          : 'bg-black/60 text-gray-300 border-white/20 hover:text-white'
+                      }`}
+                    >
+                      <Bookmark className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  </div>
+
+                  {/* Body Text */}
+                  <div className="p-4 space-y-2">
+                    <div className="text-[10px] text-gray-400 font-medium">
+                      {art.publishDate} • {art.readTimeMinutes} min read
+                    </div>
+
+                    <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors font-serif leading-snug line-clamp-2">
+                      {art.headline}
+                    </h3>
+
+                    <p className="text-xs text-gray-300 line-clamp-3 leading-relaxed">
+                      {art.excerpt}
+                    </p>
                   </div>
                 </div>
-                <div className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center text-xl border border-[#2e2410]" style={{ background: '#1a150c' }}>
-                  {CAT_ICON[a.category]}
-                </div>
-              </button>
-            ))}
-          </>
-        )}
 
-        <p className="text-center text-[6.5px] py-4 px-6 leading-relaxed" style={{ color: '#5c5443', fontFamily: 'Courier New, monospace' }}>
-          EVERY ARTICLE CARRIES ITS SOURCE RECEIPT · NO EVENT = NO ARTICLE · SECTIONS ROTATE EVERY 2-3 WEEKS · {state.articles.length} STORIES IN THE CURRENT CYCLE
-        </p>
+                {/* Footer Metrics */}
+                <div className="p-4 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400 font-medium">
+                  <span className="truncate max-w-[120px] text-gray-300 font-semibold">{art.authorName}</span>
+
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1"><Eye className="w-3 h-3 text-amber-400" /> {art.viewsCount.toLocaleString()}</span>
+                    <button
+                      onClick={(e) => handleToggleLike(art.id, e)}
+                      className={`flex items-center gap-1 hover:text-rose-400 transition-colors ${art.userLiked ? 'text-rose-400 font-bold' : ''}`}
+                    >
+                      <Heart className={`w-3 h-3 ${art.userLiked ? 'fill-current' : ''}`} />
+                      <span>{art.likesCount.toLocaleString()}</span>
+                    </button>
+                    <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3 text-sky-400" /> {art.commentCount}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* FULL ARTICLE READER MODAL */}
+      {activeArticle && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-slate-950 border border-amber-500/40 rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-5 sm:p-8 space-y-6 shadow-2xl relative">
+            {/* Close Modal Button */}
+            <button
+              onClick={() => setActiveArticle(null)}
+              className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-all cursor-pointer z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Category & Time Badge */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-3 py-1 rounded-full bg-amber-500 text-black font-black uppercase text-[10px]">
+                {activeArticle.category}
+              </span>
+              <span className="text-gray-400 font-medium">
+                {activeArticle.publisher} • {activeArticle.publishDate} • {activeArticle.readTimeMinutes} min read
+              </span>
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-2xl sm:text-4xl font-black text-white font-serif leading-tight">
+              {activeArticle.headline}
+            </h1>
+
+            {/* Sub-headline */}
+            {activeArticle.subHeadline && (
+              <p className="text-sm sm:text-base text-amber-200/90 font-medium italic border-l-2 border-amber-400 pl-3">
+                {activeArticle.subHeadline}
+              </p>
+            )}
+
+            {/* Reporter Author Profile */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/60 border border-white/10 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-red-500 flex items-center justify-center font-black text-black text-sm">
+                  {activeArticle.authorName[0]}
+                </div>
+                <div>
+                  <div className="font-black text-white">{activeArticle.authorName}</div>
+                  <div className="text-gray-400">{activeArticle.authorRole}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleToggleBookmark(activeArticle.id)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeArticle.userBookmarked
+                      ? 'bg-amber-500 text-black border-amber-400'
+                      : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                  }`}
+                >
+                  <Bookmark className="w-3.5 h-3.5 fill-current" />
+                  <span>{activeArticle.userBookmarked ? 'Saved' : 'Save Story'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleShareArticle(activeArticle)}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Hero Image */}
+            <div className="rounded-2xl overflow-hidden border border-white/10 space-y-1.5">
+              <img src={activeArticle.heroImageUrl} alt={activeArticle.headline} className="w-full h-72 sm:h-96 object-cover" />
+              {activeArticle.imageCaption && (
+                <p className="text-[11px] text-gray-400 px-3 py-1 bg-black/40 italic">
+                  Photo: {activeArticle.imageCaption}
+                </p>
+              )}
+            </div>
+
+            {/* FULL 250-700 WORD MULTI-PARAGRAPH ARTICLE BODY */}
+            <div className="space-y-4 text-sm sm:text-base text-gray-200 leading-relaxed font-sans">
+              {activeArticle.contentParagraphs.map((para, idx) => (
+                <p key={idx} className="first-letter:text-3xl first-letter:font-black first-letter:text-amber-400 first-letter:mr-1">
+                  {para}
+                </p>
+              ))}
+            </div>
+
+            {/* ARTICLE ENGAGEMENT ACTIONS BAR */}
+            <div className="p-4 rounded-2xl bg-black/60 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => handleToggleLike(activeArticle.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-black transition-all cursor-pointer ${
+                    activeArticle.userLiked
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/10'
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${activeArticle.userLiked ? 'fill-current text-rose-400' : ''}`} />
+                  <span>{activeArticle.likesCount.toLocaleString()} Likes</span>
+                </button>
+
+                <span className="flex items-center gap-1.5 text-gray-400 font-medium">
+                  <Eye className="w-4 h-4 text-amber-400" />
+                  <span>{activeArticle.viewsCount.toLocaleString()} Views</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-gray-400 font-medium">
+                <MessageSquare className="w-4 h-4 text-sky-400" />
+                <span>{activeArticle.commentCount} Community Discussion Comments</span>
+              </div>
+            </div>
+
+            {/* NPC COMMENTS & COMMUNITY DISCUSSION SECTION */}
+            <div className="space-y-5 pt-4 border-t border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-sky-400" />
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    COMMUNITY DISCUSSION ({activeArticle.comments.length})
+                  </h3>
+                </div>
+
+                {/* Comment Filters */}
+                <div className="flex items-center gap-1.5 text-xs font-bold">
+                  {[
+                    { id: 'ALL', label: 'All Comments' },
+                    { id: 'TOP', label: '🔥 Top Comments' },
+                    { id: 'VERIFIED', label: '✓ Verified Pros' },
+                  ].map((cf) => (
+                    <button
+                      key={cf.id}
+                      onClick={() => setCommentFilter(cf.id as any)}
+                      className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                        commentFilter === cf.id
+                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {cf.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* POST PLAYER COMMENT FORM */}
+              <form onSubmit={handlePostPlayerComment} className="flex gap-2">
+                <input
+                  type="text"
+                  value={playerCommentText}
+                  onChange={(e) => setPlayerCommentText(e.target.value)}
+                  placeholder={`Comment as ${player.firstName} ${player.lastName}...`}
+                  className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-400"
+                />
+                <button
+                  type="submit"
+                  disabled={!playerCommentText.trim()}
+                  className="px-4 py-2.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Post</span>
+                </button>
+              </form>
+
+              {/* COMMENTS LIST */}
+              <div className="space-y-3.5">
+                {activeArticle.comments
+                  .filter((c) => {
+                    if (commentFilter === 'TOP') return c.isTopComment || c.likesCount > 800;
+                    if (commentFilter === 'VERIFIED') return c.isVerified || c.authorType === 'VERIFIED_CELEBRITY';
+                    return true;
+                  })
+                  .slice(0, 50)
+                  .map((c) => (
+                    <div key={c.id} className="p-4 rounded-2xl bg-black/50 border border-white/5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <img src={c.authorAvatar} alt={c.authorName} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-white">{c.authorName}</span>
+                              <span className="text-[10px] text-gray-500">{c.authorHandle}</span>
+                              {c.isVerified && (
+                                <span className="p-0.5 rounded-full bg-sky-500 text-black">
+                                  <CheckCircle2 className="w-3 h-3 fill-current" />
+                                </span>
+                              )}
+                              {c.isTopComment && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase">
+                                  🔥 TOP COMMENT
+                                </span>
+                              )}
+                            </div>
+                            {c.roleBadge && <div className="text-[10px] text-amber-400 font-semibold">{c.roleBadge}</div>}
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] text-gray-500">{c.timeAgo}</span>
+                      </div>
+
+                      <p className="text-xs text-gray-300 leading-relaxed pl-10">{c.text}</p>
+
+                      <div className="flex items-center justify-between text-[11px] text-gray-400 pl-10 pt-1">
+                        <button className="flex items-center gap-1 hover:text-rose-400 transition-colors">
+                          <Heart className="w-3 h-3" />
+                          <span>{c.likesCount.toLocaleString()}</span>
+                        </button>
+                        <span className="text-[10px] text-gray-500 cursor-pointer hover:text-white">Reply</span>
+                      </div>
+
+                      {/* Threaded NPC Replies */}
+                      {c.replies && c.replies.length > 0 && (
+                        <div className="ml-8 mt-2.5 pl-3 border-l-2 border-white/10 space-y-2">
+                          {c.replies.map((r) => (
+                            <div key={r.id} className="p-2.5 rounded-xl bg-black/40 space-y-1">
+                              <div className="flex items-center gap-2 text-xs">
+                                <img src={r.authorAvatar} alt={r.authorName} className="w-6 h-6 rounded-full object-cover" />
+                                <span className="font-bold text-white">{r.authorName}</span>
+                                <span className="text-[10px] text-gray-500">{r.authorHandle}</span>
+                                <span className="text-[10px] text-gray-500 ml-auto">{r.timeAgo}</span>
+                              </div>
+                              <p className="text-xs text-gray-300 pl-8">{r.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

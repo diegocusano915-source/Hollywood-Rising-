@@ -1,595 +1,1039 @@
 /**
- * HOLLYWOOD RISING — STAR MATCH (Relationships rebuild, Option A)
- * Swipe deck with FIXED traits + real compatibility, dual-meter rolodex,
- * energy-priced conversations (no free spam), the full stage ladder with
- * live gate checklists, prenup clause builder, weeks-gated proposal &
- * wedding, and real pregnancy — conceive, carry 36-40 weeks, give birth
- * to a named child. Stages advance ONLY through the engine's gates.
+ * HOLLYWOOD RISING - Relationships & Dating System (Overhaul V1)
+ * Authentic relationship progression, NPC personalities, compatibility calculations,
+ * activities, dynamic conversations, prenup agreement, marriage, family & history.
  */
+
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { X, Heart, XCircle, Gift, Scale, Crown, Baby, ChevronLeft } from 'lucide-react';
+import {
+  X,
+  Heart,
+  User,
+  Gift,
+  Crown,
+  Baby,
+  Sparkles,
+  DollarSign,
+  Check,
+  Building,
+  Calendar,
+  MessageSquare,
+  XCircle,
+  Award,
+  ShieldCheck,
+  AlertTriangle,
+  Clock,
+  Briefcase,
+  FileText,
+  Flame,
+  Scale,
+  Users,
+  Compass,
+  Smile,
+  BookOpen,
+  Coffee,
+  ChevronRight,
+  History,
+  TrendingUp,
+} from 'lucide-react';
 import { GIFT_ITEMS } from '../../database/storageService';
-import { Gender, GiftItem, NpcProfile, PrenupTerms } from '../../types/game';
-import { RelationshipEngine, RELATIONSHIP_ACTIVITIES, CONVERSATION_TOPICS } from '../../services/relationshipService';
-
-const STAGE_LADDER = ['Acquaintance', 'Friend', 'Close Friend', 'Dating', 'Exclusive', 'Partner', 'Engaged', 'Married'] as const;
-
-const STAGE_GATES: Record<string, { aff: number; tru: number; wks: number; comp?: number }> = {
-  Acquaintance: { aff: 30, tru: 25, wks: 2 },
-  Friend: { aff: 50, tru: 40, wks: 4 },
-  'Close Friend': { aff: 65, tru: 55, wks: 4, comp: 45 },
-  Dating: { aff: 75, tru: 70, wks: 6 },
-  Exclusive: { aff: 85, tru: 80, wks: 8 },
-};
-
-const TOPIC_COST_ENERGY = 5;
+import { Gender, GiftItem, NpcProfile, PrenupTerms, ChildRecord } from '../../types/game';
+import { THEMES } from '../../theme/colors';
+import {
+  RelationshipEngine,
+  RELATIONSHIP_ACTIVITIES,
+  CONVERSATION_TOPICS,
+  ALL_NPC_TRAITS,
+  RelationshipActivityDef,
+} from '../../services/relationshipService';
 
 export const RelationshipsModal: React.FC = () => {
-  const game = useGame();
-  const { setActiveModal, player, relationships, setupDatingProfile, interactNpc, sendGiftToNpc, updateSave, saveData } = game;
+  const {
+    setActiveModal,
+    player,
+    relationships,
+    setupDatingProfile,
+    interactNpc,
+    sendGiftToNpc,
+    updateSave,
+    saveData,
+    settings,
+  } = useGame();
 
-  const [tab, setTab] = useState<'DISCOVER' | 'PEOPLE' | 'TALK' | 'GIFTS' | 'MARRIAGE' | 'FAMILY'>('DISCOVER');
-  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(relationships.find((r) => r.stage !== 'Stranger')?.id || null);
-  const [fb, setFb] = useState<string | null>(null);
-  const [fbOk, setFbOk] = useState(true);
-  const [view, setView] = useState<'PROFILE' | 'DATES' | 'HISTORY'>('PROFILE');
+  const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
-  // dating profile form
-  const [prefGender, setPrefGender] = useState<Gender>('Male');
+  const [activeTab, setActiveTab] = useState<'MATCH' | 'DEX' | 'GIFTS' | 'PRENUP' | 'WEDDING' | 'FAMILY'>('MATCH');
+
+  // Dating Profile Form
+  const [prefGender, setPrefGender] = useState<Gender>('Female');
+  const [prefAge, setPrefAge] = useState<number>(24);
+  const [prefCountry, setPrefCountry] = useState<string>('United States');
   const [prefType, setPrefType] = useState<'Men' | 'Women' | 'Everyone'>('Everyone');
-  const [prefCountry, setPrefCountry] = useState('United States');
 
-  // marriage form
-  const [venue, setVenue] = useState<'Church' | 'Beach' | 'Luxury Hotel' | 'Private Estate'>('Luxury Hotel');
-  const [ringCost, setRingCost] = useState(50000);
-  const [prenup, setPrenup] = useState<PrenupTerms>({
-    protectCash: true, protectSavings: true, protectBusinesses: true, protectRealEstate: true,
-    protectInvestments: true, protectRoyalties: true, protectLuxuryAssets: false,
-    protectFutureEarnings: true, protectInheritance: true, protectDebtResponsibility: true,
+  // Selected NPC
+  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(
+    relationships.length > 0 ? relationships[0].id : null
+  );
+
+  // Sub-action views within Rolodex
+  const [rolodexView, setRolodexView] = useState<'OVERVIEW' | 'ACTIVITIES' | 'TALK' | 'HISTORY'>('OVERVIEW');
+
+  // Prenup state
+  const [prenupTerms, setPrenupTerms] = useState<PrenupTerms>({
+    protectCash: true,
+    protectSavings: true,
+    protectBusinesses: true,
+    protectRealEstate: true,
+    protectInvestments: true,
+    protectRoyalties: true,
+    protectLuxuryAssets: false,
+    protectFutureEarnings: true,
+    protectInheritance: true,
+    protectDebtResponsibility: true,
     status: 'NOT_STARTED',
   });
 
-  // pregnancy form
-  const [babyName, setBabyName] = useState('');
-  const [babyGender, setBabyGender] = useState<'Male' | 'Female' | 'Non-Binary'>('Female');
+  // Wedding form
+  const [venue, setVenue] = useState<'Church' | 'Beach' | 'Luxury Hotel' | 'Private Estate'>('Luxury Hotel');
+  const [ringCost, setRingCost] = useState<number>(25000);
 
-  const showFb = (msg: string, ok = true) => { setFbOk(ok); setFb(msg); setTimeout(() => setFb(null), 5000); };
+  // Child school & Family form
+  const [childSchool, setChildSchool] = useState<'Public School' | 'Private School' | 'Boarding School' | 'University'>('Private School');
+  const [childName, setChildName] = useState<string>('');
+  const [childGender, setChildGender] = useState<'Male' | 'Female' | 'Non-Binary'>('Female');
 
+  // Active selected NPC
   const selectedNpc = relationships.find((r) => r.id === selectedNpcId);
-  const candidates = relationships.filter((r) => r.stage === 'Stranger');
-  const activeContacts = relationships.filter((r) => r.stage !== 'Stranger');
-  const partner = relationships.find((r) => r.stage === 'Married') || selectedNpc;
 
-  const updateNpc = (updated: NpcProfile, updatedPlayer?: any) => {
+  // Filter strangers & active contacts
+  const matchCandidates = relationships.filter((r) => r.stage === 'Stranger');
+  const activeContacts = relationships.filter((r) => r.stage !== 'Stranger');
+
+  // Helper to update specific NPC profile
+  const updateNpcProfile = (updatedNpc: NpcProfile, updatedPlayer?: any) => {
+    const updatedRels = relationships.map((r) => (r.id === updatedNpc.id ? updatedNpc : r));
     updateSave({
       ...saveData,
       player: updatedPlayer ? { ...saveData.player, ...updatedPlayer } : saveData.player,
-      relationships: relationships.map((r) => (r.id === updated.id ? updated : r)),
+      relationships: updatedRels,
     });
   };
 
-  // ---------- actions ----------
-  const handleMatch = (c: NpcProfile) => {
-    const res = RelationshipEngine.processMatchAttempt(player, c);
-    updateNpc(res.updatedNpc);
-    showFb(res.message, res.status === 'ACCEPTED');
+  // Helper for Match Action
+  const handleMatchAttempt = (candidate: NpcProfile) => {
+    const res = RelationshipEngine.processMatchAttempt(player, candidate);
+    if (res.status === 'ACCEPTED') {
+      alert(res.message);
+    } else {
+      alert(`Result: ${res.status.replace('_', ' ')}\n${res.message}`);
+    }
+    updateNpcProfile(res.updatedNpc);
   };
 
-  const handlePass = (c: NpcProfile) => {
-    interactNpc(c.id, 'Pass');
-    showFb(`Passed on ${c.name}. A new candidate arrives next week.`);
-  };
-
-  const handleActivity = (act: typeof RELATIONSHIP_ACTIVITIES[0]) => {
+  // Helper for Activity
+  const handlePerformActivity = (activity: RelationshipActivityDef) => {
     if (!selectedNpc) return;
-    const res = RelationshipEngine.performActivity(player, selectedNpc, act);
-    if (!res.success) { showFb(res.message, false); return; }
-    if (res.updatedNpc) updateNpc(res.updatedNpc, res.updatedPlayer);
-    showFb(res.message);
-  };
-
-  const handleTopic = (opt: any) => {
-    if (!selectedNpc) return;
-    if ((player.energy || 0) < TOPIC_COST_ENERGY) {
-      showFb(`Conversations cost ${TOPIC_COST_ENERGY}⚡ — rest first (you have ${player.energy || 0}).`, false);
+    const res = RelationshipEngine.performActivity(player, selectedNpc, activity);
+    if (!res.success) {
+      alert(res.message);
       return;
     }
-    const res = RelationshipEngine.handleConversationOption(player, selectedNpc, opt);
-    updateNpc(res.updatedNpc, { energy: (player.energy || 0) - TOPIC_COST_ENERGY });
-    showFb(`${selectedNpc.name}: ${res.message}`);
+    alert(res.message);
+    if (res.updatedNpc) {
+      updateNpcProfile(res.updatedNpc, res.updatedPlayer);
+    }
   };
 
-  const handleAdvance = () => {
+  // Helper for Conversation
+  const handleConversationChoice = (topicOption: any) => {
+    if (!selectedNpc) return;
+    const res = RelationshipEngine.handleConversationOption(player, selectedNpc, topicOption);
+    alert(`${selectedNpc.name}: ${res.message}`);
+    updateNpcProfile(res.updatedNpc);
+  };
+
+  // Helper for Stage Advancement
+  const handleAdvanceStage = () => {
     if (!selectedNpc) return;
     const res = RelationshipEngine.advanceStage(player, selectedNpc);
-    showFb(res.message, res.success);
-    if (res.success && res.updatedNpc) updateNpc(res.updatedNpc);
+    alert(res.message);
+    if (res.success && res.updatedNpc) {
+      updateNpcProfile(res.updatedNpc);
+    }
   };
 
-  const handleGift = (gift: GiftItem) => {
-    if (!selectedNpc) { showFb('Select a person first.', false); return; }
-    const res: any = sendGiftToNpc(selectedNpc.id, gift);
-    showFb(res.message, res.success);
-  };
-
-  const handlePrenup = () => {
+  // Helper for Breakup
+  const handleBreakup = () => {
     if (!selectedNpc) return;
-    const res = RelationshipEngine.evaluatePrenupReaction(selectedNpc, prenup);
-    setPrenup(res.updatedTerms);
-    updateNpc({ ...selectedNpc, prenupTerms: res.updatedTerms, trustLevel: Math.max(0, Math.min(100, (selectedNpc.trustLevel || 50) + res.trustChange)) });
-    showFb(`Prenup ${res.status}: ${res.npcFeedback} (trust ${res.trustChange >= 0 ? '+' : ''}${res.trustChange})`, res.status === 'AGREED');
+    if (!window.confirm(`Are you sure you want to end your relationship with ${selectedNpc.name}? This will have lasting consequences.`)) return;
+    const res = RelationshipEngine.processBreakup(player, selectedNpc, 'Personal Differences & Busy Careers');
+    alert(res.message);
+    updateNpcProfile(res.updatedNpc);
   };
 
-  const handlePropose = () => {
-    if (!selectedNpc) return;
-    if ((selectedNpc.prenupTerms?.status || 'NOT_STARTED') !== 'AGREED') {
-      showFb('Your partner must AGREE to a prenup first — visit the prenup builder below.', false);
+  // Helper for Prenup Evaluation
+  const handleEvaluatePrenup = () => {
+    if (!selectedNpc) {
+      alert('Please select your partner in My Rolodex first!');
       return;
     }
-    if (player.money < ringCost) { showFb(`Ring costs $${ringCost.toLocaleString()}.`, false); return; }
-    const res = RelationshipEngine.evaluateProposal(player, selectedNpc, ringCost);
-    if (!res.accepted) { showFb(res.message, false); return; }
-    updateNpc({
+    const res = RelationshipEngine.evaluatePrenupReaction(selectedNpc, prenupTerms);
+    setPrenupTerms(res.updatedTerms);
+    alert(`Prenup Status: ${res.status}\nPartner Feedback: ${res.npcFeedback}`);
+
+    // Save prenup status on NPC
+    const updatedNpc: NpcProfile = {
+      ...selectedNpc,
+      prenupTerms: res.updatedTerms,
+      trustLevel: Math.max(0, Math.min(100, (selectedNpc.trustLevel || 50) + res.trustChange)),
+    };
+    updateNpcProfile(updatedNpc);
+  };
+
+  // Helper for Proposal
+  const handlePropose = () => {
+    if (!selectedNpc) {
+      alert('Please select a partner in My Rolodex!');
+      return;
+    }
+    if (player.money < ringCost) {
+      alert(`Insufficient cash! Need $${ringCost.toLocaleString()} for the ring.`);
+      return;
+    }
+
+    const proposalRes = RelationshipEngine.evaluateProposal(player, selectedNpc, ringCost);
+    if (!proposalRes.accepted) {
+      alert(`Proposal Status: ${proposalRes.status}\n${proposalRes.message}`);
+      return;
+    }
+
+    alert(`CONGRATULATIONS!\n${proposalRes.message}`);
+
+    const timestamp = `Week ${player.dateWeek || 1}, Year ${player.dateYear || 1}`;
+    const newHistory = [
+      ...(selectedNpc.history || []),
+      {
+        id: `prop_${Date.now()}`,
+        type: 'PROPOSAL' as const,
+        title: 'Engagement Proposal Accepted!',
+        description: `Proposed with a $${ringCost.toLocaleString()} diamond ring at ${venue}.`,
+        timestamp,
+      },
+    ];
+
+    const updatedNpc: NpcProfile = {
       ...selectedNpc,
       stage: 'Engaged',
       weeksInCurrentStage: 0,
       relationshipLevel: 100,
       trustLevel: Math.min(100, (selectedNpc.trustLevel || 80) + 10),
-      history: [...(selectedNpc.history || []), {
-        id: `prop_${Date.now()}`, type: 'PROPOSAL' as any, title: 'Engagement Proposal Accepted!',
-        description: `Proposed with a $${ringCost.toLocaleString()} ring.`, timestamp: `Week ${player.dateWeek}, ${player.dateYear}`,
-      }],
-    }, { money: player.money - ringCost });
-    showFb(`💍 ${res.message}`);
+      history: newHistory,
+    };
+
+    updateNpcProfile(updatedNpc, { money: player.money - ringCost });
   };
 
+  // Helper for Marriage
   const handleWedding = () => {
-    if (!selectedNpc) return;
-    if (selectedNpc.stage !== 'Engaged') { showFb('Propose first — the wedding follows the engagement.', false); return; }
-    if ((selectedNpc.weeksInCurrentStage || 0) < 4) {
-      showFb(`Weddings need planning time — ${4 - (selectedNpc.weeksInCurrentStage || 0)} more week(s) engaged first.`, false);
+    if (!selectedNpc) {
+      alert('Please select your partner in My Rolodex!');
       return;
     }
+    if (selectedNpc.stage !== 'Engaged' && selectedNpc.stage !== 'Partner') {
+      alert('You must be engaged or in a long-term partner relationship before hosting a wedding!');
+      return;
+    }
+
     const venueCost = venue === 'Church' ? 10000 : venue === 'Beach' ? 25000 : venue === 'Luxury Hotel' ? 50000 : 100000;
-    if (player.money < venueCost) { showFb(`Venue costs $${venueCost.toLocaleString()}.`, false); return; }
-    updateNpc({
+    if (player.money < venueCost) {
+      alert(`Need $${venueCost.toLocaleString()} to host the wedding at ${venue}.`);
+      return;
+    }
+
+    alert(`CONGRATULATIONS!\nYou and ${selectedNpc.name} are officially Married at ${venue}!`);
+
+    const timestamp = `Week ${player.dateWeek || 1}, Year ${player.dateYear || 1}`;
+    const newHistory = [
+      ...(selectedNpc.history || []),
+      {
+        id: `wed_${Date.now()}`,
+        type: 'WEDDING' as const,
+        title: 'Official Hollywood Wedding',
+        description: `Married ${selectedNpc.name} in a grand ceremony at ${venue}.`,
+        timestamp,
+      },
+    ];
+
+    const updatedNpc: NpcProfile = {
       ...selectedNpc,
       stage: 'Married',
       weeksInCurrentStage: 0,
       relationshipLevel: 100,
-      history: [...(selectedNpc.history || []), {
-        id: `wed_${Date.now()}`, type: 'WEDDING' as any, title: 'Official Hollywood Wedding',
-        description: `Married at the ${venue}.`, timestamp: `Week ${player.dateWeek}, ${player.dateYear}`,
-      }],
-    }, { money: player.money - venueCost, activeRelationshipId: selectedNpc.id, weddingVenue: venue });
-    showFb(`💒 You and ${selectedNpc.name} are officially married! Family unlocks now.`);
+      history: newHistory,
+    };
+
+    updateNpcProfile(updatedNpc, {
+      money: player.money - venueCost,
+      activeRelationshipId: selectedNpc.id,
+      weddingVenue: venue,
+    });
   };
 
-  const handleConceive = () => {
-    if (!partner) { showFb('No spouse selected.', false); return; }
-    const res = RelationshipEngine.tryConceive(player, partner, babyName, babyGender);
-    showFb(res.message, res.success);
-    if (res.updatedNpc) updateNpc(res.updatedNpc);
-  };
-
-  // ---------- setup gate ----------
-  if (!player.datingProfile?.created) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/90 backdrop-blur-md">
-        <div className="w-full max-w-sm rounded-3xl border border-rose-500/30 p-6 text-center space-y-4" style={{ background: 'linear-gradient(170deg,#1a0f18,#0d0710)' }}>
-          <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center">
-            <Heart className="w-8 h-8 text-rose-400 fill-current animate-bounce" />
-          </div>
-          <h3 className="text-xl font-black text-white">Create Your Star Match Profile</h3>
-          <p className="text-[10px] text-gray-400 leading-relaxed">Hollywood's premier singles network. Every bond earned — traits are fixed, matches can decline, stages are gated.</p>
-          <div className="space-y-2 text-left">
-            <select value={prefGender} onChange={(e) => setPrefGender(e.target.value as Gender)} className="w-full p-3 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-bold">
-              <option value="Male">I am: Male</option><option value="Female">Female</option><option value="Non-Binary">Non-Binary</option>
-            </select>
-            <select value={prefType} onChange={(e) => setPrefType(e.target.value as any)} className="w-full p-3 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-bold">
-              <option value="Women">Seeking: Women</option><option value="Men">Men</option><option value="Everyone">Everyone</option>
-            </select>
-          </div>
-          <button onClick={() => setupDatingProfile(prefGender, 26, prefCountry, prefType)} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-rose-700 text-white font-black text-xs cursor-pointer shadow-lg shadow-rose-500/30">
-            LAUNCH PROFILE
-          </button>
-          <button onClick={() => setActiveModal('none')} className="text-[10px] text-gray-500 cursor-pointer">cancel</button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------- gate checklist renderer ----------
-  const GateCheck = ({ npc }: { npc: NpcProfile }) => {
-    const stage = npc.stage;
-    if (stage === 'Partner' || stage === 'Engaged' || stage === 'Married') {
-      return <p className="text-[8px] text-gray-500 leading-relaxed px-1">{stage === 'Partner' ? 'Propose in the Marriage tab (prenup + weeks gates apply).' : stage === 'Engaged' ? 'Host the wedding in the Marriage tab (4+ wks engaged).' : 'Family tab unlocked — pregnancy & children.'}</p>;
+  // Helper for Have Child
+  const handleHaveChild = () => {
+    if (!selectedNpc || selectedNpc.stage !== 'Married') {
+      alert('Children and Family features unlock strictly after Marriage.');
+      return;
     }
-    const gate = STAGE_GATES[stage];
-    if (!gate) return null;
-    const aff = npc.relationshipLevel || 0;
-    const tru = npc.trustLevel || 0;
-    const wks = npc.weeksInCurrentStage || 0;
-    const comp = npc.compatibilityScore || 50;
-    const lines = [
-      { label: `Affinity ${gate.aff}`, ok: aff >= gate.aff, val: `${aff}/${gate.aff}` },
-      { label: `Trust ${gate.tru}`, ok: tru >= gate.tru, val: `${tru}/${gate.tru}` },
-      ...(gate.comp ? [{ label: `Compatibility ${gate.comp}`, ok: comp >= gate.comp, val: `${comp}/${gate.comp}` }] : []),
-      { label: `Weeks as ${stage} (${gate.wks}+)`, ok: wks >= gate.wks, val: `${wks}/${gate.wks}` },
+
+    const nameToUse = childName.trim() || (childGender === 'Male' ? 'Leo' : childGender === 'Female' ? 'Aria' : 'Taylor');
+    const newChild: ChildRecord = {
+      id: `child_${Date.now()}`,
+      name: nameToUse,
+      gender: childGender,
+      age: 0,
+      schoolType: childSchool,
+      personality: 'Creative & Energetic',
+      birthYear: player.dateYear || 2026,
+      birthWeek: player.dateWeek || 1,
+    };
+
+    const existingChildren = selectedNpc.children || [];
+    const timestamp = `Week ${player.dateWeek || 1}, Year ${player.dateYear || 1}`;
+    const newHistory = [
+      ...(selectedNpc.history || []),
+      {
+        id: `child_hist_${Date.now()}`,
+        type: 'CHILD' as const,
+        title: `Welcome Baby ${newChild.name}`,
+        description: `Gave birth/welcomed newborn baby ${newChild.name}. Enrolled in ${childSchool}.`,
+        timestamp,
+      },
     ];
-    return (
-      <div className="rounded-xl border border-rose-500/25 bg-rose-500/5 p-2.5 space-y-1">
-        <b className="text-[8px] font-black text-rose-300 tracking-wider block">ADVANCE TO NEXT STAGE — GATES</b>
-        {lines.map((l) => (
-          <div key={l.label} className="flex justify-between text-[8.5px]">
-            <span className="text-gray-400">{l.label}</span>
-            <b className={`font-mono ${l.ok ? 'text-emerald-400' : 'text-rose-400'}`}>{l.ok ? '✓' : '✕'} {l.val}</b>
-          </div>
-        ))}
-        <button onClick={handleAdvance} className="w-full mt-1.5 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-rose-700 text-white text-[9px] font-black cursor-pointer">
-          {lines.every((l) => l.ok) ? '♥ ADVANCE STAGE' : 'REQUIREMENTS NOT MET'}
-        </button>
-      </div>
-    );
+
+    const updatedNpc: NpcProfile = {
+      ...selectedNpc,
+      children: [...existingChildren, newChild],
+      history: newHistory,
+    };
+
+    alert(`Congratulations! You and ${selectedNpc.name} welcomed baby ${newChild.name}!`);
+    updateNpcProfile(updatedNpc, {
+      childrenCount: (player.childrenCount || 0) + 1,
+      childrenSchoolType: childSchool,
+    });
+    setChildName('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/90 backdrop-blur-md">
-      <div className="w-full max-w-md max-h-[94vh] rounded-3xl overflow-hidden flex flex-col border border-rose-500/25" style={{ background: 'linear-gradient(170deg,#1a0f18,#0d0710)' }}>
-        {/* header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-rose-800 flex items-center justify-center shadow-lg shadow-rose-500/30">
-              <Heart className="w-4.5 h-4.5 w-4 h-4 text-white fill-current" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div
+        className="w-full max-w-5xl max-h-[92vh] rounded-3xl flex flex-col overflow-hidden border-2 shadow-2xl"
+        style={{
+          backgroundColor: theme.cards,
+          borderColor: theme.borderPrimary,
+        }}
+      >
+        {/* Header */}
+        <div
+          className="p-4 md:p-5 flex items-center justify-between border-b"
+          style={{ backgroundColor: theme.headers, borderColor: theme.borderDark }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-rose-500/20 border border-rose-500/40">
+              <Heart className="w-6 h-6 text-rose-400 fill-current" />
             </div>
             <div>
-              <b className="text-white text-sm block">Star Match</b>
-              <span className="text-[7px] text-gray-500 tracking-[2px]">HOLLYWOOD LOVE · EARNED, NEVER FAKED</span>
+              <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">
+                Hollywood Love & Relationships
+              </h2>
+              <p className="text-xs text-gray-400">Authentic Progression • Dating • Marriage • Prenup • Family</p>
             </div>
           </div>
-          <button onClick={() => setActiveModal('none')} className="p-2 rounded-xl text-gray-400 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
+          <button
+            onClick={() => setActiveModal('none')}
+            className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
-        {/* tabs */}
-        <div className="flex gap-1 px-2.5 py-2 border-b border-white/10 bg-black/30">
-          {([['DISCOVER', '🔥'], ['PEOPLE', '👥'], ['TALK', '💬'], ['GIFTS', '🎁'], ['MARRIAGE', '💍'], ['FAMILY', '👶']] as const).map(([t, ic]) => (
-            <button key={t} onClick={() => setTab(t as any)}
-              className={`flex-1 py-2 rounded-lg text-[7.5px] font-black cursor-pointer ${tab === t ? 'bg-gradient-to-b from-rose-500 to-rose-700 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>
-              <span className="block text-[13px] leading-none mb-0.5">{ic}</span>{t}
-            </button>
-          ))}
-        </div>
-
-        {fb && <div className={`mx-3 mt-2 p-2.5 rounded-xl border text-[10px] font-bold ${fbOk ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300' : 'bg-rose-500/10 border-rose-400/30 text-rose-300'}`}>{fb}</div>}
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {/* ================= DISCOVER ================= */}
-          {tab === 'DISCOVER' && (
-            candidates.length === 0 ? (
-              <div className="text-center py-12">
-                <Heart className="w-10 h-10 mx-auto text-gray-700 animate-pulse" />
-                <p className="text-[11px] text-gray-400 font-bold mt-3">Reviewed everyone for now.</p>
-                <p className="text-[8.5px] text-gray-600 mt-1">New singles arrive as you advance weeks (and when you pass).</p>
+        {/* Setup Dating Profile if missing */}
+        {!player.datingProfile?.created ? (
+          <div className="p-6 md:p-10 space-y-6 overflow-y-auto max-h-[80vh]">
+            <div className="text-center space-y-3 max-w-lg mx-auto">
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-rose-500/20 border-2 border-rose-500/40 flex items-center justify-center">
+                <Heart className="w-10 h-10 text-rose-400 animate-bounce fill-current" />
               </div>
-            ) : (
-              (() => {
-                const prep = RelationshipEngine.ensureNpcTraits(candidates[0]);
-                const comp = RelationshipEngine.calculateCompatibility(player, prep);
-                return (
-                  <div className="rounded-2xl overflow-hidden border border-white/12">
-                    <div className="h-64 relative" style={{ background: 'linear-gradient(150deg,#2d1a26,#140a10)' }}>
-                      <img src={prep.avatar} alt="" className="w-full h-full object-cover opacity-80" />
-                      <div className="absolute top-3 right-3 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#f43f5e 0deg ${Math.round((comp / 100) * 360)}deg, rgba(255,255,255,0.15) ${Math.round((comp / 100) * 360)}deg 360deg)` }}>
-                        <span className="w-11 h-11 rounded-full bg-[#1a0f18] flex flex-col items-center justify-center">
-                          <b className="text-[13px] text-rose-400">{comp}</b>
-                          <span className="text-[5px] text-gray-500">FIT</span>
-                        </span>
-                      </div>
-                      <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-[#0d0710] to-transparent">
-                        <h3 className="text-lg font-black text-white">{prep.name}, <span className="text-rose-400">{prep.age}</span></h3>
-                        <p className="text-[8.5px] text-gray-300">{prep.occupation} · {prep.country}</p>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-black/40 space-y-2">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {(prep.personalityTraits || []).map((t) => (
-                          <span key={t} className="text-[7px] font-black px-2.5 py-1 rounded-full bg-rose-500/12 text-rose-300 border border-rose-500/30">{t}</span>
-                        ))}
-                        <span className="text-[7px] font-black px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">{prep.relationshipGoals}</span>
-                      </div>
-                      <p className="text-[9px] text-gray-400 italic leading-relaxed">"{prep.biography}"</p>
-                      <div className="flex gap-4 justify-center pt-1">
-                        <button onClick={() => handlePass(prep)} className="w-12 h-12 rounded-full bg-white/8 border border-white/15 flex items-center justify-center cursor-pointer hover:bg-white/15">
-                          <XCircle className="w-5 h-5 text-gray-400" />
-                        </button>
-                        <button onClick={() => handleMatch(prep)} className="w-16 h-16 rounded-full flex items-center justify-center cursor-pointer bg-gradient-to-br from-rose-500 to-rose-700 shadow-lg shadow-rose-500/40 hover:scale-105 transition-transform">
-                          <Heart className="w-7 h-7 text-white fill-current" />
-                        </button>
-                      </div>
-                      <p className="text-[6.5px] text-gray-600 text-center">TRAITS + FIT FIXED PER PERSON — SAME VALUES INSIDE THE MATCH ROLL · DECLINES ARE REAL</p>
-                    </div>
-                  </div>
-                );
-              })()
-            )
-          )}
+              <h3 className="text-2xl font-black text-white">Create Your Elite Dating Profile</h3>
+              <p className="text-sm text-gray-300">
+                Enter Hollywood's premier singles network. No fake relationships—every bond is earned through chemistry, trust, and shared ambitions.
+              </p>
+            </div>
 
-          {/* ================= PEOPLE ================= */}
-          {tab === 'PEOPLE' && (
-            <>
-              <div className="flex gap-1.5">
-                {(['PROFILE', 'DATES', 'HISTORY'] as const).map((v) => (
-                  <button key={v} onClick={() => setView(v)} className={`flex-1 py-1.5 rounded-lg text-[8px] font-black cursor-pointer ${view === v ? 'bg-rose-500 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>{v}</button>
-                ))}
+            <div className="space-y-4 max-w-md mx-auto bg-black/50 p-6 rounded-2xl border border-white/10 text-sm">
+              <div>
+                <label className="block text-gray-300 font-bold mb-1.5">Your Gender Identity</label>
+                <select
+                  value={prefGender}
+                  onChange={(e) => setPrefGender(e.target.value as Gender)}
+                  className="w-full p-3.5 rounded-xl bg-gray-900 border border-white/15 text-white font-bold"
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Non-Binary">Non-Binary</option>
+                </select>
               </div>
-              {activeContacts.length === 0 ? (
-                <p className="text-center text-[10px] text-gray-500 py-10">No connections yet — match someone in Discover.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {activeContacts.map((npc) => {
-                    const sel = npc.id === selectedNpcId;
-                    return (
-                      <button key={npc.id} onClick={() => { setSelectedNpcId(npc.id); setView('PROFILE'); }}
-                        className={`w-full flex gap-2.5 items-center rounded-2xl border px-3 py-2.5 cursor-pointer text-left ${sel ? 'border-rose-500/60 bg-rose-500/10' : 'border-white/10 bg-black/40 hover:border-white/20'}`}>
-                        <img src={npc.avatar} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0 border border-white/15" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <b className="text-[10.5px] text-white truncate">{npc.name}</b>
-                            {npc.pregnancy && <span className="text-[6px] font-black bg-amber-400/15 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded-full shrink-0">🤰 {npc.pregnancy.weeksUntilBirth}WK</span>}
+
+              <div>
+                <label className="block text-gray-300 font-bold mb-1.5">Dating Preference</label>
+                <select
+                  value={prefType}
+                  onChange={(e) => setPrefType(e.target.value as any)}
+                  className="w-full p-3.5 rounded-xl bg-gray-900 border border-white/15 text-white font-bold"
+                >
+                  <option value="Men">Men</option>
+                  <option value="Women">Women</option>
+                  <option value="Everyone">Everyone</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setupDatingProfile(prefGender, prefAge, prefCountry, prefType)}
+                className="w-full py-4 mt-3 rounded-xl font-black text-sm bg-rose-500 hover:bg-rose-400 text-white shadow-2xl cursor-pointer transition-all"
+              >
+                Launch Elite Profile
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Navigation Tabs */}
+            <div className="p-3 bg-black/50 border-b border-white/10 flex gap-2 overflow-x-auto shrink-0">
+              <button
+                onClick={() => setActiveTab('MATCH')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'MATCH' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Flame className="w-4 h-4" />
+                Dating Singles
+              </button>
+              <button
+                onClick={() => setActiveTab('DEX')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'DEX' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                My Rolodex ({activeContacts.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('GIFTS')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'GIFTS' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Gift className="w-4 h-4" />
+                Gift Store
+              </button>
+              <button
+                onClick={() => setActiveTab('PRENUP')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'PRENUP' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Scale className="w-4 h-4" />
+                Prenup
+              </button>
+              <button
+                onClick={() => setActiveTab('WEDDING')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'WEDDING' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Crown className="w-4 h-4" />
+                Marriage
+              </button>
+              <button
+                onClick={() => setActiveTab('FAMILY')}
+                className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'FAMILY' ? 'bg-rose-500 text-white shadow-lg' : 'text-gray-400 hover:text-white bg-black/30'
+                }`}
+              >
+                <Baby className="w-4 h-4" />
+                Family
+              </button>
+            </div>
+
+            {/* Tab Body */}
+            <div className="p-4 md:p-6 overflow-y-auto space-y-6 flex-1">
+              {/* MATCH TAB */}
+              {activeTab === 'MATCH' && (
+                <div className="space-y-4">
+                  {matchCandidates.length === 0 ? (
+                    <div className="text-center py-16 space-y-3">
+                      <Heart className="w-16 h-16 mx-auto text-gray-600 animate-pulse" />
+                      <h3 className="text-lg font-bold text-gray-300">Reviewed All Dating Candidates</h3>
+                      <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                        Advance the week on your Game Home dashboard to discover new Hollywood singles.
+                      </p>
+                    </div>
+                  ) : (
+                    matchCandidates.slice(0, 1).map((candidate) => {
+                      const prepared = RelationshipEngine.ensureNpcTraits(candidate);
+                      const compatibility = RelationshipEngine.calculateCompatibility(player, prepared);
+
+                      return (
+                        <div
+                          key={prepared.id}
+                          className="rounded-3xl border-2 p-6 md:p-8 flex flex-col md:flex-row gap-8 items-start bg-black/50 shadow-2xl relative"
+                          style={{ borderColor: theme.borderDark }}
+                        >
+                          {/* Avatar */}
+                          <div className="w-full md:w-64 h-72 md:h-96 rounded-2xl overflow-hidden shrink-0 border-2 border-white/20 shadow-2xl relative bg-gray-900">
+                            <img src={prepared.avatar} alt={prepared.name} className="w-full h-full object-cover" />
+                            <div className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-black bg-black/80 text-rose-400 border border-rose-500/40 flex items-center gap-1">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              {compatibility}% Compatibility
+                            </div>
+                            <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                              <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow">
+                                {prepared.occupation}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-[6.5px] font-black uppercase tracking-wider block" style={{ color: npc.stage === 'Married' ? '#f5b942' : '#fb7185' }}>
-                            {npc.stage} · {npc.weeksInCurrentStage || 0} WKS{npc.children?.length ? ` · ${npc.children.length} kid${npc.children.length > 1 ? 's' : ''}` : ''}
-                          </span>
-                          <div className="flex gap-2 mt-1">
-                            <span className="flex-1 h-[3px] rounded-full bg-white/10 overflow-hidden"><i className="block h-full bg-rose-500" style={{ width: `${npc.relationshipLevel || 0}%` }} /></span>
-                            <span className="flex-1 h-[3px] rounded-full bg-white/10 overflow-hidden"><i className="block h-full bg-emerald-400" style={{ width: `${npc.trustLevel || 0}%` }} /></span>
+
+                          {/* Profile Details */}
+                          <div className="flex-1 space-y-4 w-full">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                              <div>
+                                <h3 className="text-2xl md:text-3xl font-black text-white">
+                                  {prepared.name}, <span className="text-rose-400">{prepared.age}</span>
+                                </h3>
+                                <p className="text-sm text-gray-400 font-medium mt-0.5">{prepared.country}</p>
+                              </div>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+                              <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest block">Biography</span>
+                              <p className="text-sm text-gray-200 leading-relaxed italic font-medium">"{prepared.biography}"</p>
+                            </div>
+
+                            {/* Traits & Details */}
+                            <div className="space-y-2">
+                              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">Personality Traits</span>
+                              <div className="flex flex-wrap gap-2">
+                                {prepared.personalityTraits?.map((trait) => (
+                                  <span key={trait} className="px-3 py-1 rounded-xl text-xs font-black bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                    {trait}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-xs md:text-sm p-4 rounded-2xl bg-black/40 border border-white/5">
+                              <div><span className="text-gray-400">Lifestyle:</span> <strong className="text-white block mt-0.5">{prepared.lifestyle}</strong></div>
+                              <div><span className="text-gray-400">Goals:</span> <strong className="text-amber-300 block mt-0.5">{prepared.relationshipGoals}</strong></div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="pt-4 flex items-center gap-4">
+                              <button
+                                onClick={() => interactNpc(prepared.id, 'Pass')}
+                                className="flex-1 py-4 rounded-2xl font-black text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all cursor-pointer flex items-center justify-center gap-2"
+                              >
+                                <XCircle className="w-5 h-5 text-gray-400" />
+                                Pass
+                              </button>
+                              <button
+                                onClick={() => handleMatchAttempt(prepared)}
+                                className="flex-1 py-4 rounded-2xl font-black text-sm bg-rose-500 hover:bg-rose-400 text-white shadow-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                              >
+                                <Heart className="w-5 h-5 fill-current" />
+                                Express Interest (Request Match)
+                              </button>
+                            </div>
                           </div>
                         </div>
-                        <b className="text-[9px] text-rose-400 font-mono shrink-0">{npc.relationshipLevel || 0}%</b>
-                      </button>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               )}
 
-              {/* ladder + gates for the selected person */}
-              {selectedNpc && (
-                <>
-                  <div className="flex gap-1">
-                    {STAGE_LADDER.map((s) => {
-                      const idx = STAGE_LADDER.indexOf(selectedNpc.stage as any);
-                      const my = STAGE_LADDER.indexOf(s);
-                      return <span key={s} className={`flex-1 text-center text-[5.5px] font-black py-1.5 rounded ${my === idx ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : my < idx ? 'bg-rose-500/15 text-rose-300' : 'bg-white/5 text-gray-600'}`}>{s.split(' ')[0].toUpperCase()}</span>;
-                    })}
+              {/* ROLODEX TAB */}
+              {activeTab === 'DEX' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Left: Contact List */}
+                  <div className="space-y-3 md:col-span-1 border-r border-white/10 pr-0 md:pr-4">
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Active Rolodex ({activeContacts.length})</h4>
+                    {activeContacts.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-8 bg-black/30 rounded-2xl border border-white/5">
+                        No active connections yet. Request matches in Dating Singles.
+                      </p>
+                    ) : (
+                      activeContacts.map((npc) => (
+                        <div
+                          key={npc.id}
+                          onClick={() => {
+                            setSelectedNpcId(npc.id);
+                            setRolodexView('OVERVIEW');
+                          }}
+                          className={`p-3.5 rounded-2xl border-2 flex items-center justify-between gap-3 cursor-pointer transition-all shadow-md ${
+                            selectedNpcId === npc.id ? 'bg-rose-500/15 border-rose-500/80' : 'bg-black/40 border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img src={npc.avatar} alt={npc.name} className="w-12 h-12 rounded-xl object-cover border border-white/20 shrink-0" />
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-black text-white truncate">{npc.name}</h4>
+                              <p className="text-[11px] text-rose-400 font-extrabold uppercase tracking-wider truncate">{npc.stage}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-amber-300 font-extrabold shrink-0">{npc.relationshipLevel}%</span>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <GateCheck npc={selectedNpc} />
-                </>
+
+                  {/* Right: Contact Detail & Sub-Action Dashboard */}
+                  <div className="md:col-span-2 space-y-5">
+                    {!selectedNpc ? (
+                      <div className="text-center py-16 text-gray-500 text-sm">
+                        Select a contact from your Rolodex on the left to view profile and interactions.
+                      </div>
+                    ) : (
+                      (() => {
+                        const prep = RelationshipEngine.ensureNpcTraits(selectedNpc);
+                        const comp = RelationshipEngine.calculateCompatibility(player, prep);
+
+                        return (
+                          <div className="space-y-5">
+                            {/* Contact Header Card */}
+                            <div className="p-5 rounded-2xl bg-black/50 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <img src={prep.avatar} alt={prep.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-white/20 shadow-lg shrink-0" />
+                                <div>
+                                  <h3 className="text-xl font-black text-white">{prep.name}, {prep.age}</h3>
+                                  <p className="text-xs text-gray-400 font-medium">{prep.occupation} • {prep.country}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                      Stage: {prep.stage}
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                      {comp}% Compatibility
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={handleAdvanceStage}
+                                className="px-4 py-2.5 rounded-xl text-xs font-black bg-amber-400 hover:bg-amber-300 text-black shadow-lg transition-all cursor-pointer shrink-0"
+                              >
+                                Advance Stage Requirement
+                              </button>
+                            </div>
+
+                            {/* Relationship Metrics Bar */}
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 text-center">
+                                <span className="text-[10px] text-gray-400 uppercase font-black block">Affinity</span>
+                                <span className="text-lg font-black text-rose-400">{prep.relationshipLevel}%</span>
+                              </div>
+                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 text-center">
+                                <span className="text-[10px] text-gray-400 uppercase font-black block">Trust</span>
+                                <span className="text-lg font-black text-emerald-400">{prep.trustLevel || 50}%</span>
+                              </div>
+                              <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 text-center">
+                                <span className="text-[10px] text-gray-400 uppercase font-black block">Weeks Together</span>
+                                <span className="text-lg font-black text-white">{prep.weeksInCurrentStage || 0} wks</span>
+                              </div>
+                            </div>
+
+                            {/* Sub-action Navigation */}
+                            <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
+                              <button
+                                onClick={() => setRolodexView('OVERVIEW')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  rolodexView === 'OVERVIEW' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white bg-black/30'
+                                }`}
+                              >
+                                Profile
+                              </button>
+                              <button
+                                onClick={() => setRolodexView('ACTIVITIES')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  rolodexView === 'ACTIVITIES' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white bg-black/30'
+                                }`}
+                              >
+                                Activities (15)
+                              </button>
+                              <button
+                                onClick={() => setRolodexView('TALK')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  rolodexView === 'TALK' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white bg-black/30'
+                                }`}
+                              >
+                                Conversation
+                              </button>
+                              <button
+                                onClick={() => setRolodexView('HISTORY')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  rolodexView === 'HISTORY' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-white bg-black/30'
+                                }`}
+                              >
+                                History Log
+                              </button>
+                            </div>
+
+                            {/* Sub-view Content */}
+                            {rolodexView === 'OVERVIEW' && (
+                              <div className="space-y-4">
+                                <div className="space-y-1">
+                                  <span className="text-xs text-gray-400 font-bold uppercase">Personality Traits</span>
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    {prep.personalityTraits?.map((trait) => (
+                                      <span key={trait} className="px-3 py-1 rounded-xl text-xs font-bold bg-white/10 text-gray-200 border border-white/10">
+                                        {trait}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                                  <span className="text-[10px] text-gray-400 uppercase font-black block">Biography</span>
+                                  <p className="text-xs text-gray-300 italic">"{prep.biography}"</p>
+                                </div>
+
+                                <div className="pt-2">
+                                  <button
+                                    onClick={handleBreakup}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-black bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
+                                  >
+                                    End Relationship (Breakup)
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {rolodexView === 'ACTIVITIES' && (
+                              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                                <span className="text-xs text-gray-400 font-bold uppercase block">Choose Activity</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {RELATIONSHIP_ACTIVITIES.map((act) => (
+                                    <div key={act.id} className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 text-xs">
+                                      <div className="flex items-center justify-between font-black text-white">
+                                        <span>{act.name}</span>
+                                        <span className="text-emerald-400">${act.cost.toLocaleString()}</span>
+                                      </div>
+                                      <p className="text-[11px] text-gray-400 leading-tight">{act.description}</p>
+                                      <div className="flex items-center justify-between text-[10px] text-gray-300 pt-1 border-t border-white/5">
+                                        <span>+{act.affinityGain} Affinity, +{act.trustGain} Trust</span>
+                                        <button
+                                          onClick={() => handlePerformActivity(act)}
+                                          className="px-2.5 py-1 rounded-lg font-bold bg-rose-500 hover:bg-rose-400 text-white cursor-pointer"
+                                        >
+                                          Go Date
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {rolodexView === 'TALK' && (
+                              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1">
+                                <span className="text-xs text-gray-400 font-bold uppercase block">Interactive Dynamic Topics</span>
+                                {CONVERSATION_TOPICS.map((topic) => (
+                                  <div key={topic.id} className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2 text-xs">
+                                    <h5 className="font-black text-rose-300 text-sm">{topic.topic}</h5>
+                                    <div className="space-y-2">
+                                      {topic.options.map((opt, idx) => (
+                                        <button
+                                          key={idx}
+                                          onClick={() => handleConversationChoice(opt)}
+                                          className="w-full text-left p-2.5 rounded-lg bg-black/60 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/50 transition-all text-gray-200 cursor-pointer block"
+                                        >
+                                          <p className="font-medium text-xs">{opt.text}</p>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {rolodexView === 'HISTORY' && (
+                              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                                <span className="text-xs text-gray-400 font-bold uppercase block">Permanent History Log</span>
+                                {(!prep.history || prep.history.length === 0) ? (
+                                  <p className="text-xs text-gray-500 text-center py-6">No historical events recorded yet.</p>
+                                ) : (
+                                  prep.history.map((ev) => (
+                                    <div key={ev.id} className="p-3 rounded-xl bg-black/40 border border-white/10 text-xs space-y-1">
+                                      <div className="flex items-center justify-between text-rose-300 font-bold">
+                                        <span>{ev.title}</span>
+                                        <span className="text-[10px] text-gray-400">{ev.timestamp}</span>
+                                      </div>
+                                      <p className="text-gray-300 text-[11px]">{ev.description}</p>
+                                      {ev.impact && <p className="text-[10px] text-amber-300 font-bold">{ev.impact}</p>}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
               )}
 
-              {selectedNpc && view === 'PROFILE' && (
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-3 space-y-2">
-                  <b className="text-[10px] text-white block">{selectedNpc.name}, {selectedNpc.age}</b>
-                  <p className="text-[8.5px] text-gray-400 italic">"{selectedNpc.biography}"</p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {(selectedNpc.personalityTraits || []).map((t) => <span key={t} className="text-[7px] font-bold px-2 py-0.5 rounded-md bg-white/5 text-gray-300 border border-white/10">{t}</span>)}
+              {/* GIFT STORE TAB */}
+              {activeTab === 'GIFTS' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between bg-black/50 p-4 rounded-2xl border border-white/10 text-xs md:text-sm">
+                    <span className="text-gray-300 font-medium">
+                      Recipient: <strong className="text-amber-300 font-bold">{selectedNpc ? selectedNpc.name : 'Select in My Rolodex'}</strong>
+                    </span>
+                    <span className="text-emerald-400 font-black">Cash: ${player.money.toLocaleString()}</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 text-center">
-                    <div className="bg-black/40 rounded-lg p-2"><span className="text-[6px] text-gray-500 block">AFFINITY</span><b className="text-[12px] text-rose-400">{selectedNpc.relationshipLevel || 0}%</b></div>
-                    <div className="bg-black/40 rounded-lg p-2"><span className="text-[6px] text-gray-500 block">TRUST</span><b className="text-[12px] text-emerald-400">{selectedNpc.trustLevel || 0}%</b></div>
-                    <div className="bg-black/40 rounded-lg p-2"><span className="text-[6px] text-gray-500 block">COMPAT</span><b className="text-[12px] text-sky-400">{selectedNpc.compatibilityScore || 50}%</b></div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {GIFT_ITEMS.map((gift) => (
+                      <div
+                        key={gift.id}
+                        className="p-4 rounded-2xl border-2 bg-black/40 border-white/10 flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl"
+                      >
+                        <div className="space-y-1">
+                          <h4 className="font-black text-white text-base">{gift.name}</h4>
+                          <p className="text-xs text-gray-400">{gift.description}</p>
+                          <span className="text-emerald-400 font-extrabold block">
+                            ${gift.price.toLocaleString()} (+{gift.affinityBoost} Affinity)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!selectedNpc) {
+                              alert('Please select a contact from My Rolodex first!');
+                              return;
+                            }
+                            const res = sendGiftToNpc(selectedNpc.id, gift);
+                            alert(res.message);
+                          }}
+                          className="px-4 py-2.5 rounded-xl font-extrabold text-xs bg-rose-500 hover:bg-rose-400 text-white shrink-0 cursor-pointer shadow-lg transition-all"
+                        >
+                          Send Gift
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button onClick={() => { if (window.confirm(`End things with ${selectedNpc.name}? Lasting consequences.`)) { const res = RelationshipEngine.processBreakup(player, selectedNpc, 'Personal Differences'); updateNpc(res.updatedNpc); showFb(res.message); } }}
-                    className="w-full py-2 rounded-lg bg-rose-950/60 text-rose-300 border border-rose-500/25 text-[8.5px] font-black cursor-pointer">
-                    END RELATIONSHIP
+                </div>
+              )}
+
+              {/* PRENUP TAB */}
+              {activeTab === 'PRENUP' && (
+                <div className="space-y-5 max-w-2xl mx-auto bg-black/50 p-6 md:p-8 rounded-3xl border-2 border-white/10 text-xs md:text-sm shadow-2xl">
+                  <div className="text-center space-y-1">
+                    <Scale className="w-8 h-8 mx-auto text-amber-400" />
+                    <h3 className="text-lg font-black text-white uppercase tracking-wider">Prenuptial Agreement Clause Builder</h3>
+                    <p className="text-xs text-gray-400">Configure legally protected asset clauses before Hollywood marriage.</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Partner</span>
+                      <span className="text-amber-300 font-black text-sm">{selectedNpc ? selectedNpc.name : 'None Selected (Pick in Rolodex)'}</span>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                      Status: {prenupTerms.status}
+                    </span>
+                  </div>
+
+                  {/* Checklist */}
+                  <div className="space-y-2.5 max-h-[35vh] overflow-y-auto pr-1">
+                    {[
+                      { key: 'protectCash', label: 'Protect Liquid Cash & Bank Deposits' },
+                      { key: 'protectSavings', label: 'Protect High-Yield Savings Accounts' },
+                      { key: 'protectBusinesses', label: 'Protect Studio Holdings & Business Equity' },
+                      { key: 'protectRealEstate', label: 'Protect Bel-Air Mansions & Real Estate Units' },
+                      { key: 'protectInvestments', label: 'Protect Stock Portfolios & Venture Investments' },
+                      { key: 'protectRoyalties', label: 'Protect Film Royalties & Box Office Residuals' },
+                      { key: 'protectLuxuryAssets', label: 'Protect Luxury Cars, Watches & Art Assets' },
+                      { key: 'protectFutureEarnings', label: 'Protect Future Acting & Directing Contracts' },
+                      { key: 'protectInheritance', label: 'Protect Family Inheritance Reserves' },
+                      { key: 'protectDebtResponsibility', label: 'Individual Debt Responsibility Clause' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/5 cursor-pointer hover:bg-white/5">
+                        <input
+                          type="checkbox"
+                          checked={(prenupTerms as any)[item.key]}
+                          onChange={(e) => setPrenupTerms({ ...prenupTerms, [item.key]: e.target.checked })}
+                          className="w-4 h-4 rounded bg-gray-900 accent-amber-400"
+                        />
+                        <span className="text-gray-200 font-bold text-xs">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleEvaluatePrenup}
+                    className="w-full py-4 rounded-2xl font-black text-sm bg-amber-400 hover:bg-amber-300 text-black shadow-2xl cursor-pointer transition-all"
+                  >
+                    Submit Prenup Terms to Partner & Lawyer
                   </button>
                 </div>
               )}
 
-              {selectedNpc && view === 'DATES' && (
-                <div className="space-y-1.5">
-                  {RELATIONSHIP_ACTIVITIES.map((act) => (
-                    <div key={act.id} className="flex gap-2 items-center rounded-xl bg-black/40 border border-white/10 px-3 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <b className="text-[9.5px] text-white block">{act.name}</b>
-                        <span className="text-[7px] text-gray-500">+{act.affinityGain} AFF · +{act.trustGain} TRU</span>
-                      </div>
-                      <span className="text-[8px] font-mono text-amber-300 shrink-0">${act.cost.toLocaleString()}</span>
-                      <span className="text-[8px] font-mono text-sky-300 shrink-0">{act.energyCost}⚡</span>
-                      <button onClick={() => handleActivity(act)} className="px-2.5 py-1.5 rounded-lg bg-rose-500 text-white text-[8px] font-black cursor-pointer shrink-0">GO</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedNpc && view === 'HISTORY' && (
-                <div className="space-y-1.5">
-                  {(selectedNpc.history || []).length === 0 ? <p className="text-[9px] text-gray-600 text-center py-6">No history yet.</p> :
-                    (selectedNpc.history || []).slice().reverse().map((ev) => (
-                      <div key={ev.id} className="rounded-xl bg-black/40 border border-white/10 px-3 py-2">
-                        <div className="flex justify-between"><b className="text-[8.5px] text-rose-300">{ev.title}</b><span className="text-[6.5px] text-gray-600">{ev.timestamp}</span></div>
-                        <p className="text-[7.5px] text-gray-400">{ev.description}</p>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ================= TALK ================= */}
-          {tab === 'TALK' && (
-            !selectedNpc ? <p className="text-center text-[10px] text-gray-500 py-10">Select a person in My People first.</p> : (
-              <div className="space-y-2">
-                <div className="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-3">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <b className="text-[10px] text-rose-300">💬 TALKING TO {selectedNpc.name.toUpperCase()}</b>
-                    <span className="text-[7px] text-gray-500 font-mono">{TOPIC_COST_ENERGY}⚡ PER TOPIC · YOU: {player.energy || 0}⚡</span>
+              {/* WEDDING TAB */}
+              {activeTab === 'WEDDING' && (
+                <div className="space-y-5 max-w-xl mx-auto bg-black/50 p-6 md:p-8 rounded-3xl border-2 border-white/10 text-xs md:text-sm shadow-2xl">
+                  <div className="text-center space-y-1">
+                    <Crown className="w-8 h-8 mx-auto text-amber-400" />
+                    <h3 className="text-lg font-black text-white uppercase tracking-wider">Marriage Proposal & Wedding</h3>
                   </div>
-                  <p className="text-[7.5px] text-gray-500 leading-relaxed">Trait matches are shown BEFORE you pick — pick topics that match {selectedNpc.name.split(' ')[0]}'s traits for bonuses. No free spam: every topic costs energy.</p>
-                </div>
-                {CONVERSATION_TOPICS.map((topic) => (
-                  <div key={topic.id} className="rounded-xl bg-black/40 border border-white/10 p-2.5">
-                    <b className="text-[9px] text-rose-300 block mb-1.5">{topic.topic}</b>
-                    {topic.options.map((opt, i) => {
-                      const npcTraits = selectedNpc.personalityTraits || [];
-                      const matches = opt.traitPreference.filter((t) => npcTraits.includes(t));
-                      return (
-                        <button key={i} onClick={() => handleTopic(opt)} className="w-full flex gap-2 items-center text-left rounded-lg bg-black/50 border border-white/10 hover:border-rose-500/40 px-2.5 py-2 mb-1 cursor-pointer">
-                          <p className="flex-1 text-[8.5px] text-gray-200 leading-snug">{opt.text}</p>
-                          {matches.length > 0 && <span className="text-[6px] font-black text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 px-1.5 py-0.5 rounded shrink-0">⚡ TRAIT ×{matches.length}</span>}
-                          <span className="text-[6.5px] font-mono text-gray-500 shrink-0">{opt.affinityDelta >= 0 ? '+' : ''}{opt.affinityDelta} AFF</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )
-          )}
 
-          {/* ================= GIFTS ================= */}
-          {tab === 'GIFTS' && (
-            <div className="space-y-1.5">
-              <p className="text-[8px] text-gray-500 px-1">To: <b className="text-rose-300">{selectedNpc?.name || 'select in My People'}</b> — gifts raise AFFINITY ONLY; stages advance via the gates.</p>
-              {GIFT_ITEMS.map((gift) => (
-                <div key={gift.id} className="flex gap-2 items-center rounded-xl bg-black/40 border border-white/10 px-3 py-2.5">
-                  <div className="flex-1 min-w-0">
-                    <b className="text-[9.5px] text-white block">{gift.name}</b>
-                    <span className="text-[7px] text-gray-500">+{gift.affinityBoost} affinity</span>
+                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/5">
+                    <label className="block text-gray-400 font-bold text-xs uppercase mb-1">Partner Selected</label>
+                    <span className="text-amber-300 font-black text-base block">{selectedNpc ? selectedNpc.name : 'Select in Rolodex'}</span>
                   </div>
-                  <span className="text-[8.5px] font-mono text-amber-300 shrink-0">${gift.price.toLocaleString()}</span>
-                  <button onClick={() => handleGift(gift)} className="px-3 py-1.5 rounded-lg bg-rose-500 text-white text-[8px] font-black cursor-pointer shrink-0">SEND</button>
-                </div>
-              ))}
-            </div>
-          )}
 
-          {/* ================= MARRIAGE ================= */}
-          {tab === 'MARRIAGE' && (
-            !selectedNpc ? <p className="text-center text-[10px] text-gray-500 py-10">Select your partner in My People first.</p> : (
-              <div className="space-y-2.5">
-                {/* prenup */}
-                <div className="rounded-2xl border border-amber-400/25 bg-amber-400/4 p-3 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <b className="text-[10px] text-amber-300 flex items-center gap-1.5"><Scale className="w-3.5 h-3.5" /> PRENUP — REQUIRED BEFORE PROPOSING</b>
-                    <span className={`text-[6.5px] font-black px-2 py-1 rounded ${prenup.status === 'AGREED' || selectedNpc.prenupTerms?.status === 'AGREED' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/5 text-gray-400'}`}>
-                      {(selectedNpc.prenupTerms?.status) || prenup.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1">
-                    {[
-                      ['protectCash', 'Cash'], ['protectSavings', 'Savings'], ['protectBusinesses', 'Businesses'],
-                      ['protectRealEstate', 'Real Estate'], ['protectInvestments', 'Investments'], ['protectRoyalties', 'Royalties'],
-                      ['protectLuxuryAssets', 'Luxury Assets'], ['protectFutureEarnings', 'Future Earnings'],
-                      ['protectInheritance', 'Inheritance'], ['protectDebtResponsibility', 'Debt Split'],
-                    ].map(([k, label]) => (
-                      <label key={k} className="flex items-center gap-1.5 text-[7.5px] text-gray-300 cursor-pointer">
-                        <input type="checkbox" checked={(prenup as any)[k]} onChange={(e) => setPrenup({ ...prenup, [k]: e.target.checked })} className="accent-amber-400 w-3 h-3" />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  <button onClick={handlePrenup} className="w-full py-2 rounded-lg bg-amber-400 text-black text-[8.5px] font-black cursor-pointer">SUBMIT TERMS TO PARTNER</button>
-                  {selectedNpc.prenupTerms?.npcNotes && <p className="text-[7.5px] text-gray-400 italic">{selectedNpc.prenupTerms.npcNotes}</p>}
-                </div>
-
-                {/* proposal gates */}
-                <div className="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-3 space-y-1.5">
-                  <b className="text-[10px] text-rose-300 block">💍 PROPOSAL — {selectedNpc.name}</b>
-                  {[
-                    { label: 'Stage Partner/Exclusive', ok: ['Partner', 'Exclusive'].includes(selectedNpc.stage) },
-                    { label: `Weeks together (8+ as Partner / 12+ as Exclusive)`, ok: (selectedNpc.weeksInCurrentStage || 0) >= (selectedNpc.stage === 'Partner' ? 8 : 12), val: `${selectedNpc.weeksInCurrentStage || 0}` },
-                    { label: 'Affinity 80+', ok: (selectedNpc.relationshipLevel || 0) >= 80, val: `${selectedNpc.relationshipLevel || 0}` },
-                    { label: 'Trust 75+', ok: (selectedNpc.trustLevel || 0) >= 75, val: `${selectedNpc.trustLevel || 0}` },
-                    { label: 'Prenup agreed', ok: selectedNpc.prenupTerms?.status === 'AGREED' },
-                  ].map((g) => (
-                    <div key={g.label} className="flex justify-between text-[8.5px]">
-                      <span className="text-gray-400">{g.label}</span>
-                      <b className={`font-mono ${g.ok ? 'text-emerald-400' : 'text-rose-400'}`}>{g.ok ? '✓' : '✕'} {g.val || ''}</b>
-                    </div>
-                  ))}
                   <div>
-                    <input type="range" min={10000} max={250000} step={5000} value={ringCost} onChange={(e) => setRingCost(Number(e.target.value))} className="w-full accent-rose-400" />
-                    <p className="text-[8px] text-amber-300 font-black text-center">💍 ${ringCost.toLocaleString()} ring</p>
-                  </div>
-                  <button onClick={handlePropose} className="w-full py-2.5 rounded-lg bg-gradient-to-r from-rose-500 to-rose-700 text-white text-[9px] font-black cursor-pointer">PROPOSE</button>
-                </div>
-
-                {/* wedding */}
-                <div className="rounded-2xl border border-amber-400/25 bg-black/40 p-3 space-y-1.5">
-                  <b className="text-[10px] text-amber-300 block">💒 WEDDING — 4+ WEEKS ENGAGED</b>
-                  <div className="flex justify-between text-[8.5px]">
-                    <span className="text-gray-400">Stage engaged</span>
-                    <b className={`font-mono ${selectedNpc.stage === 'Engaged' ? 'text-emerald-400' : 'text-rose-400'}`}>{selectedNpc.stage === 'Engaged' ? '✓' : '✕'} {selectedNpc.stage}</b>
-                  </div>
-                  <div className="flex justify-between text-[8.5px]">
-                    <span className="text-gray-400">Weeks engaged (4+)</span>
-                    <b className={`font-mono ${(selectedNpc.weeksInCurrentStage || 0) >= 4 && selectedNpc.stage === 'Engaged' ? 'text-emerald-400' : 'text-rose-400'}`}>{selectedNpc.stage === 'Engaged' ? `${selectedNpc.weeksInCurrentStage || 0}/4` : '—'}</b>
-                  </div>
-                  <select value={venue} onChange={(e) => setVenue(e.target.value as any)} className="w-full p-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-[9px] font-bold">
-                    <option value="Church">Church ($10,000)</option>
-                    <option value="Beach">Malibu Beach ($25,000)</option>
-                    <option value="Luxury Hotel">Ritz-Carlton Gala ($50,000)</option>
-                    <option value="Private Estate">Bel-Air Mansion ($100,000)</option>
-                  </select>
-                  <button onClick={handleWedding} className="w-full py-2.5 rounded-lg bg-amber-400 text-black text-[9px] font-black cursor-pointer">HOST WEDDING</button>
-                </div>
-              </div>
-            )
-          )}
-
-          {/* ================= FAMILY ================= */}
-          {tab === 'FAMILY' && (
-            !partner || partner.stage !== 'Married' ? (
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-6 text-center space-y-2">
-                <Baby className="w-8 h-8 mx-auto text-gray-600" />
-                <p className="text-[10px] text-gray-400 font-bold">Family unlocks after marriage.</p>
-                <p className="text-[8px] text-gray-600">Meet someone → match → date → propose (prenup + weeks gates) → wed → grow the family.</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {/* pregnancy status / conception */}
-                {partner.pregnancy ? (
-                  <div className="rounded-2xl border border-amber-400/35 bg-amber-400/8 p-4 text-center space-y-2">
-                    <span className="text-3xl block">🤰</span>
-                    <b className="text-[11px] text-amber-300 block">{partner.name} is expecting!</b>
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <i className="block h-full rounded-full bg-gradient-to-r from-rose-500 to-amber-400" style={{ width: `${((partner.pregnancy.totalWeeks - partner.pregnancy.weeksUntilBirth) / partner.pregnancy.totalWeeks) * 100}%` }} />
-                    </div>
-                    <p className="text-[9px] text-gray-300 font-mono">{partner.pregnancy.weeksUntilBirth} week{partner.pregnancy.weeksUntilBirth === 1 ? '' : 's'} until delivery</p>
-                    <p className="text-[8px] text-gray-500">Baby {partner.pregnancy.childName} ({partner.pregnancy.childGender}) — conceived WK {partner.pregnancy.conceivedWeek}, {partner.pregnancy.conceivedYear} · carrying {partner.pregnancy.totalWeeks} weeks. The birth fires automatically with an inbox announcement.</p>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-3 space-y-2">
-                    <b className="text-[10px] text-rose-300 block">🍼 TRY FOR A BABY — {partner.name}</b>
-                    <p className="text-[7.5px] text-gray-500 leading-relaxed">Conception is a real roll (higher affinity = higher odds). Pregnancy lasts 36-40 weeks, then the birth happens automatically.</p>
-                    <input value={babyName} onChange={(e) => setBabyName(e.target.value)} placeholder="Baby name (optional — auto-named if blank)"
-                      className="w-full p-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-[9px] outline-none" />
-                    <select value={babyGender} onChange={(e) => setBabyGender(e.target.value as any)} className="w-full p-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-[9px] font-bold">
-                      <option value="Female">Girl</option><option value="Male">Boy</option><option value="Non-Binary">Non-Binary</option>
+                    <label className="block text-gray-300 font-bold mb-1.5">Wedding Venue</label>
+                    <select
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value as any)}
+                      className="w-full p-3.5 rounded-xl bg-gray-900 border border-white/15 text-white font-bold"
+                    >
+                      <option value="Church">Traditional Beverly Hills Church ($10,000)</option>
+                      <option value="Beach">Malibu Sunset Beach Estate ($25,000)</option>
+                      <option value="Luxury Hotel">The Ritz-Carlton Gala Hall ($50,000)</option>
+                      <option value="Private Estate">Bel-Air Private Mansion ($100,000)</option>
                     </select>
-                    <button onClick={handleConceive} className="w-full py-2.5 rounded-lg bg-gradient-to-r from-rose-500 to-rose-700 text-white text-[9px] font-black cursor-pointer">TRY TO CONCEIVE</button>
                   </div>
-                )}
 
-                {/* children list */}
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-3 space-y-1.5">
-                  <b className="text-[9px] font-black text-gray-400 tracking-wider block">YOUR CHILDREN ({partner.children?.length || 0})</b>
-                  {(partner.children || []).length === 0 ? <p className="text-[8px] text-gray-600">No children yet.</p> :
-                    (partner.children || []).map((child) => (
-                      <div key={child.id} className="flex justify-between items-center rounded-lg bg-white/[0.03] border border-white/8 px-2.5 py-2">
-                        <div>
-                          <b className="text-[9px] text-white block">{child.name}</b>
-                          <span className="text-[6.5px] text-gray-500">{child.gender} · born WK {child.birthWeek}, {child.birthYear}</span>
-                        </div>
-                        <span className="text-[7px] text-rose-300 font-bold">{child.personality}</span>
-                      </div>
-                    ))}
+                  <div>
+                    <label className="block text-gray-300 font-bold mb-1.5">Engagement Ring Value ($10,000 - $250,000)</label>
+                    <input
+                      type="range"
+                      min={10000}
+                      max={250000}
+                      step={5000}
+                      value={ringCost}
+                      onChange={(e) => setRingCost(Number(e.target.value))}
+                      className="w-full accent-amber-400"
+                    />
+                    <span className="text-amber-300 font-black block mt-1.5 text-base">${ringCost.toLocaleString()} Diamond Ring</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={handlePropose}
+                      className="py-3.5 rounded-2xl font-black text-xs bg-rose-500 hover:bg-rose-400 text-white shadow-xl cursor-pointer transition-all"
+                    >
+                      Propose Engagement (${ringCost.toLocaleString()})
+                    </button>
+                    <button
+                      onClick={handleWedding}
+                      className="py-3.5 rounded-2xl font-black text-xs bg-amber-400 hover:bg-amber-300 text-black shadow-xl cursor-pointer transition-all"
+                    >
+                      Host Official Wedding Ceremony
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )
-          )}
-        </div>
+              )}
+
+              {/* FAMILY TAB */}
+              {activeTab === 'FAMILY' && (
+                <div className="space-y-5 max-w-xl mx-auto bg-black/50 p-6 md:p-8 rounded-3xl border-2 border-white/10 text-xs md:text-sm shadow-2xl">
+                  <div className="text-center space-y-1">
+                    <Baby className="w-8 h-8 mx-auto text-rose-400" />
+                    <h3 className="text-lg font-black text-white uppercase tracking-wider">Family & Children</h3>
+                  </div>
+
+                  {(!selectedNpc || selectedNpc.stage !== 'Married') ? (
+                    <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-2">
+                      <AlertTriangle className="w-8 h-8 mx-auto text-amber-400" />
+                      <h4 className="font-bold text-amber-300">Family Feature Locked</h4>
+                      <p className="text-xs text-gray-300">
+                        Family and Children options strictly unlock after getting Married. Complete your engagement and host a wedding ceremony first.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1 text-center">
+                        <span className="text-gray-400 block text-xs uppercase font-bold">Children Count</span>
+                        <span className="text-2xl font-black text-white">
+                          {selectedNpc.children?.length || player.childrenCount || 0}
+                        </span>
+                      </div>
+
+                      {/* Existing children list */}
+                      {selectedNpc.children && selectedNpc.children.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs text-gray-400 font-bold uppercase block">Your Children</span>
+                          {selectedNpc.children.map((child) => (
+                            <div key={child.id} className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
+                              <div>
+                                <h5 className="font-bold text-white">{child.name} ({child.gender})</h5>
+                                <p className="text-[11px] text-gray-400">{child.schoolType}</p>
+                              </div>
+                              <span className="text-rose-300 font-bold">{child.personality}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="border-t border-white/10 pt-4 space-y-3">
+                        <h4 className="font-bold text-white text-xs uppercase">Welcome New Child</h4>
+                        <input
+                          type="text"
+                          placeholder="Child Name (Optional)"
+                          value={childName}
+                          onChange={(e) => setChildName(e.target.value)}
+                          className="w-full p-3 rounded-xl bg-gray-900 border border-white/15 text-white text-xs font-bold"
+                        />
+
+                        <select
+                          value={childGender}
+                          onChange={(e) => setChildGender(e.target.value as any)}
+                          className="w-full p-3 rounded-xl bg-gray-900 border border-white/15 text-white text-xs font-bold"
+                        >
+                          <option value="Female">Female</option>
+                          <option value="Male">Male</option>
+                          <option value="Non-Binary">Non-Binary</option>
+                        </select>
+
+                        <select
+                          value={childSchool}
+                          onChange={(e) => setChildSchool(e.target.value as any)}
+                          className="w-full p-3 rounded-xl bg-gray-900 border border-white/15 text-white text-xs font-bold"
+                        >
+                          <option value="Public School">Public School</option>
+                          <option value="Private School">Beverly Hills Private School</option>
+                          <option value="Boarding School">Swiss Boarding Academy</option>
+                          <option value="University">USC / UCLA Film University</option>
+                        </select>
+
+                        <button
+                          onClick={handleHaveChild}
+                          className="w-full py-4 rounded-2xl font-black text-sm bg-rose-500 hover:bg-rose-400 text-white shadow-2xl cursor-pointer transition-all"
+                        >
+                          Welcome New Child to Family
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

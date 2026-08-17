@@ -169,36 +169,25 @@ export const CONVERSATION_TOPICS: ConversationTopic[] = [
 
 export class RelationshipEngine {
   /**
-   * Ensure NPC has traits assigned. DETERMINISTIC per NPC id — the same NPC
-   * always gets the same traits/trust/compatibility so what the UI shows is
-   * exactly what the engine uses (no re-roll on every render).
+   * Ensure NPC has traits assigned
    */
   public static ensureNpcTraits(npc: NpcProfile): NpcProfile {
     if (npc.personalityTraits && npc.personalityTraits.length > 0) {
       return npc;
     }
-    // Seeded RNG from the NPC id (mulberry32)
-    let h = 0;
-    for (let i = 0; i < npc.id.length; i++) h = (h * 31 + npc.id.charCodeAt(i)) | 0;
-    const rand = () => {
-      h |= 0; h = (h + 0x6d2b79f5) | 0;
-      let t = Math.imul(h ^ (h >>> 15), 1 | h);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
     const traits: NpcTrait[] = [];
     const available = [...ALL_NPC_TRAITS];
-    const traitCount = 2 + Math.floor(rand() * 2);
+    const traitCount = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < traitCount; i++) {
-      const idx = Math.floor(rand() * available.length);
+      const idx = Math.floor(Math.random() * available.length);
       traits.push(available[idx]);
       available.splice(idx, 1);
     }
     return {
       ...npc,
       personalityTraits: traits,
-      trustLevel: npc.trustLevel ?? 30 + Math.floor(rand() * 30),
-      compatibilityScore: npc.compatibilityScore ?? Math.floor(45 + rand() * 40),
+      trustLevel: npc.trustLevel ?? 50,
+      compatibilityScore: npc.compatibilityScore ?? Math.floor(50 + Math.random() * 40),
       history: npc.history || [],
       weeksInCurrentStage: npc.weeksInCurrentStage || 0,
     };
@@ -463,9 +452,7 @@ export class RelationshipEngine {
       case 'Married':
         return { success: false, message: 'Already happily married! Access Family options in the Family tab.' };
       default:
-        // Unknown/corrupted stages must NOT free-advance — the engine's
-        // ladder is the only path (gifts no longer force stage changes).
-        return { success: false, message: `Stage "${currStage}" is not part of the progression ladder. Advance through the normal stages (Acquaintance → Friend → Close Friend → Dating → Exclusive → Partner).` };
+        nextStage = 'Friend';
     }
 
     if (!nextStage) {
@@ -575,8 +562,7 @@ export class RelationshipEngine {
   }
 
   /**
-   * Evaluate Proposal — now with a HARD WEEKS GATE: 8+ weeks as Partner
-   * (or 12+ as Exclusive) before the question can even be asked.
+   * Evaluate Proposal
    */
   public static evaluateProposal(
     player: Player,
@@ -600,16 +586,6 @@ export class RelationshipEngine {
       };
     }
 
-    // WEEKS GATE — time together is non-negotiable
-    const weeksNeeded = prep.stage === 'Partner' ? 8 : 12;
-    if (weeks < weeksNeeded) {
-      return {
-        accepted: false,
-        status: 'DELAYED',
-        message: `${prep.name} asked to wait: "We've been ${prep.stage.toLowerCase()} for ${weeks} week${weeks === 1 ? '' : 's'} — I need at least ${weeksNeeded} before forever."`,
-      };
-    }
-
     if (level < 80 || trust < 75) {
       return {
         accepted: false,
@@ -630,97 +606,6 @@ export class RelationshipEngine {
       accepted: true,
       status: 'ACCEPTED',
       message: `${prep.name} said YES! "I can't wait to spend the rest of my life with you!"`,
-    };
-  }
-
-  // ============================================================
-  // PREGNANCY & BIRTH — real conception roll, weekly countdown,
-  // birth event creates a named ChildRecord + inbox notice.
-  // ============================================================
-
-  /** Try to conceive — married couples only, 55% success roll */
-  public static tryConceive(
-    player: Player,
-    npc: NpcProfile,
-    childName: string,
-    childGender: 'Male' | 'Female' | 'Non-Binary'
-  ): { success: boolean; message: string; updatedNpc?: NpcProfile } {
-    const prep = this.ensureNpcTraits(npc);
-    if (prep.stage !== 'Married') {
-      return { success: false, message: 'Children are a marriage blessing — tie the knot first.' };
-    }
-    if (prep.pregnancy) {
-      return { success: false, message: `${prep.name} is already expecting — ${prep.pregnancy.weeksUntilBirth} week${prep.pregnancy.weeksUntilBirth === 1 ? '' : 's'} to go.` };
-    }
-    // Fertility window: very high affinity couples conceive easier
-    const chance = 0.35 + Math.min(0.35, (prep.relationshipLevel || 0) / 200);
-    if (Math.random() > chance) {
-      return { success: false, message: `Not this time — ${prep.name} suggests trying again next week. (Fertility roll failed — high affinity improves odds.)` };
-    }
-    const totalWeeks = 36 + Math.floor(Math.random() * 5); // 36-40 weeks
-    const updatedNpc: NpcProfile = {
-      ...prep,
-      pregnancy: {
-        weeksUntilBirth: totalWeeks,
-        totalWeeks,
-        childName: childName.trim() || (childGender === 'Male' ? 'Leo' : childGender === 'Female' ? 'Aria' : 'Taylor'),
-        childGender,
-        conceivedWeek: player.dateWeek || 1,
-        conceivedYear: player.dateYear || 2026,
-      },
-    };
-    return {
-      success: true,
-      message: `🎉 ${prep.name} is pregnant! The baby is due in ${totalWeeks} weeks — the countdown has started.`,
-      updatedNpc,
-    };
-  }
-
-  /** Weekly pregnancy tick — returns a ChildRecord on birth, else null */
-  public static advancePregnancy(
-    player: Player,
-    npc: NpcProfile
-  ): { updatedNpc: NpcProfile; bornChild: ChildRecord | null } {
-    if (!npc.pregnancy) return { updatedNpc: npc, bornChild: null };
-    const preg = npc.pregnancy;
-    const weeksLeft = preg.weeksUntilBirth - 1;
-
-    if (weeksLeft > 0) {
-      return {
-        updatedNpc: { ...npc, pregnancy: { ...preg, weeksUntilBirth: weeksLeft } },
-        bornChild: null,
-      };
-    }
-
-    // BIRTH — create the named child, clear pregnancy, log history
-    const child: ChildRecord = {
-      id: `child_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-      name: preg.childName,
-      gender: preg.childGender,
-      age: 0,
-      schoolType: 'Public School',
-      personality: 'Creative & Energetic',
-      birthYear: player.dateYear || 2026,
-      birthWeek: player.dateWeek || 1,
-    };
-    const history = [...(npc.history || [])];
-    history.push({
-      id: `birth_${Date.now()}`,
-      type: 'CHILD' as any,
-      title: `Welcome Baby ${child.name}!`,
-      description: `${npc.name} gave birth to ${child.name} (${child.gender}). Conceived WK ${preg.conceivedWeek}, ${preg.conceivedYear} — carried ${preg.totalWeeks} weeks.`,
-      timestamp: `Week ${player.dateWeek || 1}, Year ${player.dateYear || 2026}`,
-    });
-
-    return {
-      updatedNpc: {
-        ...npc,
-        pregnancy: undefined,
-        children: [...(npc.children || []), child],
-        history,
-        relationshipLevel: Math.min(100, (npc.relationshipLevel || 0) + 5),
-      },
-      bornChild: child,
     };
   }
 

@@ -6,7 +6,6 @@
 
 import { Player, InboxMessage } from '../types/game';
 import { SocialPost, HiredWriter, PremiumState, RedditPost, RedditComment, TelegramStory, MarqueeJob } from '../types/world';
-import { monthOfWeek, closingMonthOfWeek } from '../utils/calendar';
 import { RepresentationService } from './representationService';
 
 export type PlatformType = 'Twitter' | 'Facebook' | 'Instagram' | 'Reddit' | 'YouTube' | 'Telegram';
@@ -103,300 +102,6 @@ export interface YouTubeVideo {
   duration: string;
   durationSec: number;
   isEvergreen: boolean;
-  /** Publish-slot reach multiplier (Sat 7PM prime = 1.18) */
-  slotBoost?: number;
-  /** Pre-flight algorithm score at publish time (0-100) */
-  algoScore?: number;
-}
-
-/** A payout requested from the YT mini-bank — clears in 1-5 weeks */
-export interface YouTubePendingPayout {
-  id: string;
-  gross: number;
-  taxWithheld: number;
-  net: number;
-  weeksRemaining: number;
-  totalWeeks: number;
-  requestedWeek: number;
-  requestedYear: number;
-}
-
-/** A video scheduled to publish on a future week + audience slot */
-export interface YouTubeScheduledUpload {
-  id: string;
-  title: string;
-  category: YouTubeVideo['category'];
-  slotBoost: number;
-  slotLabel: string;
-  algoScore: number;
-  publishWeek: number;
-  publishYear: number;
-  createdWeek: number;
-  createdYear: number;
-}
-
-/**
- * CHANNEL AUTHORITY LADDER — the slow burn. Weekly view ceilings are hard
- * caps per tier; crossing 1M lifetime views realistically requires Tier 4+
- * which takes 1-2 game years of consistent uploads. XP: +9/upload, +5 bonus
- * for score ≥70, engagement drips, −4 for skipped weeks after channel start.
- */
-export const YT_AUTHORITY_TIERS = [
-  { tier: 1, name: 'Cold Start',        minXp: 0,    weeklyViewCap: 300,    rpm: 0 },
-  { tier: 2, name: 'Rising Creator',    minXp: 130,  weeklyViewCap: 2500,   rpm: 2.0 },
-  { tier: 3, name: 'Established Channel', minXp: 420, weeklyViewCap: 18000, rpm: 3.0 },
-  { tier: 4, name: 'Featured Creator',  minXp: 900,  weeklyViewCap: 90000,  rpm: 4.0 },
-  { tier: 5, name: 'Premium Creator',   minXp: 1600, weeklyViewCap: 260000, rpm: 5.0 },
-] as const;
-
-export function ytAuthorityTier(xp: number): (typeof YT_AUTHORITY_TIERS)[number] {
-  let t: (typeof YT_AUTHORITY_TIERS)[number] = YT_AUTHORITY_TIERS[0];
-  for (const tier of YT_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
-  return t;
-}
-
-/** Publish slots — audience windows with real reach multipliers */
-export const YT_SLOTS = [
-  { id: 'mon_9am', label: 'Monday 9AM', boost: 1.02, hint: 'dead scroll hours' },
-  { id: 'noon', label: 'Weekday Noon', boost: 1.06, hint: 'decent lunch traffic' },
-  { id: 'sun_10am', label: 'Sunday 10AM', boost: 1.08, hint: 'weekend slow browse' },
-  { id: 'fri_5pm', label: 'Friday 5PM', boost: 1.11, hint: 'pre-weekend binge wave' },
-  { id: 'sat_7pm', label: 'Saturday 7PM PRIME', boost: 1.18, hint: 'your audience peak' },
-] as const;
-
-export const YT_PAYOUT_TAX_PCT = 0.2; // 20% withheld at transfer request
-
-// ============================================================
-// GRAM CREATOR HQ — Instagram reach-tier system. NO fake
-// followers, NO fake simulation: reach is tier-capped, converts
-// to REAL followers (state.followers.Instagram) at a small rate,
-// and bonus revenue accrues to the IG mini-bank only.
-// ============================================================
-
-/** An Instagram creator post (scheduled → published into the real feed) */
-export interface InstagramCreatorPost {
-  id: string;
-  caption: string;
-  postType: 'PHOTO' | 'CAROUSEL' | 'REEL' | 'STORY' | 'COLLAB' | 'BTS';
-  slotBoost: number;
-  slotLabel: string;
-  algoScore: number;
-  publishWeek: number;
-  publishYear: number;
-  createdWeek: number;
-  createdYear: number;
-  /** Set when published — graded by real reach */
-  published?: boolean;
-  reach?: number;
-  likes?: number;
-  saves?: number;
-  followersGained?: number;
-  revenue?: number;
-}
-
-/** IG reach tiers — HARD weekly reach ceilings per authority tier */
-export const IG_AUTHORITY_TIERS = [
-  { tier: 1, name: 'Test Audience',    minXp: 0,    weeklyReachCap: 2500,   rpm: 0 },
-  { tier: 2, name: 'Explore Batches',  minXp: 120,  weeklyReachCap: 20000,  rpm: 1.8 },
-  { tier: 3, name: 'Featured Gram',    minXp: 400,  weeklyReachCap: 140000, rpm: 2.8 },
-  { tier: 4, name: 'Viral Candidate',  minXp: 900,  weeklyReachCap: 700000, rpm: 3.8 },
-  { tier: 5, name: 'Gram Elite',       minXp: 1600, weeklyReachCap: 2000000, rpm: 4.8 },
-] as const;
-
-export function igAuthorityTier(xp: number): (typeof IG_AUTHORITY_TIERS)[number] {
-  let t: (typeof IG_AUTHORITY_TIERS)[number] = IG_AUTHORITY_TIERS[0];
-  for (const tier of IG_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
-  return t;
-}
-
-/** IG audience slots with real reach multipliers */
-export const IG_SLOTS = [
-  { id: 'mon_11am', label: 'Weekday 11AM', boost: 1.05, hint: 'late-morning scroll' },
-  { id: 'wed_2pm', label: 'Weekday 2PM', boost: 1.09, hint: 'lunch-scroll wave' },
-  { id: 'fri_8pm', label: 'Friday 8PM', boost: 1.11, hint: 'pre-weekend night scroll' },
-  { id: 'sat_7pm', label: 'Saturday 7PM PRIME', boost: 1.15, hint: 'your audience peak' },
-] as const;
-
-export const IG_PAYOUT_TAX_PCT = 0.2; // 20% withheld at IG transfer request
-
-// ============================================================
-// X CREATOR HQ — Twitter/X impressions-tier system. Same rules
-// as YouTube/Instagram: NO fake followers — impressions convert
-// at a small real rate into the account's TRUE follower count,
-// and ad-revenue payouts accrue to the X mini-bank only after
-// the real-follower gate (5,000) is passed.
-// ============================================================
-
-/** A scheduled/published X creator tweet */
-export interface TwitterCreatorPost {
-  id: string;
-  text: string;
-  tweetType: 'HOT_TAKE' | 'THREAD' | 'BTS_CLIP' | 'POLL' | 'TRENDING_REACT' | 'MEDIA_DROP';
-  slotBoost: number;
-  slotLabel: string;
-  algoScore: number;
-  publishWeek: number;
-  publishYear: number;
-  createdWeek: number;
-  createdYear: number;
-  published?: boolean;
-  impressions?: number;
-  likes?: number;
-  reposts?: number;
-  replies?: number;
-  followersGained?: number;
-  revenue?: number;
-}
-
-/** X impression tiers — HARD weekly caps per authority tier */
-export const TW_AUTHORITY_TIERS = [
-  { tier: 1, name: 'Testing You',     minXp: 0,    weeklyImpressionCap: 3000,   rpm: 0 },
-  { tier: 2, name: 'Getting Reach',   minXp: 110,  weeklyImpressionCap: 25000,  rpm: 1.6 },
-  { tier: 3, name: 'Timeline Regular', minXp: 380, weeklyImpressionCap: 160000, rpm: 2.6 },
-  { tier: 4, name: 'Trendsetter',     minXp: 880,  weeklyImpressionCap: 800000, rpm: 3.6 },
-  { tier: 5, name: 'X Elite',         minXp: 1600, weeklyImpressionCap: 2500000, rpm: 4.6 },
-] as const;
-
-export function twAuthorityTier(xp: number): (typeof TW_AUTHORITY_TIERS)[number] {
-  let t: (typeof TW_AUTHORITY_TIERS)[number] = TW_AUTHORITY_TIERS[0];
-  for (const tier of TW_AUTHORITY_TIERS) if (xp >= tier.minXp) t = tier;
-  return t;
-}
-
-/** X audience slots with real impression multipliers */
-export const TW_SLOTS = [
-  { id: 'mon_8am', label: 'Weekday 8AM', boost: 1.06, hint: 'morning-coffee scroll' },
-  { id: 'wed_12pm', label: 'Weekday Noon', boost: 1.08, hint: 'lunch-break timeline' },
-  { id: 'fri_6pm', label: 'Friday 6PM', boost: 1.12, hint: 'end-of-week dump' },
-  { id: 'sat_9pm', label: 'Saturday 9PM PRIME', boost: 1.16, hint: 'night-scroll peak' },
-] as const;
-
-export const TW_PAYOUT_TAX_PCT = 0.2;
-/** Payouts unlock at this many REAL followers (plus tier 2+) */
-export const TW_PAYOUT_FOLLOWER_GATE = 5000;
-
-/** X pre-flight algorithm score */
-export function computeTwAlgoScore(input: {
-  text: string;
-  tweetType: TwitterCreatorPost['tweetType'];
-  slotBoost: number;
-  authorityXp: number;
-  hasActiveMovie: boolean;
-}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
-  const t = input.text.trim();
-  let hookScore = 30;
-  if (t.length >= 20) hookScore += 8;
-  if (/\d/.test(t)) hookScore += 12;
-  if (/(nobody|everyone|truth|unpopular|hot take|day \d|thread|behind|just|finally|never)/i.test(t)) hookScore += 20;
-  if (/[?!]/.test(t)) hookScore += 6;
-  if (t.length > 0 && t.length < 10) hookScore -= 12;
-  hookScore = Math.max(5, Math.min(100, hookScore));
-
-  let typeScore = 55;
-  if (input.tweetType === 'BTS_CLIP') typeScore = input.hasActiveMovie ? 90 : 35;
-  else if (input.tweetType === 'HOT_TAKE') typeScore = 78;
-  else if (input.tweetType === 'THREAD') typeScore = 70;
-  else if (input.tweetType === 'TRENDING_REACT') typeScore = 72;
-  else if (input.tweetType === 'POLL') typeScore = 60;
-  else if (input.tweetType === 'MEDIA_DROP') typeScore = 62;
-
-  const slotScoreC = Math.max(30, Math.min(100, Math.round((input.slotBoost - 1) * 320 + 55)));
-  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
-
-  const score = Math.round(hookScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
-  return {
-    score,
-    factors: [
-      { label: 'Hook strength', value: hookScore, tip: /\d/.test(t) ? 'Number + pattern words — strong hook.' : 'Open with a number or "Nobody/Everyone/Truth" pattern for +12.' },
-      { label: 'Type fit', value: typeScore, tip: input.tweetType === 'BTS_CLIP' && !input.hasActiveMovie ? 'BTS clips score low without a movie in production/theaters.' : 'Good fit for your current career state.' },
-      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.14 ? 'Prime night-scroll window.' : 'Sat 9PM PRIME adds the biggest first-hour impressions.' },
-      { label: 'Account authority', value: authScore, tip: authScore < 40 ? 'Testing phase: impressions capped hard. Consistency is the only fix.' : 'Authority raising your impression ceiling.' },
-    ],
-  };
-}
-
-/** IG pre-flight algorithm score (caption hook, type fit, slot, authority) */
-export function computeIgAlgoScore(input: {
-  caption: string;
-  postType: InstagramCreatorPost['postType'];
-  slotBoost: number;
-  authorityXp: number;
-  hasActiveMovie: boolean;
-}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
-  const c = input.caption.trim();
-  let capScore = 30;
-  if (c.length >= 15) capScore += 10;
-  if (/\d/.test(c)) capScore += 14;
-  if (/(day|days|behind|first|secret|truth|set|story|never|last|on set|bts)/i.test(c)) capScore += 18;
-  if (c.length > 0 && c.length < 8) capScore -= 10;
-  if (/[?!]/.test(c)) capScore += 6;
-  capScore = Math.max(5, Math.min(100, capScore));
-
-  let typeScore = 55;
-  if (input.postType === 'BTS') typeScore = input.hasActiveMovie ? 92 : 35;
-  else if (input.postType === 'REEL') typeScore = 80;
-  else if (input.postType === 'CAROUSEL') typeScore = 72;
-  else if (input.postType === 'COLLAB') typeScore = 68;
-  else if (input.postType === 'STORY') typeScore = 50;
-  else if (input.postType === 'PHOTO') typeScore = 58;
-
-  const slotScoreC = Math.max(30, Math.min(100, Math.round((input.slotBoost - 1) * 340 + 55)));
-  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
-
-  const score = Math.round(capScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
-  return {
-    score,
-    factors: [
-      { label: 'Caption hook', value: capScore, tip: /\d/.test(c) ? 'Number + emotion detected — saves incoming.' : 'Add a number and emotion in line one for +14.' },
-      { label: 'Save potential', value: typeScore, tip: input.postType === 'BTS' && !input.hasActiveMovie ? 'BTS scores low without a movie in production/theaters.' : 'Type fits your current career state.' },
-      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.13 ? 'Prime window — most of your followers scrolling.' : 'Sat 7PM PRIME adds the biggest first-hour reach.' },
-      { label: 'Account authority', value: authScore, tip: authScore < 40 ? 'Test-audience phase: reach is capped hard. Consistency is the only fix.' : 'Authority raising your reach ceiling.' },
-    ],
-  };
-}
-
-/**
- * Pre-flight algorithm score (0-100) — mirrors what the weekly engine will
- * use. Factors: title strength, category fit (BTS needs a live movie),
- * slot timing, channel authority.
- */
-export function computeYtAlgoScore(input: {
-  title: string;
-  category: YouTubeVideo['category'];
-  slotBoost: number;
-  authorityXp: number;
-  hasActiveMovie: boolean;
-}): { score: number; factors: Array<{ label: string; value: number; tip: string }> } {
-  const t = input.title.trim();
-  let titleScore = 30;
-  if (t.length >= 25) titleScore += 12;
-  if (/\d/.test(t)) titleScore += 14; // numbers perform
-  if (/(first|secret|truth|day|days|behind|story|changed|spent|inside)/i.test(t)) titleScore += 18; // proven patterns
-  if (t.length > 0 && t.length < 12) titleScore -= 10; // lazy titles die
-  titleScore = Math.max(5, Math.min(100, titleScore));
-
-  let typeScore = 55;
-  if (input.category === 'BEHIND_SCENES') typeScore = input.hasActiveMovie ? 90 : 35;
-  else if (input.category === 'TRAILER') typeScore = input.hasActiveMovie ? 82 : 60;
-  else if (input.category === 'INTERVIEW') typeScore = 62;
-  else if (input.category === 'AWARD_SPEECH') typeScore = 75;
-  else if (input.category === 'LIVESTREAM') typeScore = 58;
-
-  const slotScore = Math.round((input.slotBoost - 1) * 320 + 55); // 1.02→58, 1.18→82... clamp
-  const slotScoreC = Math.max(30, Math.min(100, slotScore));
-
-  const authScore = Math.max(8, Math.min(100, Math.round(input.authorityXp / 16)));
-
-  const score = Math.round(titleScore * 0.3 + typeScore * 0.3 + slotScoreC * 0.15 + authScore * 0.25);
-  return {
-    score,
-    factors: [
-      { label: 'Title strength', value: titleScore, tip: /\d/.test(t) ? 'Numbers + stakes detected — strong.' : 'Add a number and stakes ("30 Days...", "$1M...") for +14.' },
-      { label: 'Type relevance', value: typeScore, tip: input.category === 'BEHIND_SCENES' && !input.hasActiveMovie ? 'BTS scores low without a movie in production/theaters.' : 'Good fit for your current career state.' },
-      { label: 'Slot timing', value: slotScoreC, tip: input.slotBoost >= 1.15 ? 'Prime window — your audience peaks here.' : 'Sat 7PM PRIME adds the biggest first-week boost.' },
-      { label: 'Channel authority', value: authScore, tip: authScore < 40 ? 'Cold start: the algorithm tests you on small audiences. Consistency is the only fix.' : 'Authority working for you.' },
-    ],
-  };
 }
 
 export interface NpcYouTubeChannel {
@@ -604,59 +309,7 @@ export interface SocialsState {
   marqueeConnections: number;
   facebookFriends: number;
   creatorStudio: { totalImpressions: number; totalAdRevenue: number; weeklyAdRevenue: number };
-  // SOCIAL ACCOUNTS V3: separate account creation per platform + per-platform weekly activity
-  socialAccounts?: Record<string, { handle: string; createdWeek: number; createdYear: number }>;
-  postsThisWeekByPlatform?: Record<string, number>;
-  // ---- YOUTUBE CREATOR HQ (v4) ----
-  /** Channel authority XP — drives tier caps (the slow burn) */
-  youtubeAuthorityXp?: number;
-  /** YT mini-bank: accrued AdSense balance waiting to be transferred */
-  youtubeBalance?: number;
-  /** Transfers in flight (tax already withheld, clears in 1-5 weeks) */
-  youtubePendingPayouts?: YouTubePendingPayout[];
-  /** Videos scheduled to publish on future weeks */
-  youtubeScheduled?: YouTubeScheduledUpload[];
-  /** Lifetime uploads (authority consistency tracking) */
-  youtubeLifetimeUploads?: number;
-  /** Consecutive weeks with at least one upload/video published */
-  youtubeUploadStreak?: number;
-  /** Last week/year the weekly processor ran (scheduling anchor) */
-  lastProcessedYear?: number;
-  // ---- GRAM CREATOR HQ (Instagram v4) ----
-  /** IG authority XP — drives reach-tier caps */
-  instagramAuthorityXp?: number;
-  /** IG mini-bank: accrued Creator Bonus balance */
-  instagramBalance?: number;
-  /** IG transfers in flight (tax withheld, clear in 1-5 weeks) */
-  instagramPendingPayouts?: YouTubePendingPayout[];
-  /** IG posts scheduled to publish on future weeks */
-  instagramScheduled?: InstagramCreatorPost[];
-  /** Published creator posts (graded by real reach) */
-  instagramCreatorPosts?: InstagramCreatorPost[];
-  /** Lifetime creator posts (consistency tracking) */
-  instagramLifetimePosts?: number;
-  /** Consecutive weeks with at least one creator post */
-  instagramPostStreak?: number;
-  /** Creator Bonus accrued last week (bank display) */
-  instagramAccruedLastWeek?: number;
-  // ---- X CREATOR HQ (Twitter v4) ----
-  twitterAuthorityXp?: number;
-  twitterBalance?: number;
-  twitterPendingPayouts?: YouTubePendingPayout[];
-  twitterScheduled?: TwitterCreatorPost[];
-  twitterCreatorPosts?: TwitterCreatorPost[];
-  twitterLifetimePosts?: number;
-  twitterPostStreak?: number;
-  twitterAccruedLastWeek?: number;
-  /** How many manual feed posts have been converted into tracked creator tweets */
-  twitterTrackedFeedCount?: number;
-  /** Global monthly social earnings tracker — hard cap $25K, floor $5K when active */
-  socialMonthlyEarnings?: { year: number; month: string; accrued: number; postsCounted: number };
 }
-
-/** Monthly social-earnings envelope: real-engine range $5,000-$25,000 */
-export const SOCIAL_MONTHLY_CAP = 25000;
-export const SOCIAL_MONTHLY_FLOOR = 5000;
 
 const STORAGE_KEY = 'HOLLYWOOD_SOCIALS_FULL_STATE_V3';
 
@@ -900,56 +553,12 @@ export class SocialsService {
         if (this.state) {
           if (this.state.youtubeWatchHours === undefined) this.state.youtubeWatchHours = 0;
           if (!this.state.youtubeMonetizationStatus) this.state.youtubeMonetizationStatus = 'NOT_ELIGIBLE';
-          // ---- CREATOR HQ MIGRATION (v4) ----
-          if (typeof this.state.youtubeAuthorityXp !== 'number') {
-            // Seed authority from existing channel so long-time creators keep progress
-            const lifetimeVids = this.state.youtubeAlgorithm?.lifetimeVideos || this.state.youtubeVideos.length;
-            const viewsSeed = Math.floor((this.state.youtubeTotalViews || 0) / 1000);
-            this.state.youtubeAuthorityXp = Math.min(1500, lifetimeVids * 9 + viewsSeed);
-          }
-          if (typeof this.state.youtubeBalance !== 'number') this.state.youtubeBalance = 0;
-          if (!Array.isArray(this.state.youtubePendingPayouts)) this.state.youtubePendingPayouts = [];
-          if (!Array.isArray(this.state.youtubeScheduled)) this.state.youtubeScheduled = [];
-          if (typeof this.state.youtubeLifetimeUploads !== 'number') this.state.youtubeLifetimeUploads = this.state.youtubeVideos.length;
-          if (typeof this.state.youtubeUploadStreak !== 'number') this.state.youtubeUploadStreak = 0;
-          // ---- GRAM HQ MIGRATION (v4) ----
-          if (typeof this.state.instagramAuthorityXp !== 'number') {
-            // Seed from real account size so existing accounts keep progress
-            const igFollowers = this.state.followers.Instagram || 0;
-            this.state.instagramAuthorityXp = Math.min(1500, Math.floor(igFollowers / 40));
-          }
-          if (typeof this.state.instagramBalance !== 'number') this.state.instagramBalance = 0;
-          if (!Array.isArray(this.state.instagramPendingPayouts)) this.state.instagramPendingPayouts = [];
-          if (!Array.isArray(this.state.instagramScheduled)) this.state.instagramScheduled = [];
-          if (!Array.isArray(this.state.instagramCreatorPosts)) this.state.instagramCreatorPosts = [];
-          if (typeof this.state.instagramLifetimePosts !== 'number') this.state.instagramLifetimePosts = 0;
-          if (typeof this.state.instagramPostStreak !== 'number') this.state.instagramPostStreak = 0;
-          // ---- X HQ MIGRATION (v4) ----
-          if (typeof this.state.twitterAuthorityXp !== 'number') {
-            const twFollowers = this.state.followers.Twitter || 0;
-            this.state.twitterAuthorityXp = Math.min(1500, Math.floor(twFollowers / 40));
-          }
-          if (typeof this.state.twitterBalance !== 'number') this.state.twitterBalance = 0;
-          if (!Array.isArray(this.state.twitterPendingPayouts)) this.state.twitterPendingPayouts = [];
-          if (!Array.isArray(this.state.twitterScheduled)) this.state.twitterScheduled = [];
-          if (!Array.isArray(this.state.twitterCreatorPosts)) this.state.twitterCreatorPosts = [];
-          if (typeof this.state.twitterLifetimePosts !== 'number') this.state.twitterLifetimePosts = 0;
-          if (typeof this.state.twitterPostStreak !== 'number') this.state.twitterPostStreak = 0;
-          // Seed the tracked count so OLD feed posts don't retroactively convert
-          if (typeof this.state.twitterTrackedFeedCount !== 'number') {
-            this.state.twitterTrackedFeedCount = (this.state.playerPosts?.Twitter?.length) || 0;
-          }
-          if (!this.state.socialMonthlyEarnings) {
-            this.state.socialMonthlyEarnings = { year: this.state.lastProcessedYear || 2026, month: 'January', accrued: 0, postsCounted: 0 };
-          }
           if (this.state.youtubeReviewWeeksLeft === undefined) this.state.youtubeReviewWeeksLeft = 0;
           if (this.state.youtubeCommunityStrikes === undefined) this.state.youtubeCommunityStrikes = 0;
           if (this.state.youtubeCopyrightStrikes === undefined) this.state.youtubeCopyrightStrikes = 0;
           if (!this.state.youtubeAlgorithmStatus) this.state.youtubeAlgorithmStatus = 'Observing New Creator';
           if (!this.state.youtubeChannelHealth) this.state.youtubeChannelHealth = 'Good Standing';
           if (!this.state.npcYouTubeChannels) this.state.npcYouTubeChannels = DEFAULT_NPC_YOUTUBE_CHANNELS;
-          if (!this.state.socialAccounts) this.state.socialAccounts = {};
-          if (!this.state.postsThisWeekByPlatform) this.state.postsThisWeekByPlatform = {};
         }
         return this.state!;
       }
@@ -1222,30 +831,6 @@ export class SocialsService {
       youtubeWatchHours: 0,
       youtubeTotalViews: 0,
       youtubeMonetizationStatus: 'NOT_ELIGIBLE',
-      youtubeAuthorityXp: 0,
-      youtubeBalance: 0,
-      youtubePendingPayouts: [],
-      youtubeScheduled: [],
-      youtubeLifetimeUploads: 0,
-      youtubeUploadStreak: 0,
-      instagramAuthorityXp: 0,
-      instagramBalance: 0,
-      instagramPendingPayouts: [],
-      instagramScheduled: [],
-      instagramCreatorPosts: [],
-      instagramLifetimePosts: 0,
-      instagramPostStreak: 0,
-      instagramAccruedLastWeek: 0,
-      twitterAuthorityXp: 0,
-      twitterBalance: 0,
-      twitterPendingPayouts: [],
-      twitterScheduled: [],
-      twitterCreatorPosts: [],
-      twitterLifetimePosts: 0,
-      twitterPostStreak: 0,
-      twitterAccruedLastWeek: 0,
-      twitterTrackedFeedCount: 0,
-      socialMonthlyEarnings: { year: 2026, month: 'January', accrued: 0, postsCounted: 0 },
       youtubeReviewWeeksLeft: 0,
       youtubeCommunityStrikes: 0,
       youtubeCopyrightStrikes: 0,
@@ -1268,8 +853,6 @@ export class SocialsService {
       marqueeConnections: 0,
       facebookFriends: 0,
       creatorStudio: { totalImpressions: 0, totalAdRevenue: 0, weeklyAdRevenue: 0 },
-      socialAccounts: {},
-      postsThisWeekByPlatform: {},
       analyticsHistory: [],
       trendingTopics: ['#HollywoodRising', '#BoxOfficeRecord', '#OscarBuzz', '#SAGAwards', '#CaliforniaFilm'],
     };
@@ -1285,102 +868,6 @@ export class SocialsService {
     } catch (e) {
       console.error('Failed to save Socials state', e);
     }
-  }
-
-  // ============================================================
-  // SOCIAL ACCOUNTS V3 — separate account creation per platform
-  // ============================================================
-  public static readonly PLATFORM_IDS = ['twitter', 'instagram', 'youtube', 'facebook', 'marquee', 'reddit', 'telegram'] as const;
-  public static readonly PLATFORM_LABEL: Record<string, string> = {
-    twitter: 'Twitter / X',
-    instagram: 'Instagram',
-    youtube: 'YouTube',
-    facebook: 'Facebook',
-    marquee: 'The Marquee',
-    reddit: 'Reddit',
-    telegram: 'Telegram',
-  };
-  // Platforms with a writer-postable feed (Marquee is a professional network — no ghostwriters)
-  public static readonly WRITER_PLATFORMS = ['twitter', 'instagram', 'youtube', 'facebook', 'reddit', 'telegram'] as const;
-
-  private static pidToFeed(pid: string): PlatformType | null {
-    const map: Record<string, PlatformType> = {
-      twitter: 'Twitter', instagram: 'Instagram', youtube: 'YouTube',
-      facebook: 'Facebook', reddit: 'Reddit', telegram: 'Telegram',
-    };
-    return map[pid] || null;
-  }
-
-  private static legacyActive(state: SocialsState, pid: string): boolean {
-    const feed = SocialsService.pidToFeed(pid);
-    if (feed && (state.followers[feed] || 0) > 0) return true;
-    if (feed && state.createdPlatforms && state.createdPlatforms[feed]) return true;
-    if (pid === 'marquee' && (state.marqueeConnections || 0) > 0) return true;
-    return false;
-  }
-
-  /** Does the player have a created account on this platform? Legacy saves with
-   *  existing progress are auto-materialized with a default handle. */
-  public static hasAccount(pid: string, player?: any): boolean {
-    const state = this.getState();
-    if (!state.socialAccounts) state.socialAccounts = {};
-    if (!state.socialAccounts[pid] && player && this.legacyActive(state, pid)) {
-      state.socialAccounts[pid] = {
-        handle: `@${String(player.firstName || 'player').toLowerCase()}${String(player.lastName || '').toLowerCase()}`,
-        createdWeek: player.dateWeek || 1,
-        createdYear: player.dateYear || 2026,
-      };
-      this.saveState(state);
-    }
-    return !!state.socialAccounts[pid];
-  }
-
-  public static getHandle(pid: string, player: any): string {
-    const acc = this.getState().socialAccounts?.[pid];
-    if (acc) return acc.handle;
-    return `@${String(player?.firstName || 'player').toLowerCase()}${String(player?.lastName || '').toLowerCase()}`;
-  }
-
-  /** Create (open) a social account with the player's chosen handle. */
-  public static createAccount(
-    pid: string,
-    handle: string,
-    player: any
-  ): { success: boolean; message: string; handle: string } {
-    const state = this.getState();
-    if (!state.socialAccounts) state.socialAccounts = {};
-    if (state.socialAccounts[pid]) return { success: false, message: `You already have a ${SocialsService.PLATFORM_LABEL[pid] || pid} account.`, handle: state.socialAccounts[pid].handle };
-
-    let clean = String(handle || '').trim().replace(/\s+/g, '_');
-    if (!clean) return { success: false, message: 'Choose a name for your account first.', handle: '' };
-    if (!clean.startsWith('@') && (pid === 'twitter' || pid === 'instagram' || pid === 'reddit' || pid === 'telegram' || pid === 'youtube' || pid === 'marquee')) clean = `@${clean}`;
-    if (clean.length < 3) return { success: false, message: 'Account name must be at least 3 characters.', handle: '' };
-
-    state.socialAccounts[pid] = {
-      handle: clean.slice(0, 24),
-      createdWeek: player?.dateWeek || 1,
-      createdYear: player?.dateYear || 2026,
-    };
-    this.saveState(state);
-    return { success: true, message: `${SocialsService.PLATFORM_LABEL[pid] || pid} account created — welcome, ${clean}!`, handle: clean };
-  }
-
-  /** Track that the player (or their writer) posted on a platform this week. */
-  public static notePlayerPost(pid: string): void {
-    const state = this.getState();
-    if (!state.postsThisWeekByPlatform) state.postsThisWeekByPlatform = {};
-    state.postsThisWeekByPlatform[pid] = (state.postsThisWeekByPlatform[pid] || 0) + 1;
-    this.saveState(state);
-  }
-
-  /** Player manual posting limit per platform per week. */
-  public static readonly PLAYER_POSTS_PER_WEEK = 2;
-
-  /** How many manual posts the player has left on a platform this week. */
-  public static playerPostsLeft(pid: string): number {
-    const state = this.getState();
-    const used = state.postsThisWeekByPlatform?.[pid] || 0;
-    return Math.max(0, SocialsService.PLAYER_POSTS_PER_WEEK - used);
   }
 
   /**
@@ -1432,7 +919,7 @@ export class SocialsService {
         senderRole: writer.agencyName || 'PR & Ghostwriting Agency',
         senderAvatar: writer.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
         subject: `RETAINER ACCEPTED: ${writer.name} joins your PR Team!`,
-        body: `Dear ${player.firstName},\n\nI have reviewed your Hollywood portfolio, recent filmography (${playerLeadRoles} Lead Roles), and public standing (${playerFame.toLocaleString()} Fame XP). My agency is pleased to accept your retainer proposal.\n\nBeginning this week, my team will craft and publish 2 detailed strategic posts per week directly on your official ${SocialsService.PLATFORM_LABEL[writer.platform || 'twitter'] || 'social'} feed. We will also monitor fan comments and optimize your follower growth.\n\nWeekly Retainer Fee: $${weeklyCost.toLocaleString()}\n\nWelcome to our client roster!\n\nBest regards,\n${writer.name}\n${writer.agencyName || 'Hollywood PR Media Group'}`,
+        body: `Dear ${player.firstName},\n\nI have reviewed your Hollywood portfolio, recent filmography (${playerLeadRoles} Lead Roles), and public standing (${playerFame.toLocaleString()} Fame XP). My agency is pleased to accept your retainer proposal.\n\nBeginning this week, my team will craft and publish ${writer.postsPerWeek} automated high-engagement strategic posts per week directly on your official social feed. We will also monitor fan comments and optimize your follower growth.\n\nWeekly Retainer Fee: $${weeklyCost.toLocaleString()}\n\nWelcome to our client roster!\n\nBest regards,\n${writer.name}\n${writer.agencyName || 'Hollywood PR Media Group'}`,
         date: dateStr,
         read: false,
       };
@@ -1484,199 +971,149 @@ export class SocialsService {
     weeklySponsorshipIncome: number;
     writerWeeklyCost?: number;
     youtubeRevenue?: number;
-    expiredWriters?: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }>;
-    /** YT mini-bank payouts that cleared this week → credit + inbox */
-    ytPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
-    /** IG mini-bank payouts that cleared this week → credit + inbox */
-    igPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
-    /** X mini-bank payouts that cleared this week → credit + inbox */
-    twPayoutArrivals?: Array<{ net: number; tax: number; gross: number; weeks: number }>;
-    /** YT ad revenue ACCRUED to the bank this week (display only — not wallet income) */
-    youtubeAccruedToBank?: number;
-    /** IG Creator Bonus ACCRUED to the bank this week (display only) */
-    instagramAccruedToBank?: number;
   } {
     const state = this.getState();
 
-    // ---- MONTHLY SOCIAL EARNINGS TRACKER ----
-    // One global envelope across all platforms: real-engine range
-    // $5,000 (active floor) to $25,000 (hard cap). Rolls over on month
-    // change; month-end payouts are handled at section 7h.
-    const monthNow = monthOfWeek(player.dateWeek || 1);
-    if (!state.socialMonthlyEarnings || state.socialMonthlyEarnings.month !== monthNow || state.socialMonthlyEarnings.year !== (player.dateYear || 2026)) {
-      state.socialMonthlyEarnings = { year: player.dateYear || 2026, month: monthNow, accrued: 0, postsCounted: 0 };
+    // 1. Reset Weekly Posts
+    let baseWeeklyPosts = 2;
+    const hiredWriter = state.writers.find((w) => w.hired);
+    if (hiredWriter) {
+      baseWeeklyPosts += Math.min(10, Math.floor(hiredWriter.postsPerWeek / 2));
     }
-    const remainingMonthlyCap = (): number => Math.max(0, SOCIAL_MONTHLY_CAP - (state.socialMonthlyEarnings?.accrued || 0));
 
-    // Hired writers — each retained for ONE platform (posting handled below).
-    // Player manual posts are capped at SocialsService.PLAYER_POSTS_PER_WEEK per platform.
-    const hiredWriters = state.writers.filter((w) => w.hired);
-    state.postsRemainingThisWeek = SocialsService.PLAYER_POSTS_PER_WEEK;
+    const spentPostsThisWeek = Math.max(0, baseWeeklyPosts - state.postsRemainingThisWeek);
+    state.postsRemainingThisWeek = baseWeeklyPosts;
 
     const socialPosts: string[] = [];
     const socialTrending: string[] = [];
     const socialReputation: string[] = [];
-    const expiredWriters: Array<{ name: string; agencyName?: string; platform?: string; avatar?: string }> = [];
-    const ytPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
-    const igPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
-    const twPayoutArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
     let fanGrowth = 0;
     let weeklySponsorshipIncome = 0;
     let writerWeeklyCost = 0;
 
-    // 2. Process PR Writers — SEPARATE WRITERS PER PLATFORM: each hired writer
-    // auto-posts ONLY on the platform they were retained for
-    const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
-    const realTitle = latestRealMovie?.movieTitle || '';
-    const realGross = latestRealMovie?.worldwideGross || 0;
-    const realAud = latestRealMovie?.audienceRating || 0;
-    const realAwards = (player as any).awardsWon || 0;
-    const realCritic = latestRealMovie?.criticRating || 0;
-    const realOpening = latestRealMovie?.openingWeekendGross || 0;
-    const realPosition = latestRealMovie?.boxOfficePosition || 0;
-    const realWeeks = latestRealMovie?.weeksInCinemas || 0;
-    const realIntl = latestRealMovie?.internationalGross || 0;
-    const realRole = latestRealMovie?.roleType === 'Lead' ? 'leading' : latestRealMovie?.roleType === 'Principal' ? 'principal' : 'supporting';
-    const tag = realTitle ? realTitle.replace(/[^a-zA-Z0-9]/g, '') : '';
-    const mM = (v: number) => `$${(v / 1000000).toFixed(1)}M`;
-    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-    // Endless writer copy — the writer draws from the deep topic pool with
-    // real data baked in and their specialty coloring the voice. Millions of
-    // combinations; a feed never repeats.
-    const writerPostData: WriterPostData = {
-      title: realTitle,
-      gross: realGross,
-      opening: realOpening,
-      position: realPosition,
-      aud: realAud,
-      critic: realCritic,
-      intl: realIntl,
-      weeks: realWeeks,
-      awards: realAwards,
-      role: realRole,
-      firstName: player.firstName,
-      tag,
-    };
-
-    const usedWriterTexts = new Set<string>();
-
-    for (const hiredWriter of hiredWriters) {
+    // 2. Process PR Writers (Automated posting & Engagement boost)
+    let writerPostCount = 0;
+    if (hiredWriter) {
       hiredWriter.postsThisWeek = 0;
       if (hiredWriter.contractWeeksRemaining > 0) {
         hiredWriter.contractWeeksRemaining -= 1;
       }
-      if (hiredWriter.contractWeeksRemaining <= 0) {
-        hiredWriter.hired = false;
-        socialPosts.push(`📄 ${hiredWriter.name}'s ${SocialsService.PLATFORM_LABEL[hiredWriter.platform || 'twitter'] || ''} retainer expired.`);
-        expiredWriters.push({ name: hiredWriter.name, agencyName: hiredWriter.agencyName, platform: hiredWriter.platform, avatar: hiredWriter.avatar });
-        continue;
-      }
 
-      const pid = hiredWriter.platform || 'twitter';
-      const feed = SocialsService.pidToFeed(pid);
-      if (!feed || !this.hasAccount(pid, player)) continue;
-      if (player.money < writerWeeklyCost + hiredWriter.weeklyCost) continue; // can't afford this writer this week
+      if (player.money >= hiredWriter.weeklyCost) {
+        writerWeeklyCost = hiredWriter.weeklyCost;
+        writerPostCount = Math.min(4, Math.max(1, Math.floor(hiredWriter.postsPerWeek / 2)));
 
-      writerWeeklyCost += hiredWriter.weeklyCost;
-      // 2 posts every week; a 3rd "bonus" post can land while the movie is
-      // still in theaters (fresh numbers = fresh news worth posting)
-      const count = 2 + (realTitle && (latestRealMovie as any)?.inCinemas && Math.random() < 0.4 ? 1 : 0);
+        // Ghostwriter posts on player feed — references REAL events (releases, box office, awards)
+        const mainPlatform: PlatformType = 'Twitter';
+        if (state.createdPlatforms[mainPlatform]) {
+          const latestRealMovie = saveData?.releasedMovies && saveData.releasedMovies.length > 0 ? saveData.releasedMovies[0] : null;
+          const realTitle = latestRealMovie?.movieTitle || '';
+          const realGross = latestRealMovie?.worldwideGross || 0;
+          const realAud = latestRealMovie?.audienceRating || 0;
+          const realAwards = (player as any).awardsWon || 0;
+          const writerPostTemplates = [
+            realTitle
+              ? `'${realTitle}' is IN THEATERS NOW! ${realGross > 0 ? `Already past $${(realGross / 1000000).toFixed(1)}M worldwide ` : ''}— thank you to every single fan who showed up! 🎬🍿 #${realTitle.replace(/[^a-zA-Z0-9]/g, '')}`
+              : `Behind the scenes in Hollywood! Working hard with top directors on upcoming projects. Special thanks to all the amazing fans supporting the journey! 🎬✨`,
+            realTitle
+              ? `The critics are loving '${realTitle}' (${realAud}% audience score)! This is only the beginning of the ride. 🔥`
+              : `Exciting development meeting with major studio executives today. Big announcements coming very soon for all supporters! 🍿🔥`,
+            realAwards > 0
+              ? `What a season it's been — ${realAwards} award(s) and counting. Grateful beyond words. ❤️🏆`
+              : `Reflecting on the dedication and craft required for every single scene. Grateful for this Hollywood journey and the best fanbase! ❤️`,
+            `On set preparing for a demanding role. The hustle never stops in Los Angeles! Stay tuned! 🎭✨`,
+          ];
 
-      const playerHandle = SocialsService.getHandle(pid, player);
-      // Writer's specialty colors the voice — pool writer from SOCIAL_WRITER_POOL
-      const poolWriter = SOCIAL_WRITER_POOL.find((w) => w.id === hiredWriter.id);
-      // WRITER-POST REACH IS TIER-DRIVEN (real floors, not follower-scaled):
-      // T1 5K-50K · T2 50K-150K · T3 150K-500K · T4 500K-2M per post.
-      // Likes scale from the impressions at realistic ratios.
-      const wrTier = poolWriter?.tier ?? 1;
-      const tierFloor = [5000, 50000, 150000, 500000][wrTier - 1] || 5000;
-      const tierCeil = [50000, 150000, 500000, 2000000][wrTier - 1] || 50000;
-      const wrViews = Math.floor(tierFloor + Math.random() * (tierCeil - tierFloor));
-      const wrLikes = Math.floor(wrViews * (0.02 + Math.random() * 0.03));
-      const wrShares = Math.floor(wrViews * 0.008);
-      const wrComments = Math.floor(wrViews * 0.004);
-      for (let i = 0; i < count; i++) {
-        const autoPostText = drawWriterPoolPost(poolWriter?.specialty || 'Film Reviewer', writerPostData, usedWriterTexts);
+          for (let i = 0; i < writerPostCount; i++) {
+            const autoPostText = writerPostTemplates[i % writerPostTemplates.length];
+            const currentFollowers = state.followers[mainPlatform] || 100;
+            const eng = this.calculatePostEngagement(
+              currentFollowers,
+              state.verification[mainPlatform] || 'NONE',
+              player,
+              true
+            );
 
-        const newPost: SocialPost = {
-          id: `post_auto_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
-          authorName: `${player.firstName} ${player.lastName}`,
-          authorHandle: playerHandle,
-          authorAvatar: player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
-          platform: feed,
-          tab: 'PLAYER_FEED',
-          text: autoPostText,
-          likes: wrLikes,
-          comments: wrComments,
-          retweets: wrShares,
-          shares: wrShares,
-          views: wrViews,
-          timestamp: 'Just now',
-          isPlayer: true,
-          isNpc: false,
-          sentiment: 'Positive',
-          generatedByWriter: true,
-        };
+            // Writer quality boost
+            const boostFactor = 1 + (hiredWriter.qualityBoost || 15) / 100;
+            eng.likes = Math.floor(eng.likes * boostFactor);
+            eng.shares = Math.floor(eng.shares * boostFactor);
+            eng.followerGain = Math.floor(eng.followerGain * boostFactor);
 
-        const autoComments = this.generateNpcCommentsForPost(newPost.id, autoPostText, 35, player);
-        newPost.comments = autoComments.length;
+            const newPost: SocialPost = {
+              id: `post_auto_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+              authorName: `${player.firstName} ${player.lastName}`,
+              authorHandle: `@${player.firstName.toLowerCase()}${player.lastName.toLowerCase()}`,
+              authorAvatar: player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
+              platform: mainPlatform,
+              tab: 'PLAYER_FEED',
+              text: autoPostText,
+              likes: eng.likes,
+              comments: eng.commentsCount,
+              retweets: eng.shares,
+              shares: eng.shares,
+              timestamp: 'Just now',
+              isPlayer: true,
+              isNpc: false,
+              sentiment: 'Positive',
+              generatedByWriter: true,
+            };
 
-        state.playerPosts[feed].unshift(newPost);
-        state.postComments[newPost.id] = autoComments;
+            const autoComments = this.generateNpcCommentsForPost(newPost.id, autoPostText, 35, player);
+            newPost.comments = autoComments.length;
 
-        // Separate fans: gains land ONLY on this writer's platform —
-        // real reach converts to followers at 0.4-0.9% (impressions-driven)
-        const wrFollowers = Math.floor(wrViews * (0.004 + Math.random() * 0.005));
-        state.followers[feed] = Math.min(500000000000, (state.followers[feed] || 0) + wrFollowers);
-        fanGrowth += wrFollowers;
-      }
+            state.playerPosts[mainPlatform].unshift(newPost);
+            state.postComments[newPost.id] = autoComments;
 
-      // writer activity counts as platform activity for organic growth
-      if (!state.postsThisWeekByPlatform) state.postsThisWeekByPlatform = {};
-      state.postsThisWeekByPlatform[pid] = (state.postsThisWeekByPlatform[pid] || 0) + count;
+            // Add real follower gains directly to platform and total fans
+            state.followers[mainPlatform] = (state.followers[mainPlatform] || 0) + eng.followerGain;
+            fanGrowth += eng.followerGain;
+          }
 
-      socialPosts.push(`✍️ ${hiredWriter.name} published ${count} strategic posts on ${SocialsService.PLATFORM_LABEL[pid] || pid}.`);
-    }
-
-    // 3. SEPARATE PER-PLATFORM ORGANIC GROWTH — each platform grows only from
-    // ITS OWN activity (your posts + your writer there). Inactive platforms
-    // are stagnant. No account = no growth at all.
-    // NOTE: Twitter, Instagram & YouTube are owned by their CREATOR HQ
-    // engines (tier-capped impressions/reach/views → real follower
-    // conversion) — the generic organic loop must NOT also grow them or
-    // it would double-count followers.
-    const HQ_PLATFORMS = new Set(['twitter', 'instagram', 'youtube']);
-    const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
-    const platformWeights: Record<string, number> = { twitter: 0.35, instagram: 0.40, youtube: 0.15, facebook: 0.05, reddit: 0.03, telegram: 0.02 };
-    const growthLines: string[] = [];
-    for (const pid of SocialsService.WRITER_PLATFORMS) {
-      if (HQ_PLATFORMS.has(pid)) continue;
-      const feed = SocialsService.pidToFeed(pid)!;
-      if (!this.hasAccount(pid, player)) continue;
-      const posts = state.postsThisWeekByPlatform?.[pid] || 0;
-      if (posts <= 0) continue;
-
-      const activityMultiplier = 1.2 + Math.min(1.2, posts * 0.15);
-      const weight = platformWeights[pid] || 0.1;
-      const g = Math.floor(fameFactor * activityMultiplier * weight * (0.8 + Math.random() * 0.4));
-      if (g > 0) {
-        const capped = Math.min(500000000000, (state.followers[feed] || 0) + g);
-        const actual = capped - (state.followers[feed] || 0);
-        state.followers[feed] = capped;
-        fanGrowth += actual;
-        growthLines.push(`+${actual.toLocaleString()} on ${SocialsService.PLATFORM_LABEL[pid] || pid}`);
+          socialPosts.push(`✍️ Ghostwriter ${hiredWriter.name} published ${writerPostCount} strategic posts on your feed (+${fanGrowth.toLocaleString()} new followers).`);
+        }
       }
     }
 
-    if (growthLines.length > 0) {
-      socialPosts.push(`📈 Separate platform growth: ${growthLines.join(' · ')}.`);
+    // 3. Process Organic Follower Growth (ONLY IF ACTIVE)
+    const hasActiveMovieInTheaters = (saveData?.releasedMovies || []).some((m: any) => (m.weeksInTheaters || 0) > 0);
+    const hasRecentMovieRelease = (saveData?.releasedMovies || []).some((m: any) => (m.weeksInTheaters || 0) <= 4);
+    const playerPostedActive = spentPostsThisWeek > 0;
+
+    let organicGrowth = 0;
+    // FIXED: No fake simulation - only real posting/writer activity gives followers, different per platform, max 500B, all start at 0
+    if (playerPostedActive || writerPostCount > 0) {
+      const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
+      const activityMultiplier = playerPostedActive ? 1.5 : 1.2;
+
+      organicGrowth = Math.floor(fameFactor * activityMultiplier * (0.6 + Math.random() * 0.4));
+      if (organicGrowth > 0) {
+        fanGrowth += organicGrowth;
+
+        // Distribute with DIFFERENT followers per platform (not equal) - organic, max 500B cap
+        const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter(
+          (p) => state.createdPlatforms[p]
+        );
+
+        if (activePlatforms.length > 0) {
+          const platformWeights: Record<string, number> = { Twitter: 0.35, Instagram: 0.40, YouTube: 0.15, Facebook: 0.05, Reddit: 0.03, Telegram: 0.02 };
+          const totalWeight = activePlatforms.reduce((sum, plat) => sum + (platformWeights[plat] || 0.1), 0);
+          activePlatforms.forEach((plat) => {
+            const weight = (platformWeights[plat] || 0.1) / totalWeight;
+            const platformGrowth = Math.floor(organicGrowth * weight * (0.8 + Math.random() * 0.4));
+            const capped = Math.min(500000000000, (state.followers[plat] || 0) + platformGrowth);
+            const actualGain = capped - (state.followers[plat] || 0);
+            state.followers[plat] = capped;
+            // Cap total at 500B per platform
+            if ((state.followers[plat] || 0) > 500000000000) state.followers[plat] = 500000000000;
+          });
+        }
+        socialPosts.push(`📈 Gained +${organicGrowth.toLocaleString()} organic followers from active Hollywood visibility.`);
+      }
     } else {
-      socialPosts.push(`📲 No platform-specific activity this week — every account was stagnant. Post on a platform (or hire a writer there) to grow it.`);
+      // Inactive week - ZERO passive growth!
+      socialPosts.push(`📲 No social media posts or film releases this week. Organic follower growth was stagnant.`);
     }
-
-    // weekly activity counters reset
-    state.postsThisWeekByPlatform = {};
 
     player.fans = (player.fans || 0) + fanGrowth;
 
@@ -1767,7 +1204,7 @@ export class SocialsService {
     }
 
     // 7. Update YouTube Channel Stats & Organic Algorithm Simulation
-    if (this.hasAccount('youtube', player)) {
+    if (state.createdPlatforms.YouTube) {
       // 7a. Monetization Application Review Processing
       if (state.youtubeMonetizationStatus === 'UNDER_REVIEW') {
         state.youtubeReviewWeeksLeft = Math.max(0, (state.youtubeReviewWeeksLeft || 1) - 1);
@@ -1792,147 +1229,75 @@ export class SocialsService {
         }
       }
 
-      // 7c. THE ALGORITHM — tier-capped slow burn. Weekly view ceilings are
-      //     HARD caps per authority tier; 1M lifetime views needs Tier 4+
-      //     (1-2 game years of consistent uploads). Revenue accrues to the
-      //     YT mini-bank (youtubeBalance) — only transfers reach the player.
+      // 7c. Process Organic Video Growth & Algorithm Tracking
       let totalYtRevenueThisWeek = 0;
       let totalNewViewsThisWeek = 0;
       let totalNewWatchHrsThisWeek = 0;
       let totalNewSubsThisWeek = 0;
-      const tier = ytAuthorityTier(state.youtubeAuthorityXp || 0);
-
-      // Publish any scheduled uploads due this week
-      const publishedThisWeek: YouTubeScheduledUpload[] = [];
-      state.youtubeScheduled = (state.youtubeScheduled || []).filter((sched) => {
-        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
-        if (due) {
-          publishedThisWeek.push(sched);
-          const boost = sched.slotBoost || 1;
-          state.youtubeVideos.unshift({
-            id: `ytv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            title: sched.title,
-            thumbnailUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop',
-            category: sched.category,
-            views: 0,
-            likes: 0,
-            commentsCount: 0,
-            watchTimeHours: 0,
-            retentionPercent: Math.min(95, 35 + Math.round(sched.algoScore * 0.45)),
-            ctrPercent: Math.min(14, 2 + Math.round(sched.algoScore * 0.09)),
-            shares: 0,
-            subscribersGained: 0,
-            estimatedRevenue: 0,
-            uploadWeek: player.dateWeek || 1,
-            uploadYear: player.dateYear || 2026,
-            duration: `${6 + Math.floor(Math.random() * 12)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-            durationSec: 400 + Math.floor(Math.random() * 900),
-            isEvergreen: false,
-            slotBoost: boost,
-            algoScore: sched.algoScore,
-          });
-          // Authority: every upload builds the channel (+ bonus for strong scores)
-          state.youtubeAuthorityXp = (state.youtubeAuthorityXp || 0) + 9 + (sched.algoScore >= 70 ? 5 : 0);
-          state.youtubeLifetimeUploads = (state.youtubeLifetimeUploads || 0) + 1;
-          state.youtubeUploadStreak = (state.youtubeUploadStreak || 0) + 1;
-          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
-          return false;
-        }
-        return true;
-      });
-      for (const pub of publishedThisWeek) {
-        socialPosts.push(`📺 PUBLISHED (scheduled): "${pub.title}" — ${pub.slotLabel}. Algorithm score ${pub.algoScore}.`);
-      }
-      // Consistency decay: a skipped week bleeds authority once uploads exist
-      if (publishedThisWeek.length === 0 && (state.youtubeLifetimeUploads || 0) > 0) {
-        state.youtubeAuthorityXp = Math.max(0, (state.youtubeAuthorityXp || 0) - 4);
-        state.youtubeUploadStreak = 0;
-      }
-
-      // Active videos share the tier cap (last 6 weeks only get real push)
-      const activeVideos = state.youtubeVideos.filter(
-        (v) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (v.uploadYear * 52 + v.uploadWeek) <= 6
-      );
-      const capShare = tier.weeklyViewCap / Math.max(1, Math.min(activeVideos.length, 4));
 
       state.youtubeVideos.forEach((vid) => {
-        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (vid.uploadYear * 52 + vid.uploadWeek));
-        const isActive = weeksOld <= 6;
-        if (!isActive) return; // old videos are frozen history (no zombie growth)
+        // Organic view velocity
+        let baseVelocity = 0;
+        if (state.youtubeSubscribers < 100) {
+          // Small creator uploads: 5 to 120 views
+          baseVelocity = Math.floor(Math.random() * 45) + 5;
+        } else if (state.youtubeSubscribers < 1000) {
+          baseVelocity = Math.floor(state.youtubeSubscribers * (0.1 + Math.random() * 0.2)) + 15;
+        } else {
+          baseVelocity = Math.floor(state.youtubeSubscribers * (0.05 + Math.random() * 0.15)) + 50;
+        }
 
-        // Per-video score from real CTR/retention + publish-time score
-        const score = Math.min(100, Math.round((vid.algoScore || 50) * 0.4 + vid.ctrPercent * 4 * 0.3 + vid.retentionPercent * 0.3));
-        let velocity = capShare * (0.25 + (score / 100) * 0.75);
+        // Category & Movie Bonus
+        if (vid.category === 'TRAILER') {
+          baseVelocity = Math.floor(baseVelocity * 3.5) + (player.fameXp * 5);
+        } else if (vid.category === 'BEHIND_SCENES' || vid.category === 'INTERVIEW') {
+          baseVelocity = Math.floor(baseVelocity * 1.8);
+        }
 
-        // Category relevance
-        if (vid.category === 'TRAILER') velocity *= 1.5;
-        else if (vid.category === 'BEHIND_SCENES' || vid.category === 'AWARD_SPEECH') velocity *= 1.3;
-        else if (vid.category === 'LIVESTREAM') velocity *= 0.8;
+        // Evergreen or decay
+        if (vid.isEvergreen) {
+          baseVelocity = Math.floor(baseVelocity * 0.8) + 10;
+        } else {
+          const weeksOld = Math.max(1, (player.dateWeek || 1) - vid.uploadWeek);
+          baseVelocity = Math.floor(baseVelocity / Math.pow(1.8, weeksOld));
+        }
 
-        // Slot timing + fame pull (fame helps but never overrides the cap)
-        velocity *= vid.slotBoost || 1;
-        velocity *= 1 + Math.min(0.6, (player.fameXp || 0) / 2500);
-
-        // Early-life decay curve: week 0 smaller (test audience), peak wk 1-2, fade
-        const lifeMult = weeksOld === 0 ? 0.4 : weeksOld === 1 ? 1 : weeksOld === 2 ? 0.85 : Math.pow(0.55, weeksOld - 2);
-        velocity *= lifeMult;
-
-        const newViews = Math.max(0, Math.floor(velocity * (0.8 + Math.random() * 0.4)));
+        const newViews = Math.max(0, baseVelocity);
         vid.views += newViews;
         totalNewViewsThisWeek += newViews;
 
+        // Watch Time (Hours)
         const durationSec = vid.durationSec || 600;
         const retention = (vid.retentionPercent || 50) / 100;
         const newWatchHrs = parseFloat(((newViews * durationSec * retention) / 3600).toFixed(1));
         vid.watchTimeHours = parseFloat(((vid.watchTimeHours || 0) + newWatchHrs).toFixed(1));
         totalNewWatchHrsThisWeek += newWatchHrs;
 
+        // Likes, Comments, Shares, Subs
         if (newViews > 0) {
           const newLikes = Math.floor(newViews * ((vid.ctrPercent || 5) / 100) * 0.8);
           const newComments = Math.floor(newViews * 0.02);
+          const newShares = Math.floor(newViews * 0.01);
           const newSubs = Math.floor(newViews * 0.012);
+
           vid.likes += newLikes;
           vid.commentsCount += newComments;
-          vid.shares = (vid.shares || 0) + Math.floor(newViews * 0.01);
+          vid.shares = (vid.shares || 0) + newShares;
           vid.subscribersGained = (vid.subscribersGained || 0) + newSubs;
           totalNewSubsThisWeek += newSubs;
         }
 
-        // Monetized revenue accrues to the YT MINI-BANK (not the wallet),
-        // clamped by the global $25K monthly social envelope
-        if (state.youtubeMonetizationStatus === 'APPROVED' && newViews > 0 && remainingMonthlyCap() > 0) {
-          const rpm = tier.rpm + Math.random() * 0.8;
-          const rev = Math.min(Math.floor((newViews / 1000) * rpm), remainingMonthlyCap());
+        // Monetization & AdSense Payout (ONLY IF APPROVED!)
+        if (state.youtubeMonetizationStatus === 'APPROVED' && newViews > 0) {
+          const cpm = 4.50 + Math.random() * 1.50; // $4.50 - $6.00 CPM
+          const rev = Math.floor((newViews / 1000) * cpm);
           vid.estimatedRevenue += rev;
           totalYtRevenueThisWeek += rev;
-          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
+        } else {
+          // Unmonetized videos earn $0 revenue!
+          vid.estimatedRevenue = vid.estimatedRevenue || 0;
         }
       });
-
-      // Engagement authority drip: performing channels build trust
-      if (totalNewViewsThisWeek > 0) {
-        state.youtubeAuthorityXp = (state.youtubeAuthorityXp || 0) + Math.min(6, Math.floor(totalNewViewsThisWeek / 800));
-      }
-
-      // YT BANK: accrue revenue + tick pending payouts
-      if (totalYtRevenueThisWeek > 0) {
-        state.youtubeBalance = (state.youtubeBalance || 0) + totalYtRevenueThisWeek;
-        state.creatorStudio.totalAdRevenue += totalYtRevenueThisWeek;
-        state.creatorStudio.weeklyAdRevenue = totalYtRevenueThisWeek;
-      } else {
-        state.creatorStudio.weeklyAdRevenue = 0;
-      }
-      (state as any).__ytAccrued = totalYtRevenueThisWeek;
-      const ytArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
-      state.youtubePendingPayouts = (state.youtubePendingPayouts || []).filter((po) => {
-        po.weeksRemaining -= 1;
-        if (po.weeksRemaining <= 0) {
-          ytArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
-          return false;
-        }
-        return true;
-      });
-      ytPayoutArrivals.push(...ytArrivals);
 
       // Update Channel Totals
       state.youtubeWatchHours = parseFloat(((state.youtubeWatchHours || 0) + totalNewWatchHrsThisWeek).toFixed(1));
@@ -1940,11 +1305,21 @@ export class SocialsService {
       state.youtubeTotalViews = (state.youtubeTotalViews || 0) + totalNewViewsThisWeek;
 
       if (totalYtRevenueThisWeek > 0) {
-        socialPosts.push(`📺 YT ad revenue +$${totalYtRevenueThisWeek.toLocaleString()} → Creator Bank (balance $${(state.youtubeBalance || 0).toLocaleString()}).`);
+        socialPosts.push(`📺 Generated $${totalYtRevenueThisWeek.toLocaleString()} in YouTube AdSense revenue!`);
       }
 
-      // 7d. Update Algorithm Status from the authority ladder
-      state.youtubeAlgorithmStatus = `Tier ${tier.tier} · ${tier.name} — weekly push capped at ${tier.weeklyViewCap.toLocaleString()} views`;
+      // 7d. Update Algorithm Status dynamically
+      if (state.youtubeTotalViews < 500) {
+        state.youtubeAlgorithmStatus = 'Observing New Creator';
+      } else if (state.youtubeTotalViews < 5000) {
+        state.youtubeAlgorithmStatus = 'Gaining Initial Momentum';
+      } else if (state.youtubeTotalViews < 25000) {
+        state.youtubeAlgorithmStatus = 'Niche Recommendation Push';
+      } else if (state.youtubeTotalViews < 100000) {
+        state.youtubeAlgorithmStatus = 'Algorithmic Distribution';
+      } else {
+        state.youtubeAlgorithmStatus = 'Viral Creator Powerhouse';
+      }
 
       // 7e. NPC Channels Activity
       if (state.npcYouTubeChannels) {
@@ -1958,303 +1333,10 @@ export class SocialsService {
       }
     }
 
-    // 7f. GRAM CREATOR HQ — Instagram reach-tier engine. NO fake followers:
-    //     reach is tier-capped, converts at a small real rate into the
-    //     account's TRUE follower count, and bonus revenue only accrues to
-    //     the IG mini-bank once the account passes 10K real followers.
-    let igAccruedThisWeek = 0;
-    if (this.hasAccount('instagram', player)) {
-      const igTier = igAuthorityTier(state.instagramAuthorityXp || 0);
-      const igFollowersNow = state.followers.Instagram || 0;
-      // REVENUE GATE: Gram Creator Bonuses require an ACTIVE PREMIUM
-      // subscription — paying for premium is the only way posts earn.
-      const igBonusActive = PremiumService.getActive(state);
-
-      // Publish scheduled posts due this week (real feed posts + graded records)
-      const igPublished: InstagramCreatorPost[] = [];
-      state.instagramScheduled = (state.instagramScheduled || []).filter((sched) => {
-        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
-        if (due) { igPublished.push(sched); return false; }
-        return true;
-      });
-      let igNewFollowers = 0;
-      for (const pub of igPublished) {
-        state.instagramCreatorPosts = state.instagramCreatorPosts || [];
-        state.instagramCreatorPosts.unshift({ ...pub, published: true });
-        state.instagramAuthorityXp = (state.instagramAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
-        state.instagramLifetimePosts = (state.instagramLifetimePosts || 0) + 1;
-        state.instagramPostStreak = (state.instagramPostStreak || 0) + 1;
-        if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
-      }
-      if (igPublished.length === 0 && (state.instagramLifetimePosts || 0) > 0) {
-        state.instagramAuthorityXp = Math.max(0, (state.instagramAuthorityXp || 0) - 4);
-        state.instagramPostStreak = 0;
-      }
-
-      // Reach on active creator posts (last 3 weeks), tier-capped and shared
-      const igActive = (state.instagramCreatorPosts || []).filter(
-        (p) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (p.publishYear * 52 + p.publishWeek) <= 3
-      );
-      const igCapShare = igTier.weeklyReachCap / Math.max(1, Math.min(igActive.length, 4));
-      for (const post of igActive) {
-        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (post.publishYear * 52 + post.publishWeek));
-        let reach = igCapShare * (0.25 + (post.algoScore / 100) * 0.75);
-        if (post.postType === 'REEL') reach *= 1.45;
-        else if (post.postType === 'CAROUSEL' || post.postType === 'BTS') reach *= 1.2;
-        else if (post.postType === 'STORY') reach *= 0.6;
-        reach *= post.slotBoost || 1;
-        reach *= 1 + Math.min(0.5, (player.fameXp || 0) / 3000);
-        const lifeMult = weeksOld === 0 ? 0.45 : weeksOld === 1 ? 1 : Math.pow(0.4, weeksOld - 1);
-        reach *= lifeMult;
-
-        const wkReach = Math.max(0, Math.floor(reach * (0.8 + Math.random() * 0.4)));
-        post.reach = (post.reach || 0) + wkReach;
-
-        // REAL engagement from real reach
-        const likeRate = 0.04 + (post.algoScore / 100) * 0.04;
-        const wkLikes = Math.floor(wkReach * likeRate);
-        const wkSaves = Math.floor(wkReach * (post.postType === 'REEL' || post.postType === 'BTS' ? 0.035 : 0.02));
-        post.likes = (post.likes || 0) + wkLikes;
-        post.saves = (post.saves || 0) + wkSaves;
-
-        // REAL follower conversion — the account's true follower count moves
-        const wkFollowers = Math.floor(wkReach * (0.006 + (post.algoScore / 100) * 0.006));
-        post.followersGained = (post.followersGained || 0) + wkFollowers;
-        igNewFollowers += wkFollowers;
-
-        // Creator Bonus revenue → IG mini-bank (PREMIUM subscribers only,
-        // clamped by the global $25K monthly envelope)
-        if (igBonusActive && wkReach > 0 && remainingMonthlyCap() > 0) {
-          const rev = Math.min(Math.floor((wkReach / 1000) * (igTier.rpm + Math.random() * 0.6)), remainingMonthlyCap());
-          post.revenue = (post.revenue || 0) + rev;
-          igAccruedThisWeek += rev;
-          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
-        }
-      }
-      if (igNewFollowers > 0) {
-        state.followers.Instagram = Math.min(500000000000, igFollowersNow + igNewFollowers);
-        fanGrowth += igNewFollowers;
-      }
-      if (igAccruedThisWeek > 0) {
-        state.instagramBalance = (state.instagramBalance || 0) + igAccruedThisWeek;
-        socialPosts.push(`📸 IG Creator Bonus +$${igAccruedThisWeek.toLocaleString()} → Gram Bank (balance $${(state.instagramBalance || 0).toLocaleString()}).`);
-      }
-      // Engagement authority drip
-      if (igActive.length > 0 && (state.instagramCreatorPosts || [])[0]?.reach) {
-        state.instagramAuthorityXp = (state.instagramAuthorityXp || 0) + Math.min(5, Math.floor(((state.instagramCreatorPosts[0].reach || 0)) / 6000));
-      }
-
-      // IG payout ticks
-      const igArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
-      state.instagramPendingPayouts = (state.instagramPendingPayouts || []).filter((po) => {
-        po.weeksRemaining -= 1;
-        if (po.weeksRemaining <= 0) {
-          igArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
-          return false;
-        }
-        return true;
-      });
-      igPayoutArrivals.push(...igArrivals);
-      state.instagramAccruedLastWeek = igAccruedThisWeek;
-      (state as any).__igAccrued = igAccruedThisWeek;
-    }
-
-    // 7g. X CREATOR HQ — Twitter impressions-tier engine. NO fake followers:
-    //     impressions convert at a small real rate into the account's TRUE
-    //     follower count; ad payouts accrue to the X mini-bank only after
-    //     the 5,000 real-follower gate.
-    if (this.hasAccount('twitter', player)) {
-      const twTier = twAuthorityTier(state.twitterAuthorityXp || 0);
-      const twFollowersNow = state.followers.Twitter || 0;
-      // REVENUE GATE: ads revenue requires an ACTIVE PREMIUM subscription —
-      // paying for premium is the only way tweets earn.
-      const twPayoutsActive = PremiumService.getActive(state);
-
-      // Publish scheduled tweets due this week (scheduling API still available)
-      const twPublished: TwitterCreatorPost[] = [];
-      state.twitterScheduled = (state.twitterScheduled || []).filter((sched) => {
-        const due = sched.publishYear * 52 + sched.publishWeek <= (player.dateYear || 2026) * 52 + (player.dateWeek || 1);
-        if (due) { twPublished.push(sched); return false; }
-        return true;
-      });
-      // Convert NEW manual feed posts into tracked creator tweets — the
-      // composer on the platform drives the engine (no fake content).
-      const twFeed = state.playerPosts.Twitter || [];
-      const twTracked = state.twitterTrackedFeedCount ?? twFeed.length;
-      if (twFeed.length > twTracked) {
-        const freshPosts = twFeed.slice(0, twFeed.length - twTracked);
-        for (const fp of freshPosts) {
-          const inferred: TwitterCreatorPost['tweetType'] =
-            (fp.text || '').length > 180 ? 'THREAD' : (fp.text || '').includes('?') ? 'POLL' : 'HOT_TAKE';
-          const sc = computeTwAlgoScore({
-            text: fp.text || '',
-            tweetType: inferred,
-            slotBoost: 1.0,
-            authorityXp: state.twitterAuthorityXp || 0,
-            hasActiveMovie: false,
-          });
-          twPublished.push({
-            id: `twc_feed_${fp.id}`,
-            text: fp.text || '',
-            tweetType: inferred,
-            slotBoost: 1.0,
-            slotLabel: 'Standard post',
-            algoScore: sc.score,
-            publishWeek: player.dateWeek || 1,
-            publishYear: player.dateYear || 2026,
-            createdWeek: player.dateWeek || 1,
-            createdYear: player.dateYear || 2026,
-          });
-        }
-        state.twitterTrackedFeedCount = twFeed.length;
-      }
-      for (const pub of twPublished) {
-        state.twitterCreatorPosts = state.twitterCreatorPosts || [];
-        state.twitterCreatorPosts.unshift({ ...pub, published: true });
-        state.twitterAuthorityXp = (state.twitterAuthorityXp || 0) + 9 + (pub.algoScore >= 70 ? 5 : 0);
-        state.twitterLifetimePosts = (state.twitterLifetimePosts || 0) + 1;
-        state.twitterPostStreak = (state.twitterPostStreak || 0) + 1;
-        if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.postsCounted++;
-      }
-      if (twPublished.length === 0 && (state.twitterLifetimePosts || 0) > 0) {
-        state.twitterAuthorityXp = Math.max(0, (state.twitterAuthorityXp || 0) - 4);
-        state.twitterPostStreak = 0;
-      }
-
-      // Impressions on active tweets (last 3 weeks), tier-capped and shared
-      const twActive = (state.twitterCreatorPosts || []).filter(
-        (p) => (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (p.publishYear * 52 + p.publishWeek) <= 3
-      );
-      const twCapShare = twTier.weeklyImpressionCap / Math.max(1, Math.min(twActive.length, 4));
-      let twNewFollowers = 0;
-      let twAccrued = 0;
-      for (const post of twActive) {
-        const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (post.publishYear * 52 + post.publishWeek));
-        let imps = twCapShare * (0.25 + (post.algoScore / 100) * 0.75);
-        if (post.tweetType === 'HOT_TAKE') imps *= 1.4;
-        else if (post.tweetType === 'THREAD' || post.tweetType === 'BTS_CLIP') imps *= 1.2;
-        else if (post.tweetType === 'POLL') imps *= 0.85;
-        imps *= post.slotBoost || 1;
-        imps *= 1 + Math.min(0.5, (player.fameXp || 0) / 3000);
-        const lifeMult = weeksOld === 0 ? 0.45 : weeksOld === 1 ? 1 : Math.pow(0.4, weeksOld - 1);
-        imps *= lifeMult;
-
-        const wkImps = Math.max(0, Math.floor(imps * (0.8 + Math.random() * 0.4)));
-        post.impressions = (post.impressions || 0) + wkImps;
-
-        // REAL engagement from real impressions
-        const likeRate = 0.03 + (post.algoScore / 100) * 0.035;
-        post.likes = (post.likes || 0) + Math.floor(wkImps * likeRate);
-        post.reposts = (post.reposts || 0) + Math.floor(wkImps * (0.004 + (post.algoScore / 100) * 0.006));
-        post.replies = (post.replies || 0) + Math.floor(wkImps * 0.003);
-
-        // REAL follower conversion — the true count only moves by this
-        const wkFollowers = Math.floor(wkImps * (0.004 + (post.algoScore / 100) * 0.005));
-        post.followersGained = (post.followersGained || 0) + wkFollowers;
-        twNewFollowers += wkFollowers;
-
-        // Ad-revenue payouts → X mini-bank (PREMIUM subscribers only,
-        // clamped by the global $25K monthly envelope)
-        if (twPayoutsActive && wkImps > 0 && remainingMonthlyCap() > 0) {
-          const rev = Math.min(Math.floor((wkImps / 1000) * (twTier.rpm + Math.random() * 0.6)), remainingMonthlyCap());
-          post.revenue = (post.revenue || 0) + rev;
-          twAccrued += rev;
-          if (state.socialMonthlyEarnings) state.socialMonthlyEarnings.accrued += rev;
-        }
-      }
-      if (twNewFollowers > 0) {
-        state.followers.Twitter = Math.min(500000000000, twFollowersNow + twNewFollowers);
-        fanGrowth += twNewFollowers;
-      }
-      if (twAccrued > 0) {
-        state.twitterBalance = (state.twitterBalance || 0) + twAccrued;
-        socialPosts.push(`𝕏 Ad revenue +$${twAccrued.toLocaleString()} → X Bank (balance $${(state.twitterBalance || 0).toLocaleString()}).`);
-      }
-      state.twitterAccruedLastWeek = twAccrued;
-
-      // X payout ticks
-      const twArrivals: Array<{ net: number; tax: number; gross: number; weeks: number }> = [];
-      state.twitterPendingPayouts = (state.twitterPendingPayouts || []).filter((po) => {
-        po.weeksRemaining -= 1;
-        if (po.weeksRemaining <= 0) {
-          twArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks });
-          return false;
-        }
-        return true;
-      });
-      twPayoutArrivals.push(...twArrivals);
-    }
-
-    // 7h. MONTH-END SOCIAL PAYOUT — the ONLY way bank money leaves. On the
-    //     closing week of each month: active creators get the $5K floor
-    //     top-up if under it, every platform balance pays out automatically
-    //     (YouTube is the ONLY platform taxed at 20%), and each payout
-    //     clears to the wallet in 1-5 weeks with an inbox notice.
-    const closingMonth = closingMonthOfWeek(player.dateWeek || 1, (player.dateWeek || 1) === 52);
-    if (closingMonth) {
-      const me = state.socialMonthlyEarnings!;
-      const premiumActive = PremiumService.getActive(state);
-      const ytMonetized = state.youtubeMonetizationStatus === 'APPROVED';
-      const eligibleForFloor = (premiumActive || ytMonetized) && me.postsCounted >= 2;
-
-      // $5,000 monthly floor for active premium/monetized creators
-      if (eligibleForFloor && me.accrued < SOCIAL_MONTHLY_FLOOR) {
-        const topUp = SOCIAL_MONTHLY_FLOOR - me.accrued;
-        me.accrued = SOCIAL_MONTHLY_FLOOR;
-        if (ytMonetized && this.hasAccount('youtube', player)) state.youtubeBalance = (state.youtubeBalance || 0) + topUp;
-        else if (premiumActive && this.hasAccount('instagram', player)) state.instagramBalance = (state.instagramBalance || 0) + topUp;
-        else if (premiumActive && this.hasAccount('twitter', player)) state.twitterBalance = (state.twitterBalance || 0) + topUp;
-        socialPosts.push(`🏦 CREATOR SUPPORT: monthly earnings topped up to the $${SOCIAL_MONTHLY_FLOOR.toLocaleString()} floor (active creator minimum).`);
-      }
-
-      // Auto-payout every platform balance — YouTube taxed, others not
-      const startPending = (
-        arr: YouTubePendingPayout[] | undefined,
-        gross: number,
-        tax: number,
-        platform: 'YouTube' | 'Instagram' | 'Twitter',
-      ) => {
-        const net = gross - tax;
-        const weeks = 1 + Math.floor(Math.random() * 5);
-        const list = arr || [];
-        list.push({
-          id: `mp_${platform}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-          gross, taxWithheld: tax, net,
-          weeksRemaining: weeks, totalWeeks: weeks,
-          requestedWeek: player.dateWeek || 1, requestedYear: player.dateYear || 2026,
-        });
-        return list;
-      };
-
-      const ytBal = state.youtubeBalance || 0;
-      if (ytBal > 0) {
-        const tax = Math.round(ytBal * YT_PAYOUT_TAX_PCT);
-        state.youtubePendingPayouts = startPending(state.youtubePendingPayouts, ytBal, tax, 'YouTube');
-        state.youtubeBalance = 0;
-        socialPosts.push(`🏦 MONTH-END PAYOUT: YouTube $${ytBal.toLocaleString()} — $${tax.toLocaleString()} tax withheld (20%). Clears in 1-5 weeks.`);
-      }
-      const igBal = state.instagramBalance || 0;
-      if (igBal > 0) {
-        state.instagramPendingPayouts = startPending(state.instagramPendingPayouts, igBal, 0, 'Instagram');
-        state.instagramBalance = 0;
-        socialPosts.push(`🏦 MONTH-END PAYOUT: Instagram $${igBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
-      }
-      const twBal = state.twitterBalance || 0;
-      if (twBal > 0) {
-        state.twitterPendingPayouts = startPending(state.twitterPendingPayouts, twBal, 0, 'Twitter');
-        state.twitterBalance = 0;
-        socialPosts.push(`🏦 MONTH-END PAYOUT: X $${twBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
-      }
-      if (ytBal === 0 && igBal === 0 && twBal === 0 && !eligibleForFloor) {
-        socialPosts.push(`🏦 MONTH-END: no social payout — banks are empty. Posts only earn revenue with Premium (or YouTube monetization).`);
-      }
-    }
-
     const activePlatforms = (Object.keys(state.createdPlatforms) as PlatformType[]).filter((p) => state.createdPlatforms[p]);
+    const totalYtRevenueThisWeek = state.youtubeVideos.reduce((sum, v) => sum + (v.estimatedRevenue || 0), 0);
 
     // 8. Record Social Analytics Snapshot
-    state.lastProcessedWeek = player.dateWeek;
-    state.lastProcessedYear = player.dateYear;
     state.analyticsHistory.unshift({
       week: player.dateWeek,
       year: player.dateYear,
@@ -2272,11 +1354,6 @@ export class SocialsService {
 
     this.saveState(state);
 
-    const accruedThisWeek = (state.creatorStudio && (state as any).__ytAccrued) || 0;
-    const igAccrued = ((state as any).__igAccrued) || 0;
-    delete (state as any).__ytAccrued;
-    delete (state as any).__igAccrued;
-
     return {
       socialPosts,
       socialTrending,
@@ -2284,297 +1361,7 @@ export class SocialsService {
       fanGrowth,
       weeklySponsorshipIncome,
       writerWeeklyCost,
-      youtubeRevenue: accruedThisWeek,
-      ytPayoutArrivals,
-      igPayoutArrivals,
-      twPayoutArrivals,
-      youtubeAccruedToBank: accruedThisWeek,
-      instagramAccruedToBank: igAccrued,
-      expiredWriters,
-    };
-  }
-
-  /**
-   * CREATOR HQ — schedule a video for a future week + audience slot.
-   * Score is computed at schedule time and baked into the video at publish.
-   */
-  public static scheduleYouTubeVideo(input: {
-    title: string;
-    category: YouTubeVideo['category'];
-    slotId: string;
-    weeksFromNow: number; // 1-4
-    hasActiveMovie: boolean;
-  }): { success: boolean; message: string; score?: number } {
-    const state = this.getState();
-    if (!this.hasAccount('youtube')) return { success: false, message: 'Create your YouTube account first.' };
-    const title = input.title.trim();
-    if (!title) return { success: false, message: 'Enter a title — the algorithm scans it.' };
-
-    const slot = YT_SLOTS.find((s) => s.id === input.slotId) || YT_SLOTS[0];
-    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
-    const curWeek = state.lastProcessedWeek || 1;
-    const curYear = state.lastProcessedYear || 2026;
-    let targetWeek = curWeek + weeks;
-    let targetYear = curYear;
-    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
-
-    const { score } = computeYtAlgoScore({
-      title,
-      category: input.category,
-      slotBoost: slot.boost,
-      authorityXp: state.youtubeAuthorityXp || 0,
-      hasActiveMovie: input.hasActiveMovie,
-    });
-
-    state.youtubeScheduled = state.youtubeScheduled || [];
-    if (state.youtubeScheduled.length >= 4) {
-      return { success: false, message: 'Max 4 scheduled videos. Let some publish first.' };
-    }
-    state.youtubeScheduled.push({
-      id: `yts_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      title,
-      category: input.category,
-      slotBoost: slot.boost,
-      slotLabel: slot.label,
-      algoScore: score,
-      publishWeek: targetWeek,
-      publishYear: targetYear,
-      createdWeek: curWeek,
-      createdYear: curYear,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Scheduled "${title}" — ${slot.label}, Week ${targetWeek}${targetWeek !== curWeek + weeks ? '' : ''}, ${targetYear}. Algorithm score ${score}.`,
-      score,
-    };
-  }
-
-  /**
-   * CREATOR HQ — transfer from the YT mini-bank to the player wallet.
-   * 20% tax withheld up front; funds clear in 1-5 weeks with an inbox notice.
-   */
-  public static requestYouTubePayout(amount: number): { success: boolean; message: string } {
-    const state = this.getState();
-    if (state.youtubeMonetizationStatus !== 'APPROVED') {
-      return { success: false, message: 'Channel not monetized yet (1,000 subs + 4,000 watch hours + review).' };
-    }
-    const amt = Math.floor(amount);
-    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
-    const balance = state.youtubeBalance || 0;
-    if (amt > balance) {
-      return { success: false, message: `Insufficient Creator Bank balance — available $${balance.toLocaleString()}.` };
-    }
-    const tax = Math.round(amt * YT_PAYOUT_TAX_PCT);
-    const net = amt - tax;
-    const weeks = 1 + Math.floor(Math.random() * 5); // 1-5 weeks clearing
-    state.youtubeBalance = balance - amt;
-    state.youtubePendingPayouts = state.youtubePendingPayouts || [];
-    state.youtubePendingPayouts.push({
-      id: `ytp_${Date.now()}`,
-      gross: amt,
-      taxWithheld: tax,
-      net,
-      weeksRemaining: weeks,
-      totalWeeks: weeks,
-      requestedWeek: state.lastProcessedWeek || 1,
-      requestedYear: state.lastProcessedYear || 2026,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears to your wallet in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
-    };
-  }
-
-  /**
-   * GRAM HQ — schedule a creator post for a future week + slot.
-   */
-  public static scheduleInstagramPost(input: {
-    caption: string;
-    postType: InstagramCreatorPost['postType'];
-    slotId: string;
-    weeksFromNow: number;
-    hasActiveMovie: boolean;
-  }): { success: boolean; message: string; score?: number } {
-    const state = this.getState();
-    if (!this.hasAccount('instagram')) return { success: false, message: 'Create your Instagram account first.' };
-    const caption = input.caption.trim();
-    if (!caption) return { success: false, message: 'Write a caption — the algorithm scans the first line.' };
-
-    const slot = IG_SLOTS.find((s) => s.id === input.slotId) || IG_SLOTS[0];
-    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
-    const curWeek = state.lastProcessedWeek || 1;
-    const curYear = state.lastProcessedYear || 2026;
-    let targetWeek = curWeek + weeks;
-    let targetYear = curYear;
-    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
-
-    const igFollowers = state.followers.Instagram || 0;
-    if (input.postType === 'COLLAB' && igFollowers < 10000) {
-      return { success: false, message: `Brand Collab posts unlock at 10,000 followers — you have ${igFollowers.toLocaleString()}.` };
-    }
-
-    const { score } = computeIgAlgoScore({
-      caption,
-      postType: input.postType,
-      slotBoost: slot.boost,
-      authorityXp: state.instagramAuthorityXp || 0,
-      hasActiveMovie: input.hasActiveMovie,
-    });
-
-    state.instagramScheduled = state.instagramScheduled || [];
-    if (state.instagramScheduled.length >= 4) {
-      return { success: false, message: 'Max 4 scheduled posts. Let some publish first.' };
-    }
-    state.instagramScheduled.push({
-      id: `igc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      caption,
-      postType: input.postType,
-      slotBoost: slot.boost,
-      slotLabel: slot.label,
-      algoScore: score,
-      publishWeek: targetWeek,
-      publishYear: targetYear,
-      createdWeek: curWeek,
-      createdYear: curYear,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Scheduled — ${slot.label}, Week ${targetWeek}, ${targetYear}. Algorithm score ${score}.`,
-      score,
-    };
-  }
-
-  /**
-   * GRAM HQ — transfer from the IG mini-bank. 20% tax withheld up front;
-   * clears in 1-5 weeks with an inbox notice.
-   */
-  public static requestInstagramPayout(amount: number): { success: boolean; message: string } {
-    const state = this.getState();
-    const igFollowers = state.followers.Instagram || 0;
-    if (igFollowers < 10000) {
-      return { success: false, message: `Creator Bonuses unlock at 10,000 followers — you have ${igFollowers.toLocaleString()}.` };
-    }
-    const amt = Math.floor(amount);
-    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
-    const balance = state.instagramBalance || 0;
-    if (amt > balance) {
-      return { success: false, message: `Insufficient Gram Bank balance — available $${balance.toLocaleString()}.` };
-    }
-    const tax = Math.round(amt * IG_PAYOUT_TAX_PCT);
-    const net = amt - tax;
-    const weeks = 1 + Math.floor(Math.random() * 5);
-    state.instagramBalance = balance - amt;
-    state.instagramPendingPayouts = state.instagramPendingPayouts || [];
-    state.instagramPendingPayouts.push({
-      id: `igp_${Date.now()}`,
-      gross: amt,
-      taxWithheld: tax,
-      net,
-      weeksRemaining: weeks,
-      totalWeeks: weeks,
-      requestedWeek: state.lastProcessedWeek || 1,
-      requestedYear: state.lastProcessedYear || 2026,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
-    };
-  }
-
-  /**
-   * X HQ — schedule a creator tweet for a future week + slot.
-   */
-  public static scheduleTwitterPost(input: {
-    text: string;
-    tweetType: TwitterCreatorPost['tweetType'];
-    slotId: string;
-    weeksFromNow: number;
-    hasActiveMovie: boolean;
-  }): { success: boolean; message: string; score?: number } {
-    const state = this.getState();
-    if (!this.hasAccount('twitter')) return { success: false, message: 'Create your X account first.' };
-    const text = input.text.trim();
-    if (!text) return { success: false, message: 'Write the tweet — the algorithm scans the hook.' };
-
-    const slot = TW_SLOTS.find((s) => s.id === input.slotId) || TW_SLOTS[0];
-    const weeks = Math.max(1, Math.min(4, Math.floor(input.weeksFromNow)));
-    const curWeek = state.lastProcessedWeek || 1;
-    const curYear = state.lastProcessedYear || 2026;
-    let targetWeek = curWeek + weeks;
-    let targetYear = curYear;
-    if (targetWeek > 52) { targetWeek -= 52; targetYear += 1; }
-
-    const { score } = computeTwAlgoScore({
-      text,
-      tweetType: input.tweetType,
-      slotBoost: slot.boost,
-      authorityXp: state.twitterAuthorityXp || 0,
-      hasActiveMovie: input.hasActiveMovie,
-    });
-
-    state.twitterScheduled = state.twitterScheduled || [];
-    if (state.twitterScheduled.length >= 4) {
-      return { success: false, message: 'Max 4 scheduled tweets. Let some publish first.' };
-    }
-    state.twitterScheduled.push({
-      id: `twc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      text,
-      tweetType: input.tweetType,
-      slotBoost: slot.boost,
-      slotLabel: slot.label,
-      algoScore: score,
-      publishWeek: targetWeek,
-      publishYear: targetYear,
-      createdWeek: curWeek,
-      createdYear: curYear,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Scheduled — ${slot.label}, Week ${targetWeek}, ${targetYear}. Algorithm score ${score}.`,
-      score,
-    };
-  }
-
-  /**
-   * X HQ — transfer from the X mini-bank. Requires 5,000 REAL followers.
-   * 20% tax withheld up front; clears in 1-5 weeks with an inbox notice.
-   */
-  public static requestTwitterPayout(amount: number): { success: boolean; message: string } {
-    const state = this.getState();
-    const twFollowers = state.followers.Twitter || 0;
-    if (twFollowers < TW_PAYOUT_FOLLOWER_GATE) {
-      return { success: false, message: `Ad-revenue payouts unlock at ${TW_PAYOUT_FOLLOWER_GATE.toLocaleString()} REAL followers — you have ${twFollowers.toLocaleString()}.` };
-    }
-    const amt = Math.floor(amount);
-    if (isNaN(amt) || amt <= 0) return { success: false, message: 'Enter an amount to transfer.' };
-    const balance = state.twitterBalance || 0;
-    if (amt > balance) {
-      return { success: false, message: `Insufficient X Bank balance — available $${balance.toLocaleString()}.` };
-    }
-    const tax = Math.round(amt * TW_PAYOUT_TAX_PCT);
-    const net = amt - tax;
-    const weeks = 1 + Math.floor(Math.random() * 5);
-    state.twitterBalance = balance - amt;
-    state.twitterPendingPayouts = state.twitterPendingPayouts || [];
-    state.twitterPendingPayouts.push({
-      id: `twp_${Date.now()}`,
-      gross: amt,
-      taxWithheld: tax,
-      net,
-      weeksRemaining: weeks,
-      totalWeeks: weeks,
-      requestedWeek: state.lastProcessedWeek || 1,
-      requestedYear: state.lastProcessedYear || 2026,
-    });
-    this.saveState(state);
-    return {
-      success: true,
-      message: `Transfer initiated: $${amt.toLocaleString()} requested — $${tax.toLocaleString()} tax withheld (20%). $${net.toLocaleString()} clears in ~${weeks} week${weeks > 1 ? 's' : ''}.`,
+      youtubeRevenue: totalYtRevenueThisWeek,
     };
   }
 
@@ -2846,50 +1633,6 @@ export class SocialsService {
     FILM_COMMENT_POOL.forEach((c) => positivePool.push(c));
     BUSINESS_COMMENT_POOL.forEach((c) => positivePool.push(c));
 
-    // --- NPC Comment Deduplication ---
-    // Modifiers that get appended to base comments to create unique variants.
-    // With ~50 base texts × ~18 modifiers = ~900 unique combos per pool.
-    const COMMENT_MODIFIERS = [
-      '', '', '', '', // empty = use base text (5/18 chance)
-      ' 💯', ' 🔥', ' ❤️', ' 👏', ' 🙌', ' ✨',
-      ' So real for this.', ' No cap.', ' Huge!',
-      ' Just facts.', ' This is it.', ' Underrated take.',
-      ' People need to hear this.', ' Preach!', ' Speaks volumes.',
-      ' Can\'t argue with that.', ' Well said.', ' Big facts.',
-    ];
-    const usedTexts = new Set<string>();
-
-    // Shuffle a pool so we cycle through all items before repeating any
-    const shuffleArray = (arr: string[]): string[] => {
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    };
-    const shuffledPositive = shuffleArray(positivePool);
-    const shuffledNeutral = shuffleArray(neutralPool);
-    const shuffledNegative = shuffleArray(negativePool);
-    let posIdx = 0, neuIdx = 0, negIdx = 0;
-
-    const pickUniqueText = (pool: string[], shuffled: string[], idxRef: { value: number }): string => {
-      // Try base text from shuffled pool first (cycle through all before repeating)
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const base = shuffled[idxRef.value % shuffled.length];
-        idxRef.value++;
-        const mod = COMMENT_MODIFIERS[Math.floor(Math.random() * COMMENT_MODIFIERS.length)];
-        const text = `${base}${mod}`;
-        if (!usedTexts.has(text)) {
-          usedTexts.add(text);
-          return text;
-        }
-      }
-      // Fallback: random from full pool with a numeric suffix
-      const base = pool[Math.floor(Math.random() * pool.length)];
-      return `${base} (${Math.floor(Math.random() * 9999) + 1})`;
-    };
-
     // NPC Handle Generator Arrays (Guarantees NO duplicate handles per post)
     const usedHandles = new Set<string>();
     const FIRST_NAMES = [
@@ -2925,9 +1668,8 @@ export class SocialsService {
       // 10% chance to insert VIP / Verified Accounts if player has high fame
       if (player.fameXp > 80 && Math.random() < 0.10 && VIP_VERIFIED_COMMENTS.length > 0) {
         const vip = VIP_VERIFIED_COMMENTS[Math.floor(Math.random() * VIP_VERIFIED_COMMENTS.length)];
-        if (!usedHandles.has(vip.handle) && !usedTexts.has(vip.text)) {
+        if (!usedHandles.has(vip.handle)) {
           usedHandles.add(vip.handle);
-          usedTexts.add(vip.text);
           comments.push({
             id: `cmt_vip_${postId}_${i}_${Math.random().toString(36).substring(2, 6)}`,
             postId,
@@ -2962,22 +1704,14 @@ export class SocialsService {
       const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
 
       // Pick reaction sentiment: 62% Positive, 20% Neutral, 18% Negative
-      // Uses deduplication — same text never appears twice within a post
       const roll = Math.random();
       let text = '';
       if (roll < 0.62) {
-        text = pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
-        posIdx++;
+        text = positivePool[Math.floor(Math.random() * positivePool.length)];
       } else if (roll < 0.82) {
-        text = neutralPool.length > 0
-          ? pickUniqueText(neutralPool, shuffledNeutral, { value: neuIdx })
-          : pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
-        neuIdx++;
+        text = neutralPool.length > 0 ? neutralPool[Math.floor(Math.random() * neutralPool.length)] : positivePool[Math.floor(Math.random() * positivePool.length)];
       } else {
-        text = negativePool.length > 0
-          ? pickUniqueText(negativePool, shuffledNegative, { value: negIdx })
-          : pickUniqueText(positivePool, shuffledPositive, { value: posIdx });
-        negIdx++;
+        text = negativePool.length > 0 ? negativePool[Math.floor(Math.random() * negativePool.length)] : positivePool[Math.floor(Math.random() * positivePool.length)];
       }
 
       // Realistic timestamps spread throughout the last few hours
@@ -3207,11 +1941,9 @@ export interface SocialWriter {
   weeklyCost: number;
   postsPerWeek: number;
   qualityBoost: number;
-  maxContractWeeks: number;  // absolute max player can choose (40)
+  maxContractWeeks: number;
   cancelFee: number;
   minFame: number;
-  minMovies: number;
-  minFans: number;
   bio: string;
   avatar: string;
   agencyName: string;
@@ -3226,266 +1958,37 @@ const WRITER_AVATARS = [
   'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop',
 ];
 
-// 24-WRITER POOL: 4 tiers x 6 specialties — player picks contract length 5-40 weeks
+// 24-WRITER POOL: 4 tiers x 6 specialties
 export const SOCIAL_WRITER_POOL: SocialWriter[] = [
-  // TIER 1 — Junior Bloggers ($250-400/wk) — anyone can apply, 90% accept if meets reqs
-  { id: 'w_j1', name: 'Nina Vale', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 250, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 500, minFame: 0, minMovies: 0, minFans: 0, bio: 'Fresh film blog voice covering indie releases.', avatar: WRITER_AVATARS[0], agencyName: 'The Daily Marquee Blog' },
-  { id: 'w_j2', name: 'Caleb Frost', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Gossip & Celebrity', weeklyCost: 275, postsPerWeek: 3, qualityBoost: 9, maxContractWeeks: 40, cancelFee: 550, minFame: 0, minMovies: 0, minFans: 0, bio: 'Sunset Strip gossip columnist in training.', avatar: WRITER_AVATARS[1], agencyName: 'Sunset Scoop' },
-  { id: 'w_j3', name: 'Rhea Patel', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Lifestyle & Brand', weeklyCost: 260, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 520, minFame: 0, minMovies: 0, minFans: 0, bio: 'Lifestyle writer for emerging talent.', avatar: WRITER_AVATARS[2], agencyName: 'La La Life Blog' },
-  { id: 'w_j4', name: 'Oscar Bennet', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 240, postsPerWeek: 2, qualityBoost: 7, maxContractWeeks: 40, cancelFee: 480, minFame: 0, minMovies: 0, minFans: 0, bio: 'Movie lover writing honest reviews.', avatar: WRITER_AVATARS[3], agencyName: 'Popcorn Prophet' },
-  { id: 'w_j5', name: 'Lena Cruz', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Awards Watch', weeklyCost: 280, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 560, minFame: 0, minMovies: 0, minFans: 0, bio: 'Tracks the awards season calendar.', avatar: WRITER_AVATARS[4], agencyName: 'The Reel Report' },
-  { id: 'w_j6', name: 'Dante Fox', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Business & Trade', weeklyCost: 300, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 40, cancelFee: 600, minFame: 0, minMovies: 0, minFans: 0, bio: 'Reports on Hollywood money moves.', avatar: WRITER_AVATARS[5], agencyName: 'Studio Gate' },
-  // TIER 2 — Content Writers ($600-900/wk) — need 1+ movie, 80% accept if meets reqs
-  { id: 'w_c1', name: 'Ava Reed', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 650, postsPerWeek: 4, qualityBoost: 18, maxContractWeeks: 40, cancelFee: 1500, minFame: 300, minMovies: 1, minFans: 0, bio: 'Hollywood Insider blogger covering releases and red carpets.', avatar: WRITER_AVATARS[0], agencyName: 'Hollywood Insider Blog Network' },
-  { id: 'w_c2', name: 'Jaxon Cole', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Gossip & Celebrity', weeklyCost: 600, postsPerWeek: 5, qualityBoost: 20, maxContractWeeks: 40, cancelFee: 1400, minFame: 500, minMovies: 1, minFans: 0, bio: 'Gossip Wire specialist in celebrity news.', avatar: WRITER_AVATARS[1], agencyName: 'Gossip Wire Media' },
-  { id: 'w_c3', name: 'Sierra Lane', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 750, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 40, cancelFee: 1700, minFame: 600, minMovies: 1, minFans: 0, bio: 'Cinema Review Collective critic.', avatar: WRITER_AVATARS[2], agencyName: 'Cinema Review Collective' },
-  { id: 'w_c4', name: 'Dylan Cross', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Awards Watch', weeklyCost: 800, postsPerWeek: 5, qualityBoost: 24, maxContractWeeks: 40, cancelFee: 1800, minFame: 800, minMovies: 2, minFans: 0, bio: 'AwardsWatch blogger with insider buzz.', avatar: WRITER_AVATARS[3], agencyName: 'AwardsWatch Blog Network' },
-  { id: 'w_c5', name: 'Mika Sato', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'International', weeklyCost: 900, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 40, cancelFee: 2000, minFame: 1000, minMovies: 2, minFans: 0, bio: 'Tokyo cinema blogger with global reach.', avatar: WRITER_AVATARS[4], agencyName: 'Asia Cinema Blog Network' },
-  { id: 'w_c6', name: 'Ethan Brooks', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Business & Trade', weeklyCost: 850, postsPerWeek: 4, qualityBoost: 21, maxContractWeeks: 40, cancelFee: 1900, minFame: 900, minMovies: 2, minFans: 0, bio: 'Trade reporter for financing and deals.', avatar: WRITER_AVATARS[5], agencyName: 'The Marquee Trade Desk' },
-  // TIER 3 — Senior Publicists ($1,200-2,000/wk) — need 3+ movies, 5K+ fans, 70% accept
-  { id: 'w_s1', name: 'Sophia Sterling', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'PR & Lifestyle', weeklyCost: 1250, postsPerWeek: 6, qualityBoost: 35, maxContractWeeks: 40, cancelFee: 4000, minFame: 2000, minMovies: 3, minFans: 5000, bio: 'Sterling PR Media Group senior publicist.', avatar: WRITER_AVATARS[0], agencyName: 'Sterling PR Media Group' },
-  { id: 'w_s2', name: 'Marcus Hayes', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Awards Watch', weeklyCost: 1500, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 40, cancelFee: 5000, minFame: 2500, minMovies: 3, minFans: 5000, bio: 'Beverly Hills PR specialist for campaigns.', avatar: WRITER_AVATARS[1], agencyName: 'Beverly Hills PR Specialists' },
-  { id: 'w_s3', name: 'Isabella Fontaine', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Film Reviewer', weeklyCost: 1400, postsPerWeek: 6, qualityBoost: 38, maxContractWeeks: 40, cancelFee: 4600, minFame: 2200, minMovies: 3, minFans: 5000, bio: 'Trades-level critic and reporter.', avatar: WRITER_AVATARS[2], agencyName: 'Redwood Review Desk' },
-  { id: 'w_s4', name: 'Andre Whitfield', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Business & Trade', weeklyCost: 1600, postsPerWeek: 7, qualityBoost: 42, maxContractWeeks: 40, cancelFee: 5200, minFame: 3000, minMovies: 4, minFans: 8000, bio: 'Variety-style entertainment business reporter.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Business Desk' },
-  { id: 'w_s5', name: 'Camille Dubois', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Gossip & Celebrity', weeklyCost: 1300, postsPerWeek: 7, qualityBoost: 36, maxContractWeeks: 40, cancelFee: 4200, minFame: 2000, minMovies: 3, minFans: 5000, bio: 'Celebrity features writer with sources.', avatar: WRITER_AVATARS[4], agencyName: 'Fame Focus Media' },
-  { id: 'w_s6', name: 'Lucas Meyer', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'International', weeklyCost: 2000, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 40, cancelFee: 6000, minFame: 3500, minMovies: 4, minFans: 8000, bio: 'Global press tour specialist.', avatar: WRITER_AVATARS[5], agencyName: 'Global Press Group' },
-  // TIER 4 — Elite Ghostwriters ($3,000-5,000/wk) — need 5+ movies, 50K+ fans, 60% accept
-  { id: 'w_e1', name: 'Vanguard Global PR', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'PR & Lifestyle', weeklyCost: 3200, postsPerWeek: 8, qualityBoost: 70, maxContractWeeks: 40, cancelFee: 12000, minFame: 6000, minMovies: 5, minFans: 50000, bio: 'Top-tier global PR agency with 24/7 account management.', avatar: WRITER_AVATARS[0], agencyName: 'Vanguard Global Communications Inc.' },
-  { id: 'w_e2', name: 'Julian Cross', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Awards Watch', weeklyCost: 3800, postsPerWeek: 9, qualityBoost: 80, maxContractWeeks: 40, cancelFee: 14000, minFame: 8000, minMovies: 5, minFans: 50000, bio: 'Oscar campaign whisperer.', avatar: WRITER_AVATARS[1], agencyName: 'Cross Campaigns' },
-  { id: 'w_e3', name: 'Victoria Reign', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Gossip & Celebrity', weeklyCost: 3500, postsPerWeek: 10, qualityBoost: 75, maxContractWeeks: 40, cancelFee: 13000, minFame: 7500, minMovies: 5, minFans: 50000, bio: 'The most connected celebrity writer in Hollywood.', avatar: WRITER_AVATARS[2], agencyName: 'Reign Media' },
-  { id: 'w_e4', name: 'Silas Monroe', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Film Reviewer', weeklyCost: 3000, postsPerWeek: 8, qualityBoost: 65, maxContractWeeks: 40, cancelFee: 11000, minFame: 5000, minMovies: 5, minFans: 50000, bio: 'Legendary critic with a trusted byline.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Review' },
-  { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 40, cancelFee: 16000, minFame: 10000, minMovies: 6, minFans: 75000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
-  { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 40, cancelFee: 18000, minFame: 12000, minMovies: 6, minFans: 100000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
+  // TIER 1 — Junior Bloggers ($250-400/wk)
+  { id: 'w_j1', name: 'Nina Vale', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 250, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 500, minFame: 0, bio: 'Fresh film blog voice covering indie releases.', avatar: WRITER_AVATARS[0], agencyName: 'The Daily Marquee Blog' },
+  { id: 'w_j2', name: 'Caleb Frost', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Gossip & Celebrity', weeklyCost: 275, postsPerWeek: 3, qualityBoost: 9, maxContractWeeks: 30, cancelFee: 550, minFame: 0, bio: 'Sunset Strip gossip columnist in training.', avatar: WRITER_AVATARS[1], agencyName: 'Sunset Scoop' },
+  { id: 'w_j3', name: 'Rhea Patel', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Lifestyle & Brand', weeklyCost: 260, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 520, minFame: 0, bio: 'Lifestyle writer for emerging talent.', avatar: WRITER_AVATARS[2], agencyName: 'La La Life Blog' },
+  { id: 'w_j4', name: 'Oscar Bennet', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Film Reviewer', weeklyCost: 240, postsPerWeek: 2, qualityBoost: 7, maxContractWeeks: 30, cancelFee: 480, minFame: 0, bio: 'Movie lover writing honest reviews.', avatar: WRITER_AVATARS[3], agencyName: 'Popcorn Prophet' },
+  { id: 'w_j5', name: 'Lena Cruz', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Awards Watch', weeklyCost: 280, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 560, minFame: 0, bio: 'Tracks the awards season calendar.', avatar: WRITER_AVATARS[4], agencyName: 'The Reel Report' },
+  { id: 'w_j6', name: 'Dante Fox', tier: 1, tierLabel: 'Tier 1 · Junior Blogger', specialty: 'Business & Trade', weeklyCost: 300, postsPerWeek: 2, qualityBoost: 8, maxContractWeeks: 30, cancelFee: 600, minFame: 0, bio: 'Reports on Hollywood money moves.', avatar: WRITER_AVATARS[5], agencyName: 'Studio Gate' },
+  // TIER 2 — Content Writers ($600-900/wk)
+  { id: 'w_c1', name: 'Ava Reed', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 650, postsPerWeek: 4, qualityBoost: 18, maxContractWeeks: 30, cancelFee: 1500, minFame: 300, bio: 'Hollywood Insider blogger covering releases and red carpets.', avatar: WRITER_AVATARS[0], agencyName: 'Hollywood Insider Blog Network' },
+  { id: 'w_c2', name: 'Jaxon Cole', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Gossip & Celebrity', weeklyCost: 600, postsPerWeek: 5, qualityBoost: 20, maxContractWeeks: 30, cancelFee: 1400, minFame: 500, bio: 'Gossip Wire specialist in celebrity news.', avatar: WRITER_AVATARS[1], agencyName: 'Gossip Wire Media' },
+  { id: 'w_c3', name: 'Sierra Lane', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Film Reviewer', weeklyCost: 750, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 1700, minFame: 600, bio: 'Cinema Review Collective critic.', avatar: WRITER_AVATARS[2], agencyName: 'Cinema Review Collective' },
+  { id: 'w_c4', name: 'Dylan Cross', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Awards Watch', weeklyCost: 800, postsPerWeek: 5, qualityBoost: 24, maxContractWeeks: 30, cancelFee: 1800, minFame: 800, bio: 'AwardsWatch blogger with insider buzz.', avatar: WRITER_AVATARS[3], agencyName: 'AwardsWatch Blog Network' },
+  { id: 'w_c5', name: 'Mika Sato', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'International', weeklyCost: 900, postsPerWeek: 4, qualityBoost: 22, maxContractWeeks: 30, cancelFee: 2000, minFame: 1000, bio: 'Tokyo cinema blogger with global reach.', avatar: WRITER_AVATARS[4], agencyName: 'Asia Cinema Blog Network' },
+  { id: 'w_c6', name: 'Ethan Brooks', tier: 2, tierLabel: 'Tier 2 · Content Writer', specialty: 'Business & Trade', weeklyCost: 850, postsPerWeek: 4, qualityBoost: 21, maxContractWeeks: 30, cancelFee: 1900, minFame: 900, bio: 'Trade reporter for financing and deals.', avatar: WRITER_AVATARS[5], agencyName: 'The Marquee Trade Desk' },
+  // TIER 3 — Senior Publicists ($1,200-2,000/wk)
+  { id: 'w_s1', name: 'Sophia Sterling', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'PR & Lifestyle', weeklyCost: 1250, postsPerWeek: 6, qualityBoost: 35, maxContractWeeks: 30, cancelFee: 4000, minFame: 2000, bio: 'Sterling PR Media Group senior publicist.', avatar: WRITER_AVATARS[0], agencyName: 'Sterling PR Media Group' },
+  { id: 'w_s2', name: 'Marcus Hayes', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Awards Watch', weeklyCost: 1500, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 5000, minFame: 2500, bio: 'Beverly Hills PR specialist for campaigns.', avatar: WRITER_AVATARS[1], agencyName: 'Beverly Hills PR Specialists' },
+  { id: 'w_s3', name: 'Isabella Fontaine', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Film Reviewer', weeklyCost: 1400, postsPerWeek: 6, qualityBoost: 38, maxContractWeeks: 30, cancelFee: 4600, minFame: 2200, bio: 'Trades-level critic and reporter.', avatar: WRITER_AVATARS[2], agencyName: 'Redwood Review Desk' },
+  { id: 'w_s4', name: 'Andre Whitfield', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Business & Trade', weeklyCost: 1600, postsPerWeek: 7, qualityBoost: 42, maxContractWeeks: 30, cancelFee: 5200, minFame: 3000, bio: 'Variety-style entertainment business reporter.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Business Desk' },
+  { id: 'w_s5', name: 'Camille Dubois', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'Gossip & Celebrity', weeklyCost: 1300, postsPerWeek: 7, qualityBoost: 36, maxContractWeeks: 30, cancelFee: 4200, minFame: 2000, bio: 'Celebrity features writer with sources.', avatar: WRITER_AVATARS[4], agencyName: 'Fame Focus Media' },
+  { id: 'w_s6', name: 'Lucas Meyer', tier: 3, tierLabel: 'Tier 3 · Senior Publicist', specialty: 'International', weeklyCost: 2000, postsPerWeek: 6, qualityBoost: 40, maxContractWeeks: 30, cancelFee: 6000, minFame: 3500, bio: 'Global press tour specialist.', avatar: WRITER_AVATARS[5], agencyName: 'Global Press Group' },
+  // TIER 4 — Elite Ghostwriters ($3,000-5,000/wk)
+  { id: 'w_e1', name: 'Vanguard Global PR', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'PR & Lifestyle', weeklyCost: 3200, postsPerWeek: 8, qualityBoost: 70, maxContractWeeks: 30, cancelFee: 12000, minFame: 6000, bio: 'Top-tier global PR agency with 24/7 account management.', avatar: WRITER_AVATARS[0], agencyName: 'Vanguard Global Communications Inc.' },
+  { id: 'w_e2', name: 'Julian Cross', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Awards Watch', weeklyCost: 3800, postsPerWeek: 9, qualityBoost: 80, maxContractWeeks: 30, cancelFee: 14000, minFame: 8000, bio: 'Oscar campaign whisperer.', avatar: WRITER_AVATARS[1], agencyName: 'Cross Campaigns' },
+  { id: 'w_e3', name: 'Victoria Reign', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Gossip & Celebrity', weeklyCost: 3500, postsPerWeek: 10, qualityBoost: 75, maxContractWeeks: 30, cancelFee: 13000, minFame: 7500, bio: 'The most connected celebrity writer in Hollywood.', avatar: WRITER_AVATARS[2], agencyName: 'Reign Media' },
+  { id: 'w_e4', name: 'Silas Monroe', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Film Reviewer', weeklyCost: 3000, postsPerWeek: 8, qualityBoost: 65, maxContractWeeks: 30, cancelFee: 11000, minFame: 5000, bio: 'Legendary critic with a trusted byline.', avatar: WRITER_AVATARS[3], agencyName: 'The Marquee Review' },
+  { id: 'w_e5', name: 'Gabriella Romano', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'Business & Trade', weeklyCost: 4500, postsPerWeek: 10, qualityBoost: 85, maxContractWeeks: 30, cancelFee: 16000, minFame: 10000, bio: 'Power broker of entertainment finance news.', avatar: WRITER_AVATARS[4], agencyName: 'Romano Partners Media' },
+  { id: 'w_e6', name: 'Theodore Vance', tier: 4, tierLabel: 'Tier 4 · Elite Ghostwriter', specialty: 'International', weeklyCost: 5000, postsPerWeek: 12, qualityBoost: 90, maxContractWeeks: 30, cancelFee: 18000, minFame: 12000, bio: 'Global superstar ghostwriter.', avatar: WRITER_AVATARS[5], agencyName: 'Sterling Heights Media' },
 ];
-
-// ============================================================
-// ENDLESS WRITER POST POOL
-// A deep slot library the writer draws from every post: openers ×
-// topic bodies × specialty flavor × closers. Bodies are template
-// functions so REAL game numbers bake in. With 15+ openers,
-// 60+ bodies (drawn 2 per post), 7 specialty flavors and 18
-// closers, the effective combination space is in the millions —
-// a feed never repeats.
-// ============================================================
-
-interface WriterPostData {
-  title: string;
-  gross: number;
-  opening: number;
-  position: number;
-  aud: number;
-  critic: number;
-  intl: number;
-  weeks: number;
-  awards: number;
-  role: string;
-  firstName: string;
-  tag: string;
-}
-
-const wMoney = (v: number): string =>
-  v >= 1000000 ? `$${(v / 1000000).toFixed(1)}M` : `$${Math.round(v / 1000)}K`;
-
-const WRITER_POOL_OPENERS_MOVIE: Array<(d: WriterPostData) => string> = [
-  (d) => `Quick '${d.title}' update from the press road:`,
-  (d) => `Numbers just came in from the studio —`,
-  (d) => `I keep re-reading the reviews for '${d.title}' and shaking my head:`,
-  (d) => `Someone pinched me on set today:`,
-  (d) => `Note from the '${d.title}' publicity desk:`,
-  (d) => `Alright, you've earned some real news:`,
-  (d) => `Catching my breath between interviews to tell you:`,
-  (d) => `The trades called this morning. Here's the truth:`,
-  (d) => `Sitting in the editing bay thinking about this:`,
-  (d) => `To everyone who showed up for '${d.title}' this month:`,
-  (d) => `My phone hasn't stopped buzzing since the '${d.title}' premiere —`,
-  (d) => `Long day on the lot, one thing left to do:`,
-  (d) => `The studio marketing team just unlocked the numbers, so:`,
-  (d) => `Between takes, between meetings, one honest post:`,
-  (d) => `Screening room was packed tonight and I'm still processing it:`,
-  (d) => `Filed under things I'll tell the grandkids:`,
-];
-
-const WRITER_POOL_OPENERS_GENERAL: Array<() => string> = [
-  () => `Catching you up from my corner of Hollywood:`,
-  () => `Note from the desk this morning:`,
-  () => `Real talk before the day starts:`,
-  () => `Something I've been sitting on all week:`,
-  () => `Alright, time for a proper update:`,
-  () => `From today's production meeting:`,
-  () => `Quick career note before it gets loud:`,
-  () => `The kind of week that deserves a real post:`,
-  () => `Coffee's cold, notes are long, here we go:`,
-  () => `No press release needed for this one:`,
-  () => `Somewhere between a rehearsal and a red carpet:`,
-  () => `Clearing the drafts folder — you get the truth:`,
-  () => `Hollywood moves fast, so let me slow one thing down:`,
-  () => `Writing this from the back of a car on Cahuenga:`,
-];
-
-const WRITER_POOL_BODIES_BOXOFFICE: Array<(d: WriterPostData) => string> = [
-  (d) => `'${d.title}' is now at ${wMoney(d.gross)} worldwide and still climbing.`,
-  (d) => `we opened at ${wMoney(d.opening)} — above every projection the studio showed me.`,
-  (d) => `we're sitting at #${d.position} on the box office chart right now.`,
-  (d) => `${wMoney(d.intl)} of the total comes from overseas — this movie is traveling the world.`,
-  (d) => `${d.weeks} weeks in theaters and people are STILL buying tickets.`,
-  (d) => `second-weekend holds like this one are the rarest thing in the business.`,
-  (d) => `the studio just greenlit a bigger marketing push — they smell a hit.`,
-  (d) => `exhibitors are adding screens instead of cutting them. Read that again.`,
-];
-const WRITER_POOL_BODIES_REVIEWS: Array<(d: WriterPostData) => string> = [
-  (d) => `the audience score is holding strong at ${d.aud}%.`,
-  (d) => `critics have us at ${d.critic}% — the write-ups have been surreal.`,
-  (d) => `a critic called the performance "career-defining" and I've read it nine times.`,
-  (d) => `the reviews keep using words like "fearless" and "transformed".`,
-  (d) => `even the tough reviews had good things to say about the third act.`,
-  (d) => `word of mouth is doing what no ad campaign could.`,
-];
-const WRITER_POOL_BODIES_CRAFT: Array<(d: WriterPostData) => string> = [
-  (d) => `playing a ${d.role} role took everything I had — dialect coaches, stunt weeks, 4AM call times.`,
-  (d) => `the physical prep alone was three months of training most people never see.`,
-  (d) => `I kept a private journal in the character's voice. It's strange and I love it.`,
-  (d) => `there's a scene we shot 22 times and take 19 is the one in the movie.`,
-  (d) => `the script changed my idea of what I'm capable of. That's the honest answer.`,
-  (d) => `I said yes to this project because it scared me. Still does, a little.`,
-  (d) => `deleted scenes exist that would break your heart. Maybe one day.`,
-  (d) => `every choice in this performance was fought for, nothing was accidental.`,
-];
-const WRITER_POOL_BODIES_SET: Array<(d: WriterPostData) => string> = [
-  (d) => `the crew behind this one is the real story: gaffers, editors, sound — hundreds of artists.`,
-  (d) => `craft services aside, the best part of the shoot was the people.`,
-  (d) => `our stunt coordinator should be a household name after this.`,
-  (d) => `16-hour days, zero complaints. This crew was different.`,
-  (d) => `the director ran set like a family dinner — loud, warm, relentless.`,
-  (d) => `behind every frame you're watching: a small city working in the dark.`,
-];
-const WRITER_POOL_BODIES_FANS: Array<(d: WriterPostData) => string> = [
-  (d) => `someone camped outside the theater in a costume from the movie. Legend.`,
-  (d) => `your DMs, edits, and theories are all I read on Sundays.`,
-  (d) => `a fan letter from Ohio is taped to my mirror right now.`,
-  (d) => `the premiere crowd chanted the title. I get chills typing that.`,
-  (d) => `I see every fan art post. Every single one. Keep them coming.`,
-  (d) => `theater owners say groups are coming back in costumes. You did that.`,
-];
-const WRITER_POOL_BODIES_TRADE: Array<(d: WriterPostData) => string> = [
-  (d) => `three scripts on the desk, one I genuinely can't stop thinking about.`,
-  (d) => `the next role scares me a little, which is how I know it's the right one.`,
-  (d) => `development meetings all week, real decisions coming soon.`,
-  (d) => `the trades keep guessing. They're mostly wrong. Mostly.`,
-  (d) => `my team says don't post this. Posting it anyway: something big is close.`,
-  (d) => `meetings in three studios this week and a very good problem choosing.`,
-];
-const WRITER_POOL_BODIES_TRAINING: Array<(d: WriterPostData) => string> = [
-  (d) => `training is stacking up — dialect sessions in the morning, stunt work in the afternoon.`,
-  (d) => `reading, training, auditioning — the unglamorous engine of this career.`,
-  (d) => `the character I'm building right now is unlike anything you've seen from me.`,
-  (d) => `gym at 5, script at 7, set at 9. This is the fun part.`,
-  (d) => `learned a new accent this month. My neighbors think I've lost it.`,
-  (d) => `rehearsal footage exists that will never, ever be released. It's that raw.`,
-];
-const WRITER_POOL_BODIES_LIFESTYLE: Array<(d: WriterPostData) => string> = [
-  (d) => `took one day off. Drove to the ocean. Thought about absolutely nothing.`,
-  (d) => `${d.firstName}'s honest review of fame so far: surreal, exhausting, worth it.`,
-  (d) => `found the diner I used to wait tables at. Left the biggest tip of my life.`,
-  (d) => `still drives the same car. Still forgets that sometimes people notice.`,
-  (d) => `gratitude list this week: work, health, and whoever invented cold brew.`,
-];
-const WRITER_POOL_BODIES_INDUSTRY: Array<(d: WriterPostData) => string> = [
-  (d) => `the industry is changing fast and the good work still finds a way.`,
-  (d) => `every job on a set matters. This business runs on hundreds of hands.`,
-  (d) => `streaming, theatrical, whatever's next — a great story wins every time.`,
-  (d) => `Hollywood will humble you on a Tuesday and crown you by Friday.`,
-  (d) => `the people who last in this town are the ones who keep studying.`,
-];
-
-/** Specialty-flavored lines — the writer's voice, not just the actor's */
-const WRITER_SPECIALTY_FLAVOR: Record<string, Array<(d: WriterPostData) => string>> = {
-  'Film Reviewer': [
-    (d) => `critics' consensus is forming and it lands on the performance — pinned review incoming.`,
-    (d) => `consider this your spoiler-free nudge: see it on the biggest screen you can find.`,
-    (d) => `the letterboxd crowd has opinions. Loud ones. Correct ones.`,
-  ],
-  'Gossip & Celebrity': [
-    (d) => `yes, the tabloids ran the story. No, it wasn't true. Yes, this post is the correction.`,
-    (d) => `spotted at the same restaurant as a certain director. Draw your own conclusions (correctly).`,
-    (d) => `the gossip pages need content, so here's an exclusive: hard work is the secret.`,
-  ],
-  'Awards Watch': [
-    (d) => `the awards tracking boards just moved this performance up the leaderboard.`,
-    (d) => `buzz season is officially open and the campaign schedule is already wild.`,
-    (d) => `the words "campaign" and "contender" are being used in the same sentence as '${d.title}'.`,
-  ],
-  'Business & Trade': [
-    (d) => `the financing behind this one is a story itself — international pre-sales did heavy lifting.`,
-    (d) => `back-end points negotiated on this deal were the smartest signature of the year.`,
-    (d) => `analysts are revising the quarter's projections upward. Upward.`,
-  ],
-  International: [
-    (d) => `premiere passport stamps this month: three countries, one tux.`,
-    (d) => `the overseas press asked better questions than anyone. Facts.`,
-    (d) => `dubbed, subtitled, pirated, loved — cinema travels farther than any of us.`,
-  ],
-  'PR & Lifestyle': [
-    (d) => `brand meetings went long but the vision is very, very clear.`,
-    (d) => `the press tour wardrobe reveal is going to break the internet. Scheduled and everything.`,
-    (d) => `red carpet prep is a sport and we are in training.`,
-  ],
-};
-
-const WRITER_POOL_CLOSERS: Array<(d: WriterPostData) => string> = [
-  (d) => `Thank you for being on this ride with me. ❤️`,
-  (d) => `More news very soon — stay close. 👀`,
-  (d) => `This is all yours, not mine. 🙏`,
-  (d) => `Keep showing up and I'll keep earning it. 🎬`,
-  (d) => `Details when the embargo lifts. 🔒`,
-  (d) => `Drop your predictions below. 💬`,
-  (d) => `Grateful beyond words tonight. ✨`,
-  (d) => `We're just getting started. 🔥`,
-  (d) => `Tell me where you're watching from. 🌍`,
-  (d) => `Reply with your favorite scene. No wrong answers.`,
-  (d) => `Half of this industry is showing up. You're the other half.`,
-  (d) => `Screenshots of this post will age beautifully. 📸`,
-  (d) => `Next update lands with actual receipts. 🧾`,
-  (d) => `Stay weird, stay kind, buy the popcorn. 🍿`,
-  (d) => `#${d.tag || 'HollywoodRising'}`,
-  (d) => `#${d.tag || 'HollywoodRising'} #NowWatching`,
-  (d) => `Book the tickets. Thank me after. 🎟️`,
-  (d) => `The best is genuinely ahead. Believe that. ⚡`,
-];
-
-/**
- * Draw one endless-pool post for a writer. Real movie data bakes into the
- * bodies; the writer's specialty colors the voice; weekly dedupe keeps the
- * same sentence from appearing twice in one week.
- */
-export function drawWriterPoolPost(
-  specialty: string,
-  data: WriterPostData,
-  usedTexts: Set<string>
-): string {
-  const pickT = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-  // Topic pools — box office & review lines only exist when real numbers do
-  const topics: Array<Array<(d: WriterPostData) => string>> = [WRITER_POOL_BODIES_CRAFT, WRITER_POOL_BODIES_SET, WRITER_POOL_BODIES_FANS, WRITER_POOL_BODIES_TRADE, WRITER_POOL_BODIES_TRAINING, WRITER_POOL_BODIES_LIFESTYLE, WRITER_POOL_BODIES_INDUSTRY];
-  if (data.gross > 0 || data.opening > 0 || data.position > 0 || data.weeks > 1) topics.push(WRITER_POOL_BODIES_BOXOFFICE);
-  if (data.aud > 0 || data.critic > 0) topics.push(WRITER_POOL_BODIES_REVIEWS);
-
-  const openers = data.title ? WRITER_POOL_OPENERS_MOVIE : WRITER_POOL_OPENERS_GENERAL;
-  const flavor = WRITER_SPECIALTY_FLAVOR[specialty] || WRITER_SPECIALTY_FLAVOR['Film Reviewer'];
-
-  for (let attempt = 0; attempt < 8; attempt++) {
-    // 2 topic sentences from DIFFERENT topics, 40% chance of a specialty line
-    const t1 = pickT(pickT(topics))(data);
-    let t2 = pickT(pickT(topics))(data);
-    if (t2 === t1) t2 = pickT(pickT(topics))(data);
-    const fl = Math.random() < 0.4 ? ` ${pickT(flavor)(data)}` : '';
-    const text = `${pickT(openers)(data)} ${t1} ${t2}${fl} ${pickT(WRITER_POOL_CLOSERS)(data)}`;
-    if (!usedTexts.has(text)) {
-      usedTexts.add(text);
-      return text;
-    }
-  }
-  return `${pickT(openers)(data)} ${pickT(pickT(topics))(data)} ${pickT(WRITER_POOL_CLOSERS)(data)}`;
-}
 
 // ---------- PREMIUM ----------
 export class PremiumService {
@@ -3530,290 +2033,44 @@ export function youtubeAlgorithmViews(lifetimeVideos: number, fameXp: number, di
   return Math.floor(2000 + fameXp * 60 + Math.random() * fameXp * 20);
 }
 
-// ---------- WRITERS (SEPARATE per platform: 1 each, contract 5-40 weeks, cancel fee) ----------
-// Contract length the player may choose when applying
-export const WRITER_MIN_CONTRACT_WEEKS = 5;
-export const WRITER_MAX_CONTRACT_WEEKS = 40;
-export const WRITER_CONTRACT_CHOICES = [5, 10, 15, 20, 25, 30, 35, 40];
-
-// Base acceptance odds when the player MEETS every requirement, by tier.
-const WRITER_ACCEPT_BASE: Record<number, number> = { 1: 0.9, 2: 0.8, 3: 0.7, 4: 0.6 };
-// Lucky-break odds when portfolio requirements (movies/fans) are NOT met —
-// the "invisible checker". Fame is a hard lock; movies/fans only lower odds.
-const WRITER_ACCEPT_LONGSHOT = 0.15;
-
-interface WriterPitchContext {
-  writerName: string;
-  agency: string;
-  playerName: string;
-  tierLabel: string;
-  specialty: string;
-  platformLabel: string;
-  weeks: number;
-  weeklyCost: number;
-  totalCost: number;
-  fameXp: number;
-  movies: number;
-  fans: number;
-  missing: string[];
-}
-
-// 13 ACCEPTANCE templates — varied tone, all personalized with real data
-const WRITER_ACCEPT_TEMPLATES: Array<(c: WriterPitchContext) => { subject: string; body: string }> = [
-  (c) => ({
-    subject: `RETAINER ACCEPTED — ${c.writerName} is officially on your team!`,
-    body: `Dear ${c.playerName},\n\nI reviewed your portfolio this morning (${c.movies} credits, ${c.fans.toLocaleString()} fans, ${c.fameXp.toLocaleString()} Fame XP) and I'm signing on the dotted line. Great material to work with.\n\nFor the next ${c.weeks} weeks I'll publish 2 detailed strategic posts per week on your ${c.platformLabel} feed — real releases, real numbers, real momentum.\n\nWeekly retainer: $${c.weeklyCost.toLocaleString()}\nTotal contract value: $${c.totalCost.toLocaleString()}\n\nLet's build something. First post drops this week.\n\n— ${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `YES — let's work together (${c.weeks}-week retainer confirmed)`,
-    body: `Hey ${c.playerName}!\n\nHonestly? I've been watching your career from afar for a while. When your application landed on my desk I may have said "finally" out loud.\n\n${c.tierLabel} to ${c.specialty.toLowerCase()} — you came to the right desk. ${c.weeks} weeks, 2 posts a week on ${c.platformLabel}, zero fluff, all signal.\n\n$${c.weeklyCost.toLocaleString()}/wk starting immediately.\n\nTalk soon,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `CONTRACT EXECUTED: ${c.writerName} × ${c.playerName} (${c.weeks} weeks)`,
-    body: `${c.playerName},\n\nFollowing a standard audit of your public standing — Fame XP ${c.fameXp.toLocaleString()}, ${c.movies} completed projects, ${c.fans.toLocaleString()} fans — ${c.agency} is pleased to confirm acceptance of your retainer offer.\n\nTerms: ${c.weeks} weeks · $${c.weeklyCost.toLocaleString()}/week · ${c.platformLabel} exclusivity · 2 posts weekly.\n\nOur editorial calendar for your account is already drafted.\n\nRegards,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `You're in. I start Monday.`,
-    body: `${c.playerName},\n\nShort note: I read your application twice, checked your numbers, and called my editor. We're doing this.\n\n${c.weeks} weeks on ${c.platformLabel}. I know exactly the angle we're taking — your story writes itself if someone just pays attention. I do.\n\nInvoice: $${c.weeklyCost.toLocaleString()}/wk.\n\n— ${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `WELCOME ABOARD — ${c.agency} accepts your retainer!`,
-    body: `Dear ${c.playerName},\n\nOn behalf of the entire ${c.agency} team, welcome aboard! ${c.writerName} here will be your dedicated ${c.specialty.toLowerCase()} voice for the next ${c.weeks} weeks.\n\nYour profile passed our client criteria with room to spare:\n• Fame XP: ${c.fameXp.toLocaleString()}\n• Completed projects: ${c.movies}\n• Fanbase: ${c.fans.toLocaleString()}\n\nExpect your first ${c.platformLabel} post within days.\n\nWarm regards,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `Re: Your retainer application — ACCEPTED ✔`,
-    body: `${c.playerName},\n\nQuick reply to your application: yes.\n\nSlightly longer reply: yes, because your trajectory is exactly the kind of story my readers follow. ${c.movies} credits in and climbing — I know an ascending curve when I see one.\n\n${c.weeks} weeks · ${c.platformLabel} · $${c.weeklyCost.toLocaleString()}/wk. Locked in.\n\n${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `RETAINER CONFIRMED — the paperwork is done!`,
-    body: `Dear ${c.playerName},\n\nThe board reviewed your application over lunch and it was the fastest unanimous yes we've had all quarter.\n\n${c.writerName}, ${c.specialty}, at your service for ${c.weeks} weeks. Your ${c.platformLabel} feed is about to get a lot more interesting — expect release coverage, industry insight, and the kind of detail fans actually share.\n\nWeekly fee: $${c.weeklyCost.toLocaleString()}.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `We say yes to very few. You're one of them.`
-    , body: `${c.playerName},\n\nI'll be direct: I turn down most retainer offers because most profiles are noise. Yours has signal — ${c.movies} real credits and a fanbase that actually engages (${c.fans.toLocaleString()} strong).\n\n${c.weeks} weeks on ${c.platformLabel}. $${c.weeklyCost.toLocaleString()}/wk. I only take accounts I can be proud of a year from now.\n\nWelcome.\n\n— ${c.writerName}\n${c.agency}` }),
-  (c) => ({
-    subject: `ACCEPTANCE NOTICE: ${c.writerName} joins ${c.playerName}'s PR team`,
-    body: `Dear ${c.playerName},\n\nPlease find below confirmation of our agreed engagement:\n\n• Writer: ${c.writerName} (${c.tierLabel})\n• Specialty: ${c.specialty}\n• Platform: ${c.platformLabel} (exclusive)\n• Duration: ${c.weeks} weeks\n• Retainer: $${c.weeklyCost.toLocaleString()} per week\n• Deliverables: 2 detailed posts per week minimum\n\nWe look forward to an excellent collaboration.\n\nYours sincerely,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `Okay, I'm interested. Actually — I'm in.`
-    , body: `${c.playerName},\n\nI drafted a polite decline. Then I looked at your numbers again and deleted it.\n\n${c.fameXp.toLocaleString()} Fame XP, ${c.movies} credits, ${c.fans.toLocaleString()} fans — this is a career on the move, and ${c.platformLabel} is about to hear all about it. ${c.weeks} weeks. Let's go.\n\n$${c.weeklyCost.toLocaleString()}/wk — worth every cent, and I intend to prove it.\n\n${c.writerName}` }),
-  (c) => ({
-    subject: `CONGRATULATIONS — your application stood out!`,
-    body: `Dear ${c.playerName},\n\nWe received a high volume of retainer applications this month. Yours was among the very few we accepted.\n\nYour combination of momentum (${c.fameXp.toLocaleString()} Fame XP) and an engaged fanbase (${c.fans.toLocaleString()} fans) makes you an ideal client for ${c.writerName}'s ${c.specialty.toLowerCase()} desk.\n\n${c.weeks}-week engagement begins now. First ${c.platformLabel} post: this week.\n\nCongratulations again,\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `Signed, sealed, delivered — I'm yours for ${c.weeks} weeks`,
-    body: `Hey ${c.playerName}!\n\nContract's signed and my coffee's cold from reading through your entire filmography. ${c.movies} projects — some hidden gems in there the trades completely missed. That's content gold.\n\n${c.platformLabel} is getting 2 posts a week from me about your career, and people are going to notice.\n\n$${c.weeklyCost.toLocaleString()}/wk. Easiest money you'll spend this year.\n\nCheers,\n${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `FORMAL ACCEPTANCE — Retainer Agreement (${c.writerName})`,
-    body: `Dear ${c.playerName},\n\nThis letter confirms ${c.agency}'s acceptance of your retainer application.\n\nOur evaluation noted the following: consistent career progression, verifiable credits (${c.movies}), and measurable public support (${c.fans.toLocaleString()} fans). All client criteria satisfied.\n\nEngagement terms: ${c.weeks} weeks, $${c.weeklyCost.toLocaleString()} weekly, ${c.platformLabel} exclusivity, minimum 2 posts per week.\n\nWe are honored to represent your voice.\n\nFormally yours,\n${c.writerName}\n${c.agency}`,
-  }),
-];
-
-// 12 DECLINE templates — varied reasons and tones, all explain what's missing
-const WRITER_DECLINE_TEMPLATES: Array<(c: WriterPitchContext) => { subject: string; body: string }> = [
-  (c) => ({
-    subject: `RETAINER DECLINED — ${c.writerName}'s evaluation`,
-    body: `Dear ${c.playerName},\n\nThank you for your interest in my ${c.specialty.toLowerCase()} services.\n\nAfter reviewing your application, I'm unable to take you on at this time:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nThis isn't a no forever — it's a no for now. Build the portfolio and try me again.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `Re: Your application — not this time`,
-    body: `Hey ${c.playerName},\n\nI'll be straight with you: I can't sell a story that isn't there yet.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nThe good news? Stories change fast in this town. Go book the work, and my inbox stays open.\n\n${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `APPLICATION STATUS: Unsuccessful`,
-    body: `Dear ${c.playerName},\n\nThank you for applying for representation with ${c.agency}.\n\nFollowing our standard client audit, your application did not meet our current criteria:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe encourage you to reapply once these areas have developed. Applications are reassessed every season.\n\nRegards,\nClient Relations\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `I have to pass — here's why (and how to fix it)`,
-    body: `${c.playerName},\n\nNobody tells actors the truth in this town, so here it is: I can't take your account yet.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nBut you're reading a decline from someone who checks credits weekly. Get these numbers up and apply again — I keep notes.\n\n— ${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `RETAINER OFFER DECLINED — portfolio under review threshold`,
-    body: `Dear ${c.playerName},\n\n${c.agency} maintains strict client thresholds to protect both our writers and our readership. Unfortunately your current standing falls below them:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe wish you every success in your career and welcome future applications.\n\nSincerely,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `Not yet, ${c.playerName}. Not yet.`
-    , body: `${c.playerName},\n\nI've been doing this long enough to know the difference between "no" and "not yet." This is the second one.\n\nWhat's holding it back:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nFix that, and the next email you send me gets a yes. I'd bet my byline on it.\n\n— ${c.writerName}` }),
-  (c) => ({
-    subject: `Your application — honest feedback enclosed`,
-    body: `Dear ${c.playerName},\n\nI'm declining your retainer offer, but I'm not going to leave you guessing like most agencies do.\n\nThe gaps:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWriters follow momentum. Give us something to write about and we will — eagerly.\n\nBest,\n${c.writerName}\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `DECLINED — ${c.agency} client roster at capacity for your tier`,
-    body: `Dear ${c.playerName},\n\nAfter careful consideration we must decline your application.\n\nOur assessment identified the following:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\n${c.agency} reassesses eligibility every quarter. Your application will remain on file.\n\nRespectfully,\nClient Services\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `The story isn't ready. You might be.`
-    , body: `${c.playerName},\n\nA good ${c.specialty.toLowerCase()} knows when there's enough story to tell. Right now there isn't — not for my rates, not for my readers.\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nBut between you and me? The ones who get declined and come back swinging are the ones worth covering.\n\nSee you on the other side of it.\n${c.writerName}` }),
-  (c) => ({
-    subject: `RE: Retainer application — unable to accept`,
-    body: `Dear ${c.playerName},\n\nThank you for considering ${c.writerName} for your ${c.platformLabel} coverage.\n\nUnfortunately, our evaluation found your current profile below our minimum client standards:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nWe hope this changes soon — Hollywood moves fast.\n\nSincerely,\n${c.writerName}`,
-  }),
-  (c) => ({
-    subject: `Application outcome: DECLINED (details inside)`,
-    body: `Dear ${c.playerName},\n\nWe regret to inform you that your retainer application was unsuccessful this cycle.\n\nEvaluator notes:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nPlease note: declined applicants are welcome to reapply after material career developments.\n\nKind regards,\nThe Editorial Board\n${c.agency}`,
-  }),
-  (c) => ({
-    subject: `I said no — but read this part twice`,
-    body: `${c.playerName},\n\nThe no is because of this:\n${c.missing.map((m) => `• ${m}`).join('\n')}\n\nNow the part to read twice: every single one of those numbers moves with one booking, one release, one break. Mine did too, once.\n\nReapply when they move. I'll remember this email.\n\n— ${c.writerName}\n${c.agency}`,
-  }),
-];
-
-/**
- * Pitch a writer — the INVISIBLE CHECKER. The writer audits the player's real
- * portfolio (fame, movies, fans) and rolls acceptance odds by tier. Fame below
- * minimum is a hard lock; movies/fans shortfalls lower odds to a longshot.
- * Always produces a personalized InboxMessage (accept or decline) drawn from
- * 25 rotating templates. On acceptance the writer is hired for the chosen
- * contract length (5-40 weeks).
- */
-export function pitchSocialWriter(
+// ---------- WRITERS (hire 1, max 30 weeks, cancel fee) ----------
+export function hireSocialWriter(
   state: SocialsState,
   writerId: string,
-  money: number,
-  player: { fameXp: number; moviesCompleted: number; fans: number; firstName: string; lastName: string; dateWeek: number; dateYear: number },
-  platform: string,
-  weeks: number
-): { success: boolean; message: string; inboxMsg: InboxMessage; newMoney: number; hired: boolean } {
-  const pid = platform || 'twitter';
-  const label = SocialsService.PLATFORM_LABEL[pid] || pid;
-  const emptyMsg = (subject: string, body: string): InboxMessage => ({
-    id: `msg_writer_error_${Date.now()}`,
-    category: 'SOCIAL',
-    sender: 'Writer Relations Desk',
-    senderRole: 'Automated Notice',
-    subject,
-    body,
-    date: `Week ${player.dateWeek || 1}, ${player.dateYear || 2026}`,
-    read: false,
-  });
-
-  const existing = state.writers.find((w) => w.hired && (w.platform || 'twitter') === pid);
-  if (existing) return { success: false, message: `${label} already has a writer (${existing.name}). Cancel that contract first.`, inboxMsg: emptyMsg('Application blocked', 'You already have a writer under contract for this platform.'), newMoney: money, hired: false };
-  const busyElsewhere = state.writers.find((w) => w.hired && w.id === writerId);
-  if (busyElsewhere) return { success: false, message: `${busyElsewhere.name} is already retained for ${SocialsService.PLATFORM_LABEL[busyElsewhere.platform || 'twitter'] || 'another platform'}.`, inboxMsg: emptyMsg('Application blocked', 'This writer is already on another platform contract.'), newMoney: money, hired: false };
+  money: number
+): { success: boolean; message: string; newMoney: number } {
+  const existing = state.writers.find((w) => w.hired);
+  if (existing) return { success: false, message: 'You already have a hired writer. Cancel their contract first.', newMoney: money };
   const w = SOCIAL_WRITER_POOL.find((x) => x.id === writerId);
-  if (!w) return { success: false, message: 'Writer not found.', inboxMsg: emptyMsg('Application error', 'Writer record not found.'), newMoney: money, hired: false };
-
-  // Clamp contract length to the legal range
-  const chosenWeeks = Math.max(WRITER_MIN_CONTRACT_WEEKS, Math.min(WRITER_MAX_CONTRACT_WEEKS, Math.floor(weeks || WRITER_MIN_CONTRACT_WEEKS)));
-
-  if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, inboxMsg: emptyMsg('Application blocked', 'You cannot cover the first week retainer.'), newMoney: money, hired: false };
-
-  // ----- INVISIBLE CHECKER: portfolio audit -----
-  const fameXp = player.fameXp || 0;
-  const movies = player.moviesCompleted || 0;
-  const fans = player.fans || 0;
-
-  const meetsFame = fameXp >= w.minFame;
-  const meetsMovies = movies >= w.minMovies;
-  const meetsFans = fans >= w.minFans;
-
-  const missing: string[] = [];
-  if (!meetsMovies && w.minMovies > 0) missing.push(`Requires ${w.minMovies} completed projects — you have ${movies}`);
-  if (!meetsFans && w.minFans > 0) missing.push(`Requires ${w.minFans.toLocaleString()} fans — you have ${fans.toLocaleString()}`);
-  if (!meetsFame) missing.push(`Requires ${w.minFame.toLocaleString()} Fame XP — you have ${fameXp.toLocaleString()}`);
-
-  const allMet = meetsFame && meetsMovies && meetsFans;
-  // "Barely" = meets everything but sits within 15% above a threshold
-  const barely = allMet && (
-    (w.minMovies > 0 && movies < w.minMovies * 1.15) ||
-    (w.minFans > 0 && fans < w.minFans * 1.15) ||
-    (w.minFame > 0 && fameXp < w.minFame * 1.15)
-  );
-
-  let acceptChance = allMet
-    ? (barely ? WRITER_ACCEPT_BASE[w.tier] - 0.15 : WRITER_ACCEPT_BASE[w.tier])
-    : WRITER_ACCEPT_LONGSHOT;
-  // Fame shortfall below 50% of requirement = automatic pass, no longshot
-  if (!meetsFame && fameXp < w.minFame * 0.5) acceptChance = 0;
-
-  const accepted = Math.random() < acceptChance;
-
-  const ctx: WriterPitchContext = {
-    writerName: w.name,
-    agency: w.agencyName,
-    playerName: `${player.firstName} ${player.lastName}`.trim(),
-    tierLabel: w.tierLabel,
-    specialty: w.specialty,
-    platformLabel: label,
-    weeks: chosenWeeks,
-    weeklyCost: w.weeklyCost,
-    totalCost: w.weeklyCost * chosenWeeks,
-    fameXp,
-    movies,
-    fans,
-    missing,
-  };
-
-  const templates = accepted ? WRITER_ACCEPT_TEMPLATES : WRITER_DECLINE_TEMPLATES;
-  const tpl = templates[Math.floor(Math.random() * templates.length)](ctx);
-
-  const inboxMsg: InboxMessage = {
-    id: `msg_writer_${accepted ? 'accept' : 'decline'}_${w.id}_${Date.now()}`,
-    category: 'SOCIAL',
-    sender: w.name,
-    senderRole: w.agencyName,
-    senderAvatar: w.avatar,
-    subject: tpl.subject,
-    body: tpl.body,
-    date: `Week ${player.dateWeek || 1}, ${player.dateYear || 2026}`,
-    read: false,
-    dateWeek: player.dateWeek,
-    dateYear: player.dateYear,
-  };
-
-  if (!accepted) {
-    return {
-      success: false,
-      message: `❌ ${w.name} DECLINED your offer — full evaluation sent to your Inbox.`,
-      inboxMsg,
-      newMoney: money,
-      hired: false,
-    };
-  }
-
-  state.writers = state.writers.filter((wr) => !(wr.hired && (wr.platform || 'twitter') === pid));
+  if (!w) return { success: false, message: 'Writer not found.', newMoney: money };
+  if (money < w.weeklyCost) return { success: false, message: `Insufficient funds — ${w.name} costs $${w.weeklyCost}/wk.`, newMoney: money };
+  state.writers = state.writers.map((wr) => wr.hired ? wr : wr);
   state.writers.push({
     id: w.id,
     name: w.name,
-    tier: w.tier === 1 ? 'Low' : w.tier === 2 ? 'Medium' : 'Elite',
+    tier: w.tier === 1 ? 'Low' : w.tier === 2 ? 'Medium' : w.tier === 3 ? 'Elite' : 'Elite',
     weeklyCost: w.weeklyCost,
     postsPerWeek: w.postsPerWeek,
-    contractWeeksRemaining: chosenWeeks,
+    contractWeeksRemaining: w.maxContractWeeks,
     postsThisWeek: 0,
     qualityBoost: w.qualityBoost,
     hired: true,
     agencyName: w.agencyName,
     minFame: w.minFame,
-    minMovies: w.minMovies,
-    minFans: w.minFans,
     bio: w.bio,
     avatar: w.avatar,
-    platform: pid,
   });
-  return {
-    success: true,
-    message: `✍️ ${w.name} ACCEPTED! ${chosenWeeks}-week ${label} contract — confirmation in Inbox.`,
-    inboxMsg,
-    newMoney: money,
-    hired: true,
-  };
+  return { success: true, message: `${w.name} (${w.agencyName}) hired for ${w.maxContractWeeks} weeks!`, newMoney: money };
 }
 
-export function fireSocialWriter(state: SocialsState, money: number, platform?: string): { success: boolean; message: string; newMoney: number } {
-  const pid = platform || 'twitter';
-  const label = SocialsService.PLATFORM_LABEL[pid] || pid;
-  const existing = state.writers.find((w) => w.hired && (w.platform || 'twitter') === pid);
-  if (!existing) return { success: false, message: `No writer hired for ${label}.`, newMoney: money };
+export function fireSocialWriter(state: SocialsState, money: number): { success: boolean; message: string; newMoney: number } {
+  const existing = state.writers.find((w) => w.hired);
+  if (!existing) return { success: false, message: 'No writer hired.', newMoney: money };
   const pool = SOCIAL_WRITER_POOL.find((w) => w.id === existing.id);
   const fee = pool ? pool.cancelFee : 1000;
   if (money < fee) return { success: false, message: `Insufficient funds for cancellation fee ($${fee}).`, newMoney: money };
-  state.writers = state.writers.filter((w) => w !== existing);
-  return { success: true, message: `${existing.name} dropped from ${label}. Paid $${fee} cancellation fee.`, newMoney: money - fee };
+  state.writers = state.writers.filter((w) => w.id !== existing.id);
+  return { success: true, message: `${existing.name} fired. Paid $${fee} cancellation fee.`, newMoney: money - fee };
 }
 
 
@@ -3835,6 +2092,8 @@ export function processSocialHubWeek(
   const year = player?.dateYear || 2026;
   const fameXp = player?.fameXp || 0;
   const movies = saveData?.releasedMovies || [];
+  const latest = movies[0];
+  const awards = player?.awardsWon || 0;
   const premium = state.premium || { tier: 'none', plan: 'none', expiresWeek: 0, expiresYear: 0 };
 
   // 1. PREMIUM EXPIRY
@@ -3845,14 +2104,171 @@ export function processSocialHubWeek(
     }
   }
 
-  // 3. CREATOR STUDIO — impressions tracking for the analytics panel only.
-  //    ALL revenue flows through the platform BANKS (monthly payout system);
-  //    this legacy path no longer pays money directly to the wallet.
-  //    NOTE: creatorStudio.weeklyAdRevenue holds the YT engine's accrual —
-  //    do not zero it here.
+  // 2. WRITER AUTO-POSTS (1 hired writer posts on EVERY platform about REAL events)
+  const writer = state.writers.find((w) => w.hired);
+  if (writer && writer.contractWeeksRemaining > 0) {
+    writer.contractWeeksRemaining -= 1;
+    const boost = writer.qualityBoost || 10;
+    const realEvent = latest
+      ? { title: latest.movieTitle, gross: latest.worldwideGross || 0, aud: latest.audienceRating || 0 }
+      : null;
+
+    // Twitter (For You = player feed)
+    if (realEvent) {
+      const t = [
+        `'${realEvent.title}' is IN THEATERS — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! 🎬`,
+        `The critics are raving about '${realEvent.title}' (${realEvent.aud}% audience score)!`,
+        awards > 0 ? `🏆 ${awards} award(s) this season — what a year it's been!` : `Excited about what's next — stay tuned!`,
+      ];
+      state.playerPosts.Twitter = state.playerPosts.Twitter || [];
+      state.playerPosts.Twitter.unshift({
+        id: `w_tw_${Date.now()}`,
+        authorName: `${player.firstName} ${player.lastName}`,
+        authorHandle: `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
+        authorAvatar: player.avatarUrl || '',
+        platform: 'Twitter',
+        tab: 'PLAYER_FEED',
+        text: t[Math.floor(Math.random() * t.length)],
+        likes: Math.floor(50 + fameXp * 0.5 + boost),
+        comments: Math.floor(10 + fameXp * 0.2),
+        retweets: Math.floor(20 + fameXp * 0.3),
+        shares: 0,
+        timestamp: 'Just now',
+        isPlayer: true,
+        isNpc: false,
+        sentiment: 'Positive',
+        generatedByWriter: true,
+      });
+    }
+    // Instagram caption/story
+    if (realEvent) {
+      state.instagramPosts = state.instagramPosts || [];
+      state.instagramPosts.unshift({
+        id: `w_ig_${Date.now()}`,
+        imageUrl: latest?.posterUrl || player.avatarUrl || '',
+        caption: `Behind the scenes of '${realEvent.title}' 🎬 #${realEvent.title.replace(/[^a-zA-Z0-9]/g, '')}`,
+        likes: Math.floor(80 + fameXp * 0.6 + boost),
+        comments: Math.floor(12 + fameXp * 0.15),
+        username: `${player.firstName}${player.lastName}`,
+        timestamp: 'Just now',
+        isPlayer: true,
+      } as any);
+    }
+    // YouTube video publish + algorithm tracker
+    if (realEvent) {
+      state.youtubeVideos = state.youtubeVideos || [];
+      state.youtubeVideos.unshift({
+        id: `w_yt_${Date.now()}`,
+        title: `'${realEvent.title}' — Official Trailer & BTS`,
+        views: Math.floor(youtubeAlgorithmViews(state.youtubeAlgorithm.lifetimeVideos, fameXp, state.youtubeAlgorithm.discovered)),
+        likes: 0,
+        comments: 0,
+        thumbnailUrl: latest?.posterUrl || player.avatarUrl || '',
+        channelName: `${player.firstName} ${player.lastName}`,
+        duration: '2:15',
+        isPlayer: true,
+        isLive: false,
+      } as any);
+      state.youtubeAlgorithm.lifetimeVideos += 1;
+      if (state.youtubeAlgorithm.lifetimeVideos >= 55 && !state.youtubeAlgorithm.discovered) {
+        state.youtubeAlgorithm.discovered = true;
+        messages.push('🚀 The YouTube algorithm has discovered your channel — your videos are being pushed to new audiences!');
+      }
+    }
+    // Facebook post
+    state.facebookPosts = state.facebookPosts || [];
+    state.facebookPosts.unshift({
+      id: `w_fb_${Date.now()}`,
+      authorName: `${player.firstName} ${player.lastName}`,
+      authorHandle: '',
+      authorAvatar: player.avatarUrl || '',
+      platform: 'Facebook',
+      tab: 'PLAYER_FEED',
+      text: realEvent
+        ? `So proud of '${realEvent.title}' — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide! Thank you to everyone who came out. ❤️`
+        : `Grateful for this incredible journey. More announcements coming soon! ✨`,
+      likes: Math.floor(100 + fameXp * 0.8 + boost),
+      comments: Math.floor(15 + fameXp * 0.2),
+      retweets: 0,
+      shares: Math.floor(30 + fameXp * 0.4),
+      timestamp: 'Just now',
+      isPlayer: true,
+      isNpc: false,
+      sentiment: 'Positive',
+      generatedByWriter: true,
+    } as any);
+    // The Marquee professional post
+    state.marqueePosts = state.marqueePosts || [];
+    state.marqueePosts.unshift({
+      id: `w_mq_${Date.now()}`,
+      authorName: `${player.firstName} ${player.lastName}`,
+      authorHandle: '',
+      authorAvatar: player.avatarUrl || '',
+      platform: 'Twitter',
+      tab: 'PLAYER_FEED',
+      text: realEvent
+        ? `Thrilled to share that '${realEvent.title}' has earned $${(realEvent.gross / 1000000).toFixed(1)}M at the worldwide box office. Grateful to the studio and the incredible cast and crew.`
+        : `Excited for what's next in this chapter of my career.`,
+      likes: Math.floor(40 + fameXp * 0.4 + boost),
+      comments: Math.floor(8 + fameXp * 0.1),
+      retweets: 0,
+      shares: Math.floor(10 + fameXp * 0.2),
+      timestamp: 'Just now',
+      isPlayer: true,
+      isNpc: false,
+      sentiment: 'Positive',
+      generatedByWriter: true,
+    } as any);
+    // Reddit promo thread
+    state.redditPosts = state.redditPosts || [];
+    if (realEvent) {
+      state.redditPosts.unshift({
+        id: `w_rd_${Date.now()}`,
+        subreddit: 'r/HollywoodRising',
+        author: `u/${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`,
+        title: `I'm ${player.firstName} ${player.lastName}, star of '${realEvent.title}' — ask me anything! 🎬`,
+        text: `AMA! Ask me anything about '${realEvent.title}', the box office run, or my career.`,
+        upvotes: Math.floor(30 + fameXp * 0.4 + boost),
+        commentCount: Math.floor(5 + fameXp * 0.1),
+        isPlayer: true,
+        isNpc: false,
+        flair: 'AMA',
+        timeText: 'Just now',
+        week,
+        year,
+      });
+    }
+    // Telegram channel post + subscriber growth
+    state.telegramStories = state.telegramStories || [];
+    state.telegramStories.unshift({
+      id: `w_tg_${Date.now()}`,
+      author: `${player.firstName} ${player.lastName}`,
+      text: realEvent ? `📣 '${realEvent.title}' is in theaters now — $${(realEvent.gross / 1000000).toFixed(1)}M worldwide!` : `📣 New week, new moves. Stay tuned.`,
+      hoursLeft: 24,
+      isPlayer: true,
+      week,
+      year,
+    });
+    const subGrowth = Math.floor(2 + fameXp * 0.4 + boost);
+    state.telegramChannelSubs = (state.telegramChannelSubs || 0) + subGrowth;
+
+    messages.push(`✍️ ${writer.name} published content across your platforms (+${subGrowth} Telegram channel subs).`);
+    if (writer.contractWeeksRemaining <= 0) {
+      messages.push(`✅ Writer contract with ${writer.name} completed.`);
+    }
+  }
+
+  // 3. CREATOR STUDIO — ad revenue share (Premium only, real impressions)
   const totalPosts = Object.values(state.playerPosts || {}).reduce((a: number, arr: any[]) => a + (arr?.length || 0), 0);
   const impressions = totalPosts * Math.floor(500 + fameXp * 3);
   state.creatorStudio.totalImpressions += impressions;
+  if (premium.tier !== 'none') {
+    weeklyAdRevenue = Math.floor(impressions * 0.004 * (premium.tier === 'pro' ? 2 : premium.tier === 'plus' ? 1.5 : 1));
+    state.creatorStudio.totalAdRevenue += weeklyAdRevenue;
+    state.creatorStudio.weeklyAdRevenue = weeklyAdRevenue;
+    moneyDelta = weeklyAdRevenue;
+    if (weeklyAdRevenue > 0) messages.push(`💰 Creator Studio ad revenue: +$${weeklyAdRevenue.toLocaleString()} (${impressions.toLocaleString()} impressions)`);
+  }
 
   // 4. Reddit karma from real engagement
   state.redditKarma = (state.redditKarma || 0) + Math.floor(state.redditPosts.filter((p) => p.isPlayer).length * (2 + fameXp * 0.05));

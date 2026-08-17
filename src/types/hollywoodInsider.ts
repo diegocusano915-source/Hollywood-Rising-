@@ -87,9 +87,4 @@ export interface HollywoodInsiderArticle {
 export interface HollywoodInsiderState {
   articles: HollywoodInsiderArticle[];
   bookmarkedIds: string[];
-  /** Real-event source receipts shown on articles (trace to game events) */
-  recentHeadlineKeys?: string[];
-  /** Cycle rotation — sections refresh every 2-3 weeks, tracked globally */
-  cycleWeeksElapsed?: number;
-  lastRefreshAbsoluteWeek?: number;
 }

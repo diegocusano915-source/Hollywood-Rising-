@@ -153,12 +153,8 @@ export const TalentScreen: React.FC = () => {
     const Icon = config.icon;
     const rank = getRankBadge(config.val);
 
-    // Courses that improve this talent — GRADUATED courses excluded (they
-    // live only in the completed list below; re-enrollment is blocked)
-    const completedIds = new Set(completedRecords.map((r) => r.courseId));
-    const talentCoursesPool = ACTING_COURSES_POOL.filter(
-      (c) => c.category === selectedTalentCategory && !completedIds.has(c.id)
-    );
+    // Courses that improve this talent (from full pool)
+    const talentCoursesPool = ACTING_COURSES_POOL.filter(c => c.category === selectedTalentCategory);
 
     // Active courses for this talent
     const talentActiveCourses = activeCourses.filter(c => c.category === selectedTalentCategory);
@@ -685,16 +681,6 @@ export const TalentScreen: React.FC = () => {
         </div>
 
         {/* Available Course Cards */}
-        {filteredCatalogue.length === 0 ? (
-          <div className="col-span-3 text-center py-8 px-4 rounded-2xl border border-white/10 bg-black/40">
-            <Award className="w-8 h-8 mx-auto text-amber-400 mb-2" />
-            <p className="text-xs font-black text-gray-200">THE CATALOG IS EXHAUSTED</p>
-            <p className="text-[10px] text-gray-500 mt-1">
-              You graduated from every course the school offers in this category — completed courses never repeat.
-              {catalogueCategoryFilter !== 'all' ? ' Try another category.' : ''}
-            </p>
-          </div>
-        ) : (
         <div className="grid grid-cols-3 gap-2.5">
           {filteredCatalogue.map((course) => {
             return (
@@ -743,7 +729,6 @@ export const TalentScreen: React.FC = () => {
             );
           })}
         </div>
-        )}
       </div>
 
       {/* Modal: Course Details */}

@@ -274,7 +274,7 @@ export const ReleasesModal: React.FC = () => {
                             {(movie as any).sequelOffered ? '🎬 SEQUEL GREENLIT — OFFER IN PRODUCTION HUB' : '🎬 SEQUEL WATCH'}
                           </span>
                           <span className="text-gray-400">
-                            W{(movie as any).sequelCheckWeeks || 0}/40 · studio decides wk {(movie as any).sequelEligibleAfter || 16}+
+                            {(movie as any).sequelCheckWeeks || 0}/20 weeks
                           </span>
                         </div>
                         {!(movie as any).sequelOffered && (

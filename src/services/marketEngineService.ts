@@ -21,27 +21,6 @@ export type VolatilityRating = 'Low' | 'Moderate' | 'High' | 'Volatile' | 'Extre
 export type CompanyRating = 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D';
 export type CompanyStatus = 'Public' | 'Acquired' | 'Bankrupt' | 'TakenPrivate' | 'Delisted' | 'Pre-IPO';
 
-/**
- * A REAL studio production on a stock studio's slate. Films progress
- * DEV → CASTING (roles ship to the player's callboard) → FILMING → POST →
- * RELEASED (box office rolls, stock price reacts).
- */
-export interface StudioProduction {
-  id: string;
-  title: string;
-  genre: string;
-  budget: number;
-  stage: 'DEVELOPMENT' | 'CASTING' | 'FILMING' | 'POST' | 'RELEASED';
-  weeksInStage: number;
-  stageWeeksTotal: number;
-  /** How many casting roles this film shipped to the callboard */
-  castingRolesSent?: number;
-  releasedWeek?: number;
-  releasedYear?: number;
-  gross?: number;
-  wasHit?: boolean;
-}
-
 export interface StockCompany {
   id: string;
   name: string;
@@ -52,42 +31,36 @@ export interface StockCompany {
   sharePrice: number;
   prevPrice: number;
   changePct: number;
-  marketCap: number;
+  marketCap: number; // calculated: sharePrice * sharesOutstanding
   sharesOutstanding: number;
-  revenue: number;
-  profit: number;
-  debt: number;
-  growthRate: number;
-  investorConfidence: number;
-  ceoRating: number;
-  newsSentiment: number;
+  revenue: number; // annual revenue $
+  profit: number; // annual profit $
+  debt: number; // total debt $
+  growthRate: number; // % annual growth
+  investorConfidence: number; // 0-100
+  ceoRating: number; // 0-100
+  newsSentiment: number; // -100 to +100
   volatility: VolatilityRating;
-  rating: string;
+  rating: CompanyRating;
   dividendYieldPct: number;
   history: string;
   movies: string[];
   series: string[];
   upcomingProjects: string[];
   news: string[];
-  chartData: number[];
-  status: string;
+  chartData: number[]; // last 12 weeks
+  status: CompanyStatus;
   weeksSinceListing?: number;
   weakStreak?: number;
   listedWeek?: number;
   listedYear?: number;
-  institutionalOwnershipPct?: number;
-  insiderOwnershipPct?: number;
-  publicOwnershipPct?: number;
+  institutionalOwnershipPct: number;
+  insiderOwnershipPct: number;
+  publicOwnershipPct: number;
   playerSharesOwned: number;
   playerAvgBuyPrice: number;
-  boardSeatsTotal?: number;
-  playerBoardMember?: boolean;
-  /** Live production slate — the studio's real pipeline */
-  slate?: StudioProduction[];
-  /** 0-100 rolling health of the slate (hits vs flops) */
-  slateHealth?: number;
-  /** Film-producing studios get slates; tech/exhibitor stocks don't */
-  isFilmStudio?: boolean;
+  boardSeatsTotal: number;
+  playerBoardMember: boolean;
 }
 
 export interface IpoCompany {
@@ -140,49 +113,6 @@ export interface CryptoCoin {
   weakStreak?: number;
   listedWeek?: number;
   listedYear?: number;
-  /** Consecutive weeks of declining health — drives delist votes */
-  delistStreak?: number;
-  /** Formally under delist review — shown to player as warning */
-  delistWarning?: boolean;
-  /** All-time-high price tracker */
-  athPrice?: number;
-  /** Sector emoji icon for the market list */
-  icon?: string;
-}
-
-/** Living crypto market regime — bull runs, bears, pumps, crashes */
-export interface CryptoRegime {
-  type: 'NEUTRAL' | 'BULL' | 'BEAR' | 'PUMP' | 'CRASH' | 'RECOVERY';
-  weeksRemaining: number;
-  weeksTotal: number;
-  strength: number; // 0.5 – 1.5 intensity multiplier
-}
-
-/** Exchange wire event — listings, delists, pumps, regime shifts */
-export interface CryptoWireEvent {
-  id: string;
-  week: number;
-  year: number;
-  kind: 'LISTING' | 'DELIST_VOTE' | 'DELISTED' | 'PUMP' | 'DUMP' | 'REGIME' | 'WHALE';
-  symbol?: string;
-  title: string;
-  sub: string;
-}
-
-/** A studio production casting role shipped to the player's callboard */
-export interface StudioCastingCall {
-  productionRef: string;
-  title: string;
-  genre: string;
-  budget: number;
-  studioName: string;
-  studioTicker: string;
-  role: {
-    roleType: 'Lead' | 'Principal' | 'Support';
-    salary: number;
-    requiredFameXp: number;
-    filmingWeeks: number;
-  };
 }
 
 export interface MarketTransaction {
@@ -243,32 +173,6 @@ export interface EconomyMarketState {
   transactions: MarketTransaction[];
   playerCustomIposCount: number;
   playerCustomCryptosCount: number;
-  /** Living crypto market regime (bull/bear/pump/crash cycles) */
-  cryptoRegime?: CryptoRegime;
-  /** Exchange wire — listings, delists, pumps, regime shifts (newest first) */
-  cryptoWire?: CryptoWireEvent[];
-  /** Absolute week (year*52+week) when the next new coin lists */
-  nextCryptoListingWeek?: number;
-  /** Realized crypto gains this week, fed to the tax engine (taxable) */
-  pendingCryptoGains?: number;
-  /** Realized crypto losses this week, offset gains before taxing */
-  pendingCryptoLosses?: number;
-  /** Absolute week (year*52+week) when the next new STUDIO launches (IPO) */
-  nextStudioLaunchWeek?: number;
-}
-
-/** Seed slates + flags on the studio list (used at init AND save migration) */
-function ensureStudioSlates(stocks: StockCompany[], week: number, year: number): void {
-  const FILM_IDS = new Set(['disney', 'netflix', 'wbd', 'paramount', 'sony', 'a24']);
-  for (const st of stocks) {
-    if (typeof st.isFilmStudio !== 'boolean') {
-      st.isFilmStudio = FILM_IDS.has(st.id) || st.industry.includes('Cinema') || st.industry.includes('Studio') || st.industry.includes('Film') || st.industry.includes('Streaming');
-    }
-    if (st.isFilmStudio && (!st.slate || st.slate.length === 0)) {
-      st.slate = seedSlate(st.id);
-      st.slateHealth = 50 + Math.floor(Math.random() * 30);
-    }
-  }
 }
 
 const LOCAL_STORAGE_KEY = 'HOLLYWOOD_RISING_MARKET_ENGINE_V2';
@@ -594,349 +498,6 @@ const INITIAL_STOCKS: StockCompany[] = [
     playerAvgBuyPrice: 0,
     boardSeatsTotal: 9,
     playerBoardMember: false,
-    isFilmStudio: false,
-  },
-  {
-    id: 'universal',
-    name: 'Universal Pictures',
-    ticker: 'UVX',
-    industry: 'Film & TV Studio',
-    ceo: 'Donna Langley',
-    logo: '🌐',
-    sharePrice: 62.4,
-    prevPrice: 60.8,
-    changePct: 2.6,
-    marketCap: 57000000000,
-    sharesOutstanding: 913000000,
-    revenue: 32000000000,
-    profit: 4200000000,
-    debt: 22000000000,
-    growthRate: 6.8,
-    investorConfidence: 84,
-    ceoRating: 86,
-    newsSentiment: 25,
-    volatility: 'Moderate',
-    rating: 'A',
-    dividendYieldPct: 1.6,
-    history: 'Oldest surviving American film studio, home of the Fast saga and Jurassic World.',
-    movies: ['Fast X: Part 2', 'Jurassic World: Rebirth'],
-    series: [],
-    upcomingProjects: ['Wicked: For Good'],
-    news: ['Theme park revenue crosses $10B annual run-rate.'],
-    chartData: [57, 58.4, 57.9, 59.8, 60.1, 60.8, 62.4],
-    status: 'Public',
-    institutionalOwnershipPct: 78,
-    insiderOwnershipPct: 5,
-    publicOwnershipPct: 17,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 11,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'lionsgate',
-    name: 'Lionsgate Films',
-    ticker: 'LGF',
-    industry: 'Independent Cinema',
-    ceo: 'Jon Feltheimer',
-    logo: '🦁',
-    sharePrice: 9.7,
-    prevPrice: 9.3,
-    changePct: 4.3,
-    marketCap: 2200000000,
-    sharesOutstanding: 227000000,
-    revenue: 3900000000,
-    profit: 120000000,
-    debt: 2200000000,
-    growthRate: 3.4,
-    investorConfidence: 66,
-    ceoRating: 74,
-    newsSentiment: 15,
-    volatility: 'High',
-    rating: 'BB',
-    dividendYieldPct: 0.0,
-    history: 'Independent powerhouse behind John Wick and The Hunger Games.',
-    movies: ['John Wick: Ballerina', 'Hunger Games: Sunrise'],
-    series: [],
-    upcomingProjects: ['Now You See Me 3'],
-    news: ['John Wick TV spin-off ordered to series.'],
-    chartData: [8.2, 8.5, 8.4, 8.9, 9.0, 9.3, 9.7],
-    status: 'Public',
-    institutionalOwnershipPct: 68,
-    insiderOwnershipPct: 8,
-    publicOwnershipPct: 24,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 9,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'blumhouse',
-    name: 'Blumhouse Productions',
-    ticker: 'BLUM',
-    industry: 'Independent Cinema',
-    ceo: 'Jason Blum',
-    logo: '👻',
-    sharePrice: 17.3,
-    prevPrice: 15.9,
-    changePct: 8.8,
-    marketCap: 1700000000,
-    sharesOutstanding: 98000000,
-    revenue: 620000000,
-    profit: 95000000,
-    debt: 180000000,
-    growthRate: 14.2,
-    investorConfidence: 78,
-    ceoRating: 88,
-    newsSentiment: 40,
-    volatility: 'High',
-    rating: 'BB+',
-    dividendYieldPct: 0.0,
-    history: 'Micro-budget horror empire: $5M films, $200M grosses.',
-    movies: ['Five Nights at Freddys 2', 'The Exorcism'],
-    series: [],
-    upcomingProjects: ['M3GAN Universe Expansion'],
-    news: ['Horror slate averages 8.2x return on production budget.'],
-    chartData: [12.8, 13.5, 13.2, 14.4, 14.9, 15.9, 17.3],
-    status: 'Public',
-    institutionalOwnershipPct: 55,
-    insiderOwnershipPct: 18,
-    publicOwnershipPct: 27,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 7,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'legendary',
-    name: 'Legendary Entertainment',
-    ticker: 'LGND',
-    industry: 'Film & TV Studio',
-    ceo: 'Josh Grode',
-    logo: '🐉',
-    sharePrice: 41.8,
-    prevPrice: 39.5,
-    changePct: 5.8,
-    marketCap: 10400000000,
-    sharesOutstanding: 249000000,
-    revenue: 3400000000,
-    profit: 410000000,
-    debt: 2500000000,
-    growthRate: 9.6,
-    investorConfidence: 76,
-    ceoRating: 80,
-    newsSentiment: 22,
-    volatility: 'High',
-    rating: 'A-',
-    dividendYieldPct: 0.0,
-    history: 'Kaiju and blockbuster specialist — MonsterVerse and Dune.',
-    movies: ['Dune: Part Three', 'Godzilla x Kong 2'],
-    series: [],
-    upcomingProjects: ['MonsterVerse Series'],
-    news: ['Dune franchise crosses $1.4B combined gross.'],
-    chartData: [34.5, 35.9, 35.2, 37.4, 38.1, 39.5, 41.8],
-    status: 'Public',
-    institutionalOwnershipPct: 72,
-    insiderOwnershipPct: 9,
-    publicOwnershipPct: 19,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 9,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'mgm',
-    name: 'Amazon MGM Studios',
-    ticker: 'AMGM',
-    industry: 'Streaming Giant',
-    ceo: 'Jennifer Salke',
-    logo: '🦁',
-    sharePrice: 88.9,
-    prevPrice: 87.1,
-    changePct: 2.1,
-    marketCap: 94000000000,
-    sharesOutstanding: 1057000000,
-    revenue: 40000000000,
-    profit: 2100000000,
-    debt: 58000000000,
-    growthRate: 8.9,
-    investorConfidence: 88,
-    ceoRating: 85,
-    newsSentiment: 30,
-    volatility: 'Moderate',
-    rating: 'A+',
-    dividendYieldPct: 0.0,
-    history: 'MGM plus Amazon deep pockets — Bond franchise custodian.',
-    movies: ['Bond 26', 'Road House Legacy'],
-    series: [],
-    upcomingProjects: ['Bond TV Universe'],
-    news: ['Bond 26 director search narrows to three finalists.'],
-    chartData: [82, 83.5, 84.1, 85.9, 86.2, 87.1, 88.9],
-    status: 'Public',
-    institutionalOwnershipPct: 84,
-    insiderOwnershipPct: 6,
-    publicOwnershipPct: 10,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 12,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'searchlight',
-    name: 'Searchlight Pictures',
-    ticker: 'SLGT',
-    industry: 'Independent Cinema',
-    ceo: 'Matthew Greenfield',
-    logo: '🔎',
-    sharePrice: 28.6,
-    prevPrice: 27.9,
-    changePct: 2.5,
-    marketCap: 2600000000,
-    sharesOutstanding: 91000000,
-    revenue: 800000000,
-    profit: 90000000,
-    debt: 300000000,
-    growthRate: 5.2,
-    investorConfidence: 74,
-    ceoRating: 82,
-    newsSentiment: 28,
-    volatility: 'Moderate',
-    rating: 'BBB+',
-    dividendYieldPct: 0.8,
-    history: 'Awards-season specialists with 4 Best Picture wins.',
-    movies: ['The Banshees Follow-Up', 'Nomadland Director Next'],
-    series: [],
-    upcomingProjects: ['Untitled Awards Contender'],
-    news: ['Three films on this year\'s Best Picture longlist.'],
-    chartData: [25.9, 26.4, 26.2, 27.1, 27.4, 27.9, 28.6],
-    status: 'Public',
-    institutionalOwnershipPct: 61,
-    insiderOwnershipPct: 12,
-    publicOwnershipPct: 27,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 9,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'applefilms',
-    name: 'Apple Original Films',
-    ticker: 'APLF',
-    industry: 'Streaming Giant',
-    ceo: 'Matt Dentler',
-    logo: '🍎',
-    sharePrice: 214.5,
-    prevPrice: 209.8,
-    changePct: 2.2,
-    marketCap: 3200000000000,
-    sharesOutstanding: 14920000000,
-    revenue: 380000000000,
-    profit: 96000000000,
-    debt: 98000000000,
-    growthRate: 7.4,
-    investorConfidence: 94,
-    ceoRating: 90,
-    newsSentiment: 35,
-    volatility: 'Low',
-    rating: 'AAA',
-    dividendYieldPct: 0.5,
-    history: 'Bottomless budgets, A-list bidding wars, awards bait.',
-    movies: ['Killers of the Flower Moon Follow-Up'],
-    series: [],
-    upcomingProjects: ['$200M Sci-Fi Epic Deal'],
-    news: ['Signs first-look deal with A-list director for 3 pictures.'],
-    chartData: [198, 202, 204, 206, 207, 209.8, 214.5],
-    status: 'Public',
-    institutionalOwnershipPct: 80,
-    insiderOwnershipPct: 2,
-    publicOwnershipPct: 18,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 12,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'crunchyroll',
-    name: 'Crunchyroll Studios',
-    ticker: 'CRNY',
-    industry: 'Entertainment & Gaming',
-    ceo: 'Rahul Purini',
-    logo: '🍥',
-    sharePrice: 33.2,
-    prevPrice: 31.4,
-    changePct: 5.7,
-    marketCap: 7800000000,
-    sharesOutstanding: 235000000,
-    revenue: 1900000000,
-    profit: 210000000,
-    debt: 400000000,
-    growthRate: 18.4,
-    investorConfidence: 80,
-    ceoRating: 79,
-    newsSentiment: 32,
-    volatility: 'High',
-    rating: 'A-',
-    dividendYieldPct: 0.0,
-    history: 'Anime distribution giant moving into original production.',
-    movies: ['Demon Slayer: Infinity Trilogy'],
-    series: [],
-    upcomingProjects: ['Original Anime Slate x6'],
-    news: ['Anime box office share triples in 3 years.'],
-    chartData: [27.4, 28.6, 28.9, 30.1, 30.4, 31.4, 33.2],
-    status: 'Public',
-    institutionalOwnershipPct: 70,
-    insiderOwnershipPct: 7,
-    publicOwnershipPct: 23,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 9,
-    playerBoardMember: false,
-    isFilmStudio: true,
-  },
-  {
-    id: 'neon',
-    name: 'NEON Films',
-    ticker: 'NEON',
-    industry: 'Independent Cinema',
-    ceo: 'Tom Quinn',
-    logo: '🌕',
-    sharePrice: 12.1,
-    prevPrice: 11.2,
-    changePct: 8.0,
-    marketCap: 730000000,
-    sharesOutstanding: 60000000,
-    revenue: 210000000,
-    profit: 24000000,
-    debt: 60000000,
-    growthRate: 21.5,
-    investorConfidence: 72,
-    ceoRating: 81,
-    newsSentiment: 38,
-    volatility: 'High',
-    rating: 'B+',
-    dividendYieldPct: 0.0,
-    history: 'Indie upstart that keeps winning Oscars on shoestring budgets.',
-    movies: ['Parasite Director Next', 'Body Horror Breakout'],
-    series: [],
-    upcomingProjects: ['Festival Acquisition War Chest'],
-    news: ['Wins heated bidding war at Sundance — $17M.'],
-    chartData: [9.1, 9.8, 9.6, 10.4, 10.8, 11.2, 12.1],
-    status: 'Public',
-    institutionalOwnershipPct: 48,
-    insiderOwnershipPct: 22,
-    publicOwnershipPct: 30,
-    playerSharesOwned: 0,
-    playerAvgBuyPrice: 0,
-    boardSeatsTotal: 7,
-    playerBoardMember: false,
-    isFilmStudio: true,
   },
 ];
 
@@ -1166,193 +727,6 @@ const INITIAL_WHALES: NpcWhale[] = [
   },
 ];
 
-/** Generate the remaining whale roster procedurally (47 total: 3 curated + 44 generated) */
-const WHALE_NAMES_A = ['Dmitri', 'Ingrid', 'Rajesh', 'Camille', 'Stefan', 'Yuki', 'Baptiste', 'Olga', 'Kwame', 'Priya', 'Lars', 'Fatima', 'Viktor', 'Renata', 'Dario', 'Sanne', 'Tariq', 'Mei', 'Jonas', 'Alba', 'Ferran', 'Zofia', 'Idris', 'Nadia', 'Cato', 'Lucia', 'Emre', 'Solveig', 'Amadou', 'Bianca', 'Ravi', 'Kirsten', 'Mateo', 'Anouk', 'Farid', 'Delia', 'Bruno', 'Esme', 'Kiran', 'Petra', 'Silas', 'Vera', 'Omar', 'Talia', 'Nils', 'Rosa'];
-const WHALE_NAMES_B = ['Kovac', 'Lindqvist', 'Mehta', 'Beaumont', 'Novak', 'Tanaka', 'Laurent', 'Petrov', 'Mensah', 'Rao', 'Berg', 'Al-Rashid', 'Degen', 'Costa', 'Hoffman', 'Visser', 'Aziz', 'Chen', 'Weber', 'Marin', 'Sato', 'Kowalski', 'Bakker', 'Sokolov', 'Yilmaz', 'Nielsen', 'Diallo', 'Moretti', 'Okafor', 'Nakamura', 'Petit', 'Larsen', 'Silva', 'de Vries', 'Haddad', 'Rossi', 'Fischer', 'Dubois', 'Sharma', 'Horak', 'Jansen', 'Marchetti', 'Diop', 'Fontaine', 'Andersen', 'Vargas'];
-const WHALE_STRATS: NpcWhale['strategy'][] = ['Value Investor', 'Growth Tech', 'Crypto Degen', 'Momentum', 'Distressed Assets'];
-const WHALE_AVATARS = [
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop',
-];
-// Deterministic-seeded so the roster is stable across loads
-function buildWhaleRoster(): NpcWhale[] {
-  let seed = 20260816;
-  const rnd = () => { seed = (seed * 1664525 + 1013904223) | 0; return Math.abs(seed) / 2147483647; };
-  const roster: NpcWhale[] = [...INITIAL_WHALES];
-  for (let i = 0; i < 44; i++) {
-    const name = `${WHALE_NAMES_A[i]} ${WHALE_NAMES_B[i]}`;
-    const capital = Math.floor(20000000 + rnd() * 900000000);
-    // top positions from the real coin pool + stocks
-    const coinPicks = ['$HOLLYWOOD', '$AIFILM', '$OSCAR', '$RED', '$STUDIO', '$BOX', '$GOSSIP', '$SCRIPT'];
-    const stockPicks = ['DIS', 'NFLX', 'AAPL', 'SONY', 'A24', 'UVX'];
-    const top: string[] = [];
-    const nPos = 2 + Math.floor(rnd() * 2);
-    for (let p = 0; p < nPos; p++) top.push(rnd() < 0.5 ? coinPicks[Math.floor(rnd() * coinPicks.length)] : stockPicks[Math.floor(rnd() * stockPicks.length)]);
-    roster.push({
-      id: `w_gen_${i}`,
-      name,
-      handle: `@${WHALE_NAMES_A[i]}${WHALE_NAMES_B[i]}`,
-      avatar: WHALE_AVATARS[i % WHALE_AVATARS.length],
-      capital,
-      strategy: WHALE_STRATS[Math.floor(rnd() * WHALE_STRATS.length)],
-      winRatePct: 48 + Math.floor(rnd() * 45),
-      totalProfit: Math.floor(capital * (rnd() * 1.8)),
-      topPositions: [...new Set(top)],
-      copyTradeActive: false,
-      copyTradeFeePct: Math.round((1 + rnd() * 3.5) * 10) / 10,
-    });
-  }
-  return roster;
-}
-const FULL_WHALE_ROSTER = buildWhaleRoster();
-
-// ============================================================
-// ENDLESS COIN GENERATOR — real-market style. Hundreds of
-// possible names/symbols; coins list with real market caps,
-// drift with regime + events, and can be delisted for dying.
-// ============================================================
-const COIN_NAME_A = ['Star', 'Neon', 'Velvet', 'Lunar', 'Apex', 'Nova', 'Golden', 'Silver', 'Echo', 'Prime', 'Hyper', 'Crimson', 'Astro', 'Metro', 'Pulse', 'Zenith', 'Orbit', 'Rogue', 'Titan', 'Mirage', 'Sable', 'Vertex', 'Halo', 'Crown', 'Marquee', 'Reel', 'Spotlight', 'Backlot', 'Casting', 'Premiere', 'Sundance', 'Cannes', 'Tabloid', 'Limelight', 'Silver Screen', 'Cameo', 'Encore'];
-const COIN_NAME_B = ['Coin', 'Token', 'Chain', 'DAO', 'Pay', 'Verse', 'Link', 'Fi', 'Cash', 'Swap', 'Labs', 'Protocol', 'Stake', 'Inu', 'Dust', 'Vault', 'Ledger', 'Guild'];
-const COIN_SECTORS: Array<{ sector: string; icon: string; risk: CryptoCoin['risk']; vol: VolatilityRating; desc: string[] }> = [
-  { sector: 'Entertainment Utility', icon: '🎬', risk: 'Medium', vol: 'Moderate', desc: ['Powers studio financing rails and box-office settlement.', 'Utility rail for ticketing, premieres and VIP experiences.'] },
-  { sector: 'Meme & Gossip', icon: '🎲', risk: 'Extreme Degen', vol: 'Extreme Degen', desc: ['Pure degen meme coin driven by paparazzi cycles.', 'Community rumor market with zero fundamentals and pure vibes.'] },
-  { sector: 'AI Compute & VFX', icon: '🤖', risk: 'High', vol: 'High', desc: ['GPU compute credits for AI rendering and de-aging VFX.', 'Decentralized render farm token for streaming pipelines.'] },
-  { sector: 'Film DAO Financing', icon: '🎥', risk: 'Medium', vol: 'Moderate', desc: ['DAO governance over indie script greenlights and profit splits.', 'Treasury coin funding mid-budget features via community vote.'] },
-  { sector: 'Event Access', icon: '🎪', risk: 'High', vol: 'High', desc: ['Backstage passes, festival queues and red-carpet NFT gates.', 'VIP access token for premieres and award-season events.'] },
-  { sector: 'Payment & Ticketing', icon: '🎟️', risk: 'Low', vol: 'Low', desc: ['Theater-chain payment rail with staking rebates on tickets.', 'Global cinema loyalty and settlement network.'] },
-  { sector: 'Talent Discovery', icon: '🦈', risk: 'High', vol: 'High', desc: ['Scouting marketplace where holders back unsigned talent.', 'Reputation stakes for casting-call verdicts.'] },
-  { sector: 'Streaming Rights', icon: '📺', risk: 'Medium', vol: 'Moderate', desc: ['Fractional streaming licensing and residual distribution.', 'Rights vault coin paying weekly residual yield.'] },
-  { sector: 'Celebrity Fan Token', icon: '👑', risk: 'High', vol: 'High', desc: ['Official fan-governance token with meet-and-greet lotteries.', 'Fan club currency for merch drops and polls.'] },
-  { sector: 'Real Estate & Studios', icon: '🏢', risk: 'Low', vol: 'Low', desc: ['Fractional soundstage ownership with rental yield.', 'Tokenized LA studio lots paying weekly rent.'] },
-];
-
-const coinTicker = (name: string): string => {
-  const words = name.replace(/[^a-zA-Z ]/g, '').split(' ').filter(Boolean);
-  if (words.length >= 2) {
-    const t = (words[0].slice(0, 2) + words[1].slice(0, 2)).toUpperCase();
-    return t.length >= 3 ? t.slice(0, 4) : `${t}X`;
-  }
-  return `${words[0].slice(0, 3).toUpperCase()}X`;
-};
-
-/** Generate one fully-formed coin. Market cap between minCap..maxCap (log scale). */
-const generateCoin = (usedSymbols: Set<string>, minCap: number, maxCap: number, week: number, year: number): CryptoCoin => {
-  let name = '';
-  let symbol = '';
-  let tries = 0;
-  do {
-    const a = COIN_NAME_A[Math.floor(Math.random() * COIN_NAME_A.length)];
-    const b = COIN_NAME_B[Math.floor(Math.random() * COIN_NAME_B.length)];
-    name = `${a} ${b}`;
-    symbol = `$${coinTicker(name)}${Math.random() < 0.3 ? Math.floor(Math.random() * 90 + 10) : ''}`;
-    tries++;
-  } while ((usedSymbols.has(symbol) || symbol.length > 6) && tries < 80);
-  usedSymbols.add(symbol);
-
-  const sec = COIN_SECTORS[Math.floor(Math.random() * COIN_SECTORS.length)];
-  // log-uniform market cap
-  const t = Math.random();
-  const marketCap = Math.round(minCap * Math.pow(maxCap / minCap, t));
-  const price = Math.max(
-    0.0001,
-    Math.round((marketCap / (50000000 + Math.random() * 150000000)) * (marketCap < 20000000 ? 0.001 + Math.random() * 0.9 : 0.5 + Math.random() * 30) * 10000) / 10000
-  );
-  const supply = Math.max(1000000, Math.round(marketCap / Math.max(0.0001, price)));
-  const riskRoll = Math.random();
-  const risk = sec.risk === 'Extreme Degen' ? 'Extreme Degen' : riskRoll < 0.5 ? sec.risk : riskRoll < 0.8 ? 'High' : 'Extreme Degen';
-
-  return {
-    id: `coin_gen_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name,
-    symbol,
-    price,
-    prevPrice: price,
-    change24h: 0,
-    change7d: 0,
-    marketCap,
-    circulatingSupply: supply,
-    volume24h: Math.round(marketCap * (0.05 + Math.random() * 0.25)),
-    popularity: 30 + Math.floor(Math.random() * 55),
-    communityStrength: 35 + Math.floor(Math.random() * 55),
-    volatility: risk === 'Extreme Degen' ? 'Extreme Degen' : risk === 'High' ? 'High' : sec.vol,
-    sector: sec.sector,
-    risk,
-    techDescription: sec.desc[Math.floor(Math.random() * sec.desc.length)],
-    sparkline: [price],
-    news: '',
-    status: 'Active',
-    playerHoldings: 0,
-    playerAvgBuyPrice: 0,
-    weeksSinceListing: 0,
-    listedWeek: week,
-    listedYear: year,
-    delistStreak: 0,
-    athPrice: price,
-    icon: sec.icon,
-  };
-};
-
-/** Build a fresh batch of coins (used at init top-up and weekly listings). */
-const generateCoinBatch = (count: number, minCap: number, maxCap: number, existing: CryptoCoin[], week: number, year: number): CryptoCoin[] => {
-  const used = new Set(existing.map((c) => c.symbol));
-  const out: CryptoCoin[] = [];
-  for (let i = 0; i < count; i++) out.push(generateCoin(used, minCap, maxCap, week, year));
-  return out;
-};
-
-// ============================================================
-// STUDIO PRODUCTION ENGINE — real slates that feed the callboard
-// ============================================================
-const FILM_TITLE_A = ['Midnight', 'Velvet', 'Crimson', 'Neon', 'Sable', 'Golden', 'Silent', 'Broken', 'Electric', 'Paper', 'Frozen', 'Hollow', 'Radiant', 'Wandering', 'Last', 'First', 'Wild', 'Scarlet', 'Marble', 'Distant'];
-const FILM_TITLE_B = ['Hour', 'Catechism', 'Symphony', 'Confessions', 'Kingdom', 'Requiem', 'Cathedral', 'Mirage', 'Protocol', 'Lullaby', 'Highway', 'Garden', 'Detective', 'Dynasty', 'Vertigo', 'Boulevard', 'Testament', 'Cassette', 'Aurora', 'Paradox'];
-const FILM_TITLE_PREFIX = ['The', 'A', 'Beyond the', 'After the', 'House of', 'Songs of', 'Chronicles of'];
-const FILM_GENRES = ['Drama', 'Thriller', 'Sci-Fi', 'Horror', 'Action', 'Comedy', 'Biopic', 'Crime Epic', 'Musical', 'War Film', 'Romance', 'Fantasy'];
-
-const genFilmTitle = (): string => {
-  const roll = Math.random();
-  if (roll < 0.4) return `${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
-  if (roll < 0.7) return `${pickStr(FILM_TITLE_PREFIX)} ${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
-  return `${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_A)} ${pickStr(FILM_TITLE_B)}`;
-};
-function pickStr<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
-
-/** Create one production for a studio slate */
-export function generateProduction(id: string): StudioProduction {
-  const budgetTier = Math.random();
-  const budget = budgetTier < 0.35 ? 5000000 + Math.floor(Math.random() * 15000000)      // indie $5-20M
-    : budgetTier < 0.75 ? 20000000 + Math.floor(Math.random() * 60000000)                 // mid $20-80M
-    : 80000000 + Math.floor(Math.random() * 180000000);                                    // tentpole $80-260M
-  return {
-    id: `prod_${id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    title: genFilmTitle(),
-    genre: pickStr(FILM_GENRES),
-    budget,
-    stage: 'DEVELOPMENT',
-    weeksInStage: 0,
-    stageWeeksTotal: 2 + Math.floor(Math.random() * 3), // dev 2-4 wks
-  };
-}
-
-/** Seed a full slate for a film studio (2-4 productions across stages) */
-function seedSlate(studioId: string): StudioProduction[] {
-  const slate: StudioProduction[] = [];
-  const n = 2 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < n; i++) {
-    const p = generateProduction(studioId);
-    // stagger stages so the pipeline feels alive from week one
-    const r = Math.random();
-    if (r < 0.3) { p.stage = 'CASTING'; p.weeksInStage = 0; p.stageWeeksTotal = 2 + Math.floor(Math.random() * 2); }
-    else if (r < 0.55) { p.stage = 'FILMING'; p.weeksInStage = Math.floor(Math.random() * 3); p.stageWeeksTotal = 4 + Math.floor(p.budget / 20000000) + Math.floor(Math.random() * 4); }
-    else if (r < 0.7) { p.stage = 'POST'; p.weeksInStage = Math.floor(Math.random() * 2); p.stageWeeksTotal = 3 + Math.floor(Math.random() * 5); }
-    slate.push(p);
-  }
-  return slate;
-}
-
 export class MarketEngineService {
   private static state: EconomyMarketState | null = null;
 
@@ -1372,10 +746,9 @@ export class MarketEngineService {
             stocks: parsed.stocks,
             cryptoCoins: parsed.cryptoCoins,
             ipos: Array.isArray(parsed.ipos) ? parsed.ipos : INITIAL_IPOS,
-            whales: parsed.whales && parsed.whales.length >= 40 ? parsed.whales : FULL_WHALE_ROSTER,
+            whales: Array.isArray(parsed.whales) ? parsed.whales : INITIAL_WHALES,
             transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
             news: Array.isArray(parsed.news) ? parsed.news : [],
-            cryptoWire: Array.isArray((parsed as any).cryptoWire) ? (parsed as any).cryptoWire : [],
             industryStrengths: parsed.industryStrengths || {
               'Entertainment Conglomerate': 85,
               'Streaming Giant': 88,
@@ -1389,49 +762,6 @@ export class MarketEngineService {
               'Energy & Infrastructure': 80,
             },
           };
-          // ---- LIVING MARKET MIGRATION (v3) ----
-          // Top up legacy 12-coin saves into the endless pool (55 coins)
-          const live = this.state.cryptoCoins.filter((c) => c.status === 'Active' || c.status === 'TopLeader');
-          if (live.length < 40) {
-            this.state.cryptoCoins = [
-              ...this.state.cryptoCoins,
-              ...generateCoinBatch(55 - live.length, 4000000, 900000000, this.state.cryptoCoins, this.state.currentWeek || 1, this.state.currentYear || 2026),
-            ];
-          }
-          if (!this.state.cryptoRegime) {
-            this.state.cryptoRegime = { type: 'NEUTRAL', weeksRemaining: 6, weeksTotal: 6, strength: 1 };
-          }
-          if (typeof this.state.nextCryptoListingWeek !== 'number') {
-            this.state.nextCryptoListingWeek = (this.state.currentYear || 2026) * 52 + (this.state.currentWeek || 1) + 10 + Math.floor(Math.random() * 3);
-          }
-          if (typeof this.state.pendingCryptoGains !== 'number') this.state.pendingCryptoGains = 0;
-          if (typeof this.state.pendingCryptoLosses !== 'number') this.state.pendingCryptoLosses = 0;
-          // Tag legacy coins with sector icons once
-          this.state.cryptoCoins.forEach((c) => {
-            if (!c.icon) {
-              const sec = COIN_SECTORS.find((s) => s.sector === c.sector);
-              c.icon = sec ? sec.icon : '🪙';
-            }
-            if (typeof c.weeksSinceListing !== 'number') c.weeksSinceListing = 30 + Math.floor(Math.random() * 40);
-            if (typeof c.delistStreak !== 'number') c.delistStreak = 0;
-            if (typeof c.athPrice !== 'number') c.athPrice = c.price;
-          });
-          // ---- STUDIO MARKET MIGRATION (v4) ----
-          // Legacy saves: append the new launch studios (dedup by ticker)
-          const knownTickers = new Set(this.state.stocks.map((s) => s.ticker));
-          for (const st of INITIAL_STOCKS) {
-            if (!knownTickers.has(st.ticker)) {
-              const fresh = JSON.parse(JSON.stringify(st));
-              fresh.playerSharesOwned = 0;
-              fresh.playerAvgBuyPrice = 0;
-              fresh.playerBoardMember = false;
-              this.state.stocks.push(fresh);
-            }
-          }
-          ensureStudioSlates(this.state.stocks, this.state.currentWeek || 1, this.state.currentYear || 2026);
-          if (typeof this.state.nextStudioLaunchWeek !== 'number') {
-            this.state.nextStudioLaunchWeek = (this.state.currentYear || 2026) * 52 + (this.state.currentWeek || 1) + 10 + Math.floor(Math.random() * 3);
-          }
           return this.state;
         }
       }
@@ -1462,18 +792,8 @@ export class MarketEngineService {
       },
       stocks: INITIAL_STOCKS,
       ipos: INITIAL_IPOS,
-      cryptoCoins: [
-        ...INITIAL_CRYPTO,
-        // Endless pool: new games launch with a full market of 55 coins
-        ...generateCoinBatch(55 - INITIAL_CRYPTO.length, 4000000, 900000000, INITIAL_CRYPTO, 1, 2026),
-      ],
-      cryptoRegime: { type: 'BULL', weeksRemaining: 8, weeksTotal: 8, strength: 1.1 },
-      cryptoWire: [],
-      nextCryptoListingWeek: 2026 * 52 + 1 + 11,
-      pendingCryptoGains: 0,
-      pendingCryptoLosses: 0,
-      nextStudioLaunchWeek: 2026 * 52 + 1 + 11,
-      whales: FULL_WHALE_ROSTER,
+      cryptoCoins: INITIAL_CRYPTO,
+      whales: INITIAL_WHALES,
       news: [
         {
           id: 'n_init_1',
@@ -1489,9 +809,6 @@ export class MarketEngineService {
       playerCustomIposCount: 0,
       playerCustomCryptosCount: 0,
     };
-
-    // Seed live production slates on every film studio
-    ensureStudioSlates(this.state.stocks, 1, 2026);
 
     this.saveMarketState();
     return this.state;
@@ -1522,16 +839,6 @@ export class MarketEngineService {
   public static processEndWeek(playerWeek: number, playerYear: number, playerMoney: number): {
     updatedState: EconomyMarketState;
     headlineNews: string[];
-    /** Structured crypto events (listings, delists, regimes) → inbox messages */
-    cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
-    /** Forced-liquidation proceeds credited to the player this week */
-    delistPayouts: number;
-    /** Net whale copy-trade P&L this week (real cash, applied by caller) */
-    whaleCopyPnl: number;
-    /** Studio casting calls → real NPC roles for the player's callboard */
-    studioCastingCalls: StudioCastingCall[];
-    /** Studio events (new studio listings, big releases) → inbox messages */
-    studioEvents: Array<{ kind: string; subject: string; body: string; important: boolean }>;
   } {
     const s = this.getMarketState();
     s.currentWeek = playerWeek;
@@ -1651,413 +958,41 @@ export class MarketEngineService {
       };
     });
 
-    // 2b. STUDIO SLATE LIFECYCLE — real productions progress weekly; casting
-    //     stages ship NPC roles to the player's callboard; releases roll box
-    //     office and move the studio's stock. New studios list every 10-12 wks.
-    const studioCastingCalls: StudioCastingCall[] = [];
-    const studioEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
-
-    s.stocks = s.stocks.map((stock) => {
-      if (stock.status !== 'Public' || !stock.isFilmStudio) return stock;
-      let slate = stock.slate ? [...stock.slate] : [];
-      let sharePrice = stock.sharePrice;
-      let changePct = stock.changePct;
-      let newsSentiment = stock.newsSentiment;
-      let slateHealth = stock.slateHealth ?? 60;
-
-      slate = slate.map((prod) => {
-        const p = { ...prod, weeksInStage: prod.weeksInStage + 1 };
-
-        if (p.weeksInStage < p.stageWeeksTotal) return p;
-
-        // ---- STAGE TRANSITION ----
-        if (p.stage === 'DEVELOPMENT') {
-          p.stage = 'CASTING';
-          p.weeksInStage = 0;
-          p.stageWeeksTotal = 2 + Math.floor(Math.random() * 2);
-          headlineNews.push(`${stock.name} greenlights "${p.title}" (${p.genre}, $${(p.budget / 1000000).toFixed(0)}M) — casting opens.`);
-          return p;
-        }
-
-        if (p.stage === 'CASTING') {
-          p.stage = 'FILMING';
-          p.weeksInStage = 0;
-          p.stageWeeksTotal = 4 + Math.floor(p.budget / 25000000) + Math.floor(Math.random() * 5);
-          p.castingRolesSent = 1 + Math.floor(Math.random() * 2);
-          // >>> THE REAL CONNECTION: roles ship to the player's callboard <<<
-          const leadRoll = Math.random();
-          const roles: StudioCastingCall['role'][] = [];
-          const fameTier = p.budget >= 80000000 ? 300 + Math.floor(Math.random() * 500)
-            : p.budget >= 20000000 ? 80 + Math.floor(Math.random() * 250)
-            : Math.floor(Math.random() * 70);
-          if (leadRoll < 0.45 || p.castingRolesSent > 1) {
-            roles.push({
-              roleType: 'Lead',
-              salary: Math.round(p.budget * (0.008 + Math.random() * 0.012)),
-              requiredFameXp: fameTier,
-              filmingWeeks: p.stageWeeksTotal,
-            });
-          }
-          if (roles.length < p.castingRolesSent) {
-            roles.push({
-              roleType: 'Principal',
-              salary: Math.round(p.budget * (0.002 + Math.random() * 0.003)),
-              requiredFameXp: Math.floor(fameTier * 0.6),
-              filmingWeeks: p.stageWeeksTotal,
-            });
-          }
-          for (const r of roles) {
-            studioCastingCalls.push({
-              productionRef: p.id,
-              title: p.title,
-              genre: p.genre,
-              budget: p.budget,
-              studioName: stock.name,
-              studioTicker: stock.ticker,
-              role: r,
-            });
-          }
-          headlineNews.push(`CALLBOARD: ${stock.name} is casting ${roles.map((r) => r.roleType).join(' + ')} for "${p.title}" — apply now.`);
-          return p;
-        }
-
-        if (p.stage === 'FILMING') {
-          p.stage = 'POST';
-          p.weeksInStage = 0;
-          p.stageWeeksTotal = 3 + Math.floor(Math.random() * 5);
-          return p;
-        }
-
-        if (p.stage === 'POST') {
-          // RELEASE: roll real box office from budget + slate health + luck
-          p.stage = 'RELEASED';
-          p.weeksInStage = 0;
-          p.releasedWeek = playerWeek;
-          p.releasedYear = playerYear;
-          const luck = Math.random();
-          const healthBoost = (slateHealth - 50) / 220; // -0.23..+0.23
-          const mult = Math.max(0.15, 0.9 + healthBoost + (luck < 0.12 ? 2.2 + Math.random() * 1.6 : luck < 0.5 ? 0.4 + Math.random() * 0.8 : -0.35 + Math.random() * 0.55));
-          p.gross = Math.round(p.budget * mult);
-          p.wasHit = p.gross >= p.budget * 2;
-
-          // Stock reacts for real
-          const stockMove = p.wasHit ? 3 + Math.random() * 6 : p.gross >= p.budget * 1.2 ? 1 + Math.random() * 2 : -(1.5 + Math.random() * 5);
-          sharePrice = Math.max(0.5, Math.round(sharePrice * (1 + stockMove / 100) * 100) / 100);
-          changePct = Math.round((changePct + stockMove) * 100) / 100;
-          newsSentiment = Math.max(-100, Math.min(100, newsSentiment + (p.wasHit ? 15 : p.gross < p.budget * 0.8 ? -18 : 3)));
-          slateHealth = Math.max(5, Math.min(100, slateHealth + (p.wasHit ? 7 : p.gross < p.budget * 0.8 ? -8 : 1)));
-
-          const verdict = p.wasHit ? 'HIT' : p.gross >= p.budget * 1.2 ? 'SOLID' : p.gross >= p.budget * 0.8 ? 'SOFT' : 'FLOP';
-          const relNews = `${stock.name}'s "${p.title}" opens to $${(p.gross / 1000000).toFixed(1)}M worldwide — ${verdict}! ${stock.ticker} ${stockMove >= 0 ? '+' : ''}${stockMove.toFixed(1)}%.`;
-          headlineNews.push(relNews);
-          stock.news = [relNews, ...(stock.news || [])].slice(0, 5);
-          return p;
-        }
-        return p; // RELEASED stays archived
-      });
-
-      // Greenlight new developments to keep the pipeline alive (2-4 active)
-      const active = slate.filter((p) => p.stage !== 'RELEASED').length;
-      if (active < 2 || (active < 4 && Math.random() < 0.35 * (slateHealth / 70))) {
-        slate.push(generateProduction(stock.id));
-      }
-      // Archive trim: keep last 4 released
-      const released = slate.filter((p) => p.stage === 'RELEASED');
-      if (released.length > 4) {
-        const drop = new Set(released.slice(0, released.length - 4).map((p) => p.id));
-        slate = slate.filter((p) => !drop.has(p.id));
-      }
-
-      return {
-        ...stock,
-        slate,
-        slateHealth,
-        sharePrice,
-        changePct,
-        newsSentiment,
-        marketCap: Math.round(sharePrice * stock.sharesOutstanding),
-      };
-    });
-
-    // 2c. NEW STUDIO LAUNCH — every 10-12 weeks a new studio lists directly
-    if (typeof s.nextStudioLaunchWeek !== 'number') {
-      s.nextStudioLaunchWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
-    }
-    if (playerYear * 52 + playerWeek >= s.nextStudioLaunchWeek) {
-      const fresh = generateEndlessStudio() as StockCompany;
-      // normalize to the full StockCompany shape: generator returns a
-      // single news string + omits player position fields (crash source)
-      fresh.news = Array.isArray(fresh.news) ? fresh.news : [String(fresh.news)];
-      fresh.playerSharesOwned = 0;
-      fresh.playerAvgBuyPrice = 0;
-      fresh.playerBoardMember = false;
-      fresh.isFilmStudio = true;
-      fresh.slate = seedSlate(fresh.id);
-      fresh.slateHealth = 55 + Math.floor(Math.random() * 25);
-      fresh.listedWeek = playerWeek;
-      fresh.listedYear = playerYear;
-      fresh.weeksSinceListing = 0;
-      s.stocks.unshift(fresh);
-      const capM = (fresh.marketCap / 1000000).toFixed(0);
-      headlineNews.push(`NEW STUDIO LISTING: ${fresh.name} (${fresh.ticker}) lists on Wall Street West at $${fresh.sharePrice} — $${capM}M cap, slate already in production.`);
-      studioEvents.push({
-        kind: 'STUDIO_LISTING',
-        subject: `🏛️ NEW STUDIO LISTED: ${fresh.name} (${fresh.ticker})`,
-        body: `A new studio just listed on Wall Street West.\n\n• ${fresh.name} (${fresh.ticker})\n• Industry: ${fresh.industry}\n• Share price: $${fresh.sharePrice}\n• Market cap: $${capM}M\n• CEO: ${fresh.ceo}\n\n${fresh.history}\n\nThe studio already has ${fresh.slate.length} productions in its pipeline — its casting calls will appear on your Callboard. Shares are tradable now.`,
-        important: false,
-      });
-      s.nextStudioLaunchWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
-    }
-
-    // 3. PROCESS CRYPTOCURRENCY MARKET — LIVING MARKET EDITION
-    //    Regime cycles (bull/bear/pump/crash), per-coin events (pumps, dumps,
-    //    hacks, partnerships), delist votes, and ATH tracking. Everything
-    //    drifts — nothing is static.
-    const cryptoEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
-    const wire: CryptoWireEvent[] = s.cryptoWire || [];
-    const pushWire = (e: Omit<CryptoWireEvent, 'id' | 'week' | 'year'>) => {
-      wire.unshift({ ...e, id: `wire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, week: playerWeek, year: playerYear });
-    };
-    if (wire.length > 60) wire.length = 60;
-
-    // ---- 3a. REGIME LIFECYCLE ----
-    if (!s.cryptoRegime) s.cryptoRegime = { type: 'NEUTRAL', weeksRemaining: 6, weeksTotal: 6, strength: 1 };
-    s.cryptoRegime.weeksRemaining -= 1;
-    if (s.cryptoRegime.weeksRemaining <= 0) {
-      const roll = Math.random();
-      const nextType: CryptoRegime['type'] =
-        roll < 0.32 ? 'NEUTRAL'
-        : roll < 0.57 ? 'BULL'
-        : roll < 0.72 ? 'BEAR'
-        : roll < 0.82 ? 'PUMP'
-        : roll < 0.87 ? 'CRASH'
-        : 'RECOVERY';
-      const short = nextType === 'PUMP' || nextType === 'CRASH';
-      s.cryptoRegime = {
-        type: nextType,
-        weeksRemaining: short ? 2 + Math.floor(Math.random() * 4) : 7 + Math.floor(Math.random() * 10),
-        weeksTotal: 0,
-        strength: 0.6 + Math.random() * 0.9,
-      };
-      s.cryptoRegime.weeksTotal = s.cryptoRegime.weeksRemaining;
-      const labels: Record<CryptoRegime['type'], string> = {
-        NEUTRAL: 'Markets cool off — sideways chop ahead',
-        BULL: '🐂 BULL RUN begins — capital floods into crypto',
-        BEAR: '🐻 BEAR MARKET begins — risk-off across the board',
-        PUMP: '🚀 PUMP CYCLE detected — degens ape everything',
-        CRASH: '💥 MARKET CRASH — liquidations cascade',
-        RECOVERY: '🌱 RECOVERY phase — accumulation resumes',
-      };
-      pushWire({ kind: 'REGIME', title: labels[nextType], sub: `Regime shift · est. ${s.cryptoRegime.weeksTotal} weeks · strength ${(s.cryptoRegime.strength * 100).toFixed(0)}%` });
-      headlineNews.push(`CRYPTO MARKET: ${labels[nextType]} (est. ${s.cryptoRegime.weeksTotal} weeks).`);
-      cryptoEvents.push({
-        kind: 'REGIME',
-        subject: `STAR EXCHANGE MARKET ALERT: ${labels[nextType]}`,
-        body: `The Star Exchange regime has shifted.\n\nNew regime: ${nextType} · expected duration ~${s.cryptoRegime.weeksTotal} weeks · intensity ${(s.cryptoRegime.strength * 100).toFixed(0)}%.\n\n${
-          nextType === 'BULL' ? 'Historically, coins drift upward 1-4% weekly in bull regimes — but so do corrections.'
-          : nextType === 'BEAR' ? 'Expect broad downward drift. Cash is a position — and so is buying the fear.'
-          : nextType === 'PUMP' ? 'Short violent cycles. Meme and degen coins can rip 30-120% — and dump just as fast.'
-          : nextType === 'CRASH' ? 'Everything bleeds this week. Only the strongest communities hold support.'
-          : nextType === 'RECOVERY' ? 'Smart money re-enters. Quality coins bottom first.'
-          : 'Choppy, range-bound price action. Slow grind both ways.'
-        }`,
-        important: nextType === 'CRASH' || nextType === 'PUMP',
-      });
-    }
-
-    // Regime → average weekly drift per coin (%)
-    const regime = s.cryptoRegime;
-    const regimeDrift: Record<CryptoRegime['type'], number> = {
-      NEUTRAL: 0.1,
-      BULL: 1.8 * regime.strength,
-      BEAR: -1.9 * regime.strength,
-      PUMP: 5.5 * regime.strength,
-      CRASH: -6.5 * regime.strength,
-      RECOVERY: 2.4 * regime.strength,
-    };
-    const baseDrift = regimeDrift[regime.type];
-
-    // Pumps concentrate on a few lucky coins
-    const pumpWinners = new Set<string>();
-    if (regime.type === 'PUMP') {
-      const degenCoins = s.cryptoCoins.filter((c) => (c.status === 'Active' || c.status === 'TopLeader') && (c.risk === 'Extreme Degen' || c.risk === 'High'));
-      const n = Math.min(degenCoins.length, 3 + Math.floor(Math.random() * 4));
-      for (let i = 0; i < n; i++) pumpWinners.add(degenCoins[Math.floor(Math.random() * degenCoins.length)]?.id);
-    }
-
+    // 3. PROCESS CRYPTOCURRENCY MARKET
     s.cryptoCoins = s.cryptoCoins.map((coin) => {
       if (coin.status !== 'Active' && coin.status !== 'TopLeader') return coin;
 
-      // ---- per-coin movement ----
-      const vol = coin.volatility === 'Extreme Degen' ? 0.16 : coin.volatility === 'High' ? 0.09 : coin.volatility === 'Moderate' ? 0.05 : 0.03;
-      const communityMod = (coin.communityStrength - 50) / 1800;
-      let changePct = baseDrift * (coin.risk === 'Extreme Degen' ? 1.6 : coin.risk === 'High' ? 1.25 : coin.risk === 'Medium' ? 1 : 0.75)
-        + communityMod * 100 * 0.5
-        + (Math.random() - 0.49) * vol * 100;
-      if (pumpWinners.has(coin.id)) changePct += 25 + Math.random() * 85;
+      // Crypto is highly sensitive to market cycles & community strength
+      const cryptoCycleMod = cycleMultiplier * 2.5; // crypto fluctuates 2.5x stocks
+      const communityMod = (coin.communityStrength - 50) / 2000;
+      const degenVol = coin.volatility === 'Extreme Degen' ? 0.15 : coin.volatility === 'High' ? 0.08 : 0.04;
+      const randomCryptoVariance = (Math.random() - 0.49) * degenVol;
 
-      // ---- coin events (4% weekly per coin) ----
-      let eventLabel = '';
-      if (Math.random() < 0.04) {
-        const evRoll = Math.random();
-        if (evRoll < 0.3) { changePct += 18 + Math.random() * 35; eventLabel = 'major partnership announced'; }
-        else if (evRoll < 0.55) { changePct -= 18 + Math.random() * 30; eventLabel = 'whale dump detected'; }
-        else if (evRoll < 0.72) { changePct += 35 + Math.random() * 70; eventLabel = 'viral celebrity endorsement'; }
-        else if (evRoll < 0.86) { changePct -= 30 + Math.random() * 45; eventLabel = 'smart contract exploit'; }
-        else { changePct -= 50 + Math.random() * 50; eventLabel = 'RUG PULL ATTEMPT — team wallets moving'; }
-      }
+      const totalCryptoChangePct = (cryptoCycleMod + communityMod + randomCryptoVariance) * 100;
+      const roundedCryptoChange = Math.round(totalCryptoChangePct * 100) / 100;
 
-      changePct = Math.round(changePct * 100) / 100;
       const prevPrice = coin.price;
-      const newPrice = Math.max(0.000001, Math.round(prevPrice * (1 + changePct / 100) * 1000000) / 1000000);
+      const newPrice = Math.max(0.0001, Math.round(prevPrice * (1 + roundedCryptoChange / 100) * 10000) / 10000);
       const newMarketCap = Math.round(newPrice * coin.circulatingSupply);
+
       const newSparkline = [...(coin.sparkline || []), newPrice].slice(-12);
-      const newATH = Math.max(coin.athPrice || newPrice, newPrice);
 
-      // volume + community drift with regime
-      const volMult = regime.type === 'PUMP' || regime.type === 'CRASH' ? 1.8 : regime.type === 'BEAR' ? 0.6 : 1;
-      const newVolume = Math.max(1000, Math.round(coin.volume24h * (0.85 + Math.random() * 0.3) * volMult * (1 + changePct / 200)));
-      const newCommunity = Math.max(5, Math.min(100, Math.round(coin.communityStrength + (changePct > 8 ? 2 : changePct < -8 ? -2 : 0) + (Math.random() - 0.5))));
-      const newPopularity = Math.max(5, Math.min(100, Math.round(coin.popularity + (Math.abs(changePct) > 20 ? 4 : 0) + (Math.random() - 0.55))));
-
-      if (eventLabel) {
-        const eNews = `$${coin.symbol} ${eventLabel} — price ${changePct >= 0 ? 'up' : 'down'} ${Math.abs(changePct).toFixed(1)}%!`;
-        coin.news = eNews;
-        headlineNews.push(`CRYPTO: ${eNews}`);
-        pushWire({ kind: changePct >= 0 ? 'PUMP' : 'DUMP', symbol: coin.symbol, title: `${coin.name} ${eventLabel}`, sub: `${coin.symbol} ${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}% this week` });
-      } else if (Math.abs(changePct) > 18) {
-        const cNews = `$${coin.symbol} ${changePct > 0 ? 'rallies' : 'crashes'} ${Math.abs(changePct).toFixed(1)}% on heavy volume.`;
+      if (Math.abs(roundedCryptoChange) > 15) {
+        const cNews = `$${coin.symbol} experiences ${roundedCryptoChange > 0 ? 'bullish rally' : 'sharp crash'} of ${roundedCryptoChange}% on high trading volume!`;
+        headlineNews.push(`CRYPTO SURGE: ${cNews}`);
         coin.news = cNews;
-        headlineNews.push(`CRYPTO: ${cNews}`);
-        pushWire({ kind: changePct > 0 ? 'PUMP' : 'DUMP', symbol: coin.symbol, title: `${coin.name} ${changePct > 0 ? 'rallies' : 'crashes'} ${Math.abs(changePct).toFixed(1)}%`, sub: `${coin.symbol} weekly move · regime ${regime.type}` });
       }
-
-      // ---- delist health tracking (new coins exempt 8 weeks; player coins & leaders exempt) ----
-      let delistStreak = coin.delistStreak || 0;
-      let delistWarning = coin.delistWarning || false;
-      const age = (coin.weeksSinceListing || 0) + 1;
-      const wasFalling = (coin.change7d || 0) < -5 && changePct < 0;
-      const weak = !coin.isMyCoin && coin.status !== 'TopLeader' && age > 8 && (wasFalling || newVolume < newMarketCap * 0.01);
-      delistStreak = weak ? delistStreak + 1 : 0;
 
       return {
         ...coin,
         prevPrice,
         price: newPrice,
-        change24h: changePct,
-        change7d: Math.round((changePct + (coin.change7d || 0)) / 2 * 100) / 100,
+        change24h: roundedCryptoChange,
+        change7d: roundedCryptoChange * 1.5,
         marketCap: newMarketCap,
-        volume24h: newVolume,
-        popularity: newPopularity,
-        communityStrength: newCommunity,
         sparkline: newSparkline,
-        athPrice: newATH,
-        weeksSinceListing: age,
-        delistStreak,
-        delistWarning,
       };
     });
-
-    // ---- 3b. DELIST VOTES & REMOVALS ----
-    const delistRemovals: Array<{ coin: CryptoCoin; payout: number }> = [];
-    s.cryptoCoins = s.cryptoCoins.filter((coin) => {
-      if ((coin.status !== 'Active' && coin.status !== 'TopLeader') || coin.isMyCoin) return true;
-      const streak = coin.delistStreak || 0;
-      // 6 weak weeks → formal delist vote (warning)
-      if (streak >= 6 && !coin.delistWarning) {
-        coin.delistWarning = true;
-        pushWire({ kind: 'DELIST_VOTE', symbol: coin.symbol, title: `${coin.name} under delist review`, sub: `${coin.symbol} · 6 weeks of declining health · exit now or ride it out` });
-        headlineNews.push(`DELIST REVIEW: $${coin.symbol} (${coin.name}) flagged after 6 weak weeks — holders should review positions.`);
-        cryptoEvents.push({
-          kind: 'DELIST_VOTE',
-          subject: `⚠ DELIST REVIEW: ${coin.name} (${coin.symbol})`,
-          body: `The Star Exchange listing committee has placed ${coin.name} (${coin.symbol}) under formal delist review.\n\nReason: 6 consecutive weeks of declining health (falling price and drying volume).\n\nIf conditions do not improve within 4 weeks, the coin will be REMOVED from the exchange. Any holdings will be auto-liquidated at a 40% discount.\n\nYou currently hold ${(coin.playerHoldings || 0).toFixed(4)} ${coin.symbol}. Consider your position.`,
-          important: (coin.playerHoldings || 0) > 0,
-        });
-      }
-      // Warning active + 4 more weak weeks (streak >= 10) → delisted
-      if (coin.delistWarning && streak >= 10) {
-        const holdings = coin.playerHoldings || 0;
-        const payout = Math.floor(holdings * coin.price * 0.6); // forced liquidation at 40% discount
-        coin.status = 'Delisted';
-        if (holdings > 0) delistRemovals.push({ coin, payout });
-        pushWire({ kind: 'DELISTED', symbol: coin.symbol, title: `${coin.name} DELISTED from Star Exchange`, sub: `${coin.symbol} removed after sustained decline${holdings > 0 ? ` · your ${holdings.toFixed(2)} tokens force-sold at −40%` : ''}` });
-        headlineNews.push(`DELISTED: $${coin.symbol} (${coin.name}) removed from the exchange${holdings > 0 ? ` — holder positions liquidated at 40% discount` : ''}.`);
-        cryptoEvents.push({
-          kind: 'DELISTED',
-          subject: `❌ DELISTED: ${coin.name} (${coin.symbol}) — position liquidated`,
-          body: `${coin.name} (${coin.symbol}) has been removed from the Star Exchange after a sustained decline.\n\nYour ${holdings.toFixed(4)} tokens were auto-liquidated at a 40% delist discount.\nProceeds credited: $${payout.toLocaleString()}\n\nDelist events are part of a living market — cut weak positions early when delist review is announced.`,
-          important: holdings > 0,
-        });
-        return false; // remove from tradable list
-      }
-      // Recovery clears the warning
-      if (coin.delistWarning && streak === 0) coin.delistWarning = false;
-      return true;
-    });
-
-    // Pay out forced liquidations (creditable via GameContext)
-    if (delistRemovals.length > 0) {
-      (s as any)._delistPayouts = delistRemovals.reduce((a, r) => a + r.payout, 0);
-    }
-
-    // ---- 3c. NEW LISTINGS — every 10-12 weeks, GOOD market caps ----
-    if (typeof s.nextCryptoListingWeek !== 'number') {
-      s.nextCryptoListingWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
-    }
-    if (playerYear * 52 + playerWeek >= s.nextCryptoListingWeek) {
-      const freshCoins = generateCoinBatch(1 + Math.floor(Math.random() * 2), 40000000, 350000000, s.cryptoCoins, playerWeek, playerYear);
-      s.cryptoCoins.push(...freshCoins);
-      for (const fc of freshCoins) {
-        pushWire({ kind: 'LISTING', symbol: fc.symbol, title: `${fc.name} (${fc.symbol}) JUST LISTED`, sub: `${fc.sector} · market cap $${(fc.marketCap / 1000000).toFixed(0)}M · entry $${fc.price < 1 ? fc.price.toFixed(4) : fc.price.toFixed(2)}` });
-        headlineNews.push(`NEW LISTING: ${fc.name} (${fc.symbol}) lists on the Star Exchange at a $${(fc.marketCap / 1000000).toFixed(0)}M market cap!`);
-        cryptoEvents.push({
-          kind: 'LISTING',
-          subject: `🆕 NEW LISTING: ${fc.name} (${fc.symbol}) is now tradable`,
-          body: `A new coin just listed on the Star Exchange.\n\n• Name: ${fc.name} (${fc.symbol})\n• Sector: ${fc.sector}\n• Listing market cap: $${fc.marketCap.toLocaleString()}\n• Entry price: $${fc.price < 1 ? fc.price.toFixed(4) : fc.price.toFixed(2)}\n• Risk: ${fc.risk} · Volatility: ${fc.volatility}\n\n${fc.techDescription}\n\nNew listings are volatile — early movers can catch the listing pump, and late ones the dump. Trade accordingly.`,
-          important: false,
-        });
-      }
-      // schedule the next listing 10-12 weeks out
-      s.nextCryptoListingWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
-    }
-
-    s.cryptoWire = wire;
-
-    // 3b. WHALE COPY-TRADE — copied whales mirror their coin moves into
-    //     the player's P&L weekly, sized to the player's cash. Wins and
-    //     losses are real; the fee applies to profits only.
-    {
-      const copiers = s.whales.filter((w) => w.copyTradeActive);
-      if (copiers.length > 0) {
-        const copyEvents: Array<{ kind: string; subject: string; body: string; important: boolean }> = [];
-        let copyPnlTotal = 0;
-        for (const w of copiers) {
-          const sym = w.topPositions.find((p) => p.startsWith('$'));
-          const coin = sym ? s.cryptoCoins.find((c) => c.symbol === sym && (c.status === 'Active' || c.status === 'TopLeader')) : undefined;
-          if (!coin) continue;
-          const alloc = Math.min(Math.max(500, Math.floor(playerMoney * (0.02 + Math.random() * 0.06))), Math.floor(playerMoney * 0.10));
-          if (alloc <= 0) continue;
-          const fee = (w.copyTradeFeePct || 2) / 100;
-          const coinMove = coin.change24h / 100; // the coin's real drift this week
-          const whaleWin = Math.random() * 100 < w.winRatePct;
-          const pnl = Math.floor(alloc * (coinMove !== 0 ? coinMove : (whaleWin ? 0.03 + Math.random() * 0.09 : -0.02 - Math.random() * 0.06)));
-          const feeDue = pnl > 0 ? Math.floor(pnl * fee) : 0;
-          copyPnlTotal += pnl - feeDue;
-          copyEvents.push({
-            kind: 'COPY',
-            subject: `🐋 Copy-trade ${pnl - feeDue >= 0 ? 'profit' : 'loss'}: ${w.name} (${pnl - feeDue >= 0 ? '+' : '−'}$${Math.abs(pnl - feeDue).toLocaleString()})`,
-            body: `${w.name} (${w.strategy}, ${w.winRatePct}% WR) ${pnl >= 0 ? 'closed a winning' : 'took a losing'} ${coin.symbol} position this week${coinMove !== 0 ? ` — the coin moved ${(coinMove * 100).toFixed(1)}%` : ''}.\n\nYour mirrored P&L: ${pnl >= 0 ? '+' : '−'}$${Math.abs(pnl).toLocaleString()}\nCopy fee (${w.copyTradeFeePct}% of profit): ${feeDue > 0 ? `−$${feeDue.toLocaleString()}` : '$0'}\nNET: ${pnl - feeDue >= 0 ? '+' : '−'}$${Math.abs(pnl - feeDue).toLocaleString()}`,
-            important: false,
-          });
-        }
-        if (copyPnlTotal !== 0) (s as any).__whaleCopyPnl = copyPnlTotal;
-        if (copyEvents.length > 0) {
-          const prev = (s as any).cryptoEvents || [];
-          (s as any).cryptoEvents = [...copyEvents, ...prev];
-        }
-      }
-    }
 
     // 4. PROCESS IPOS & NEW LAUNCHES
     s.ipos = s.ipos.map((ipo) => {
@@ -2106,15 +1041,7 @@ export class MarketEngineService {
             playerAvgBuyPrice: ipo.ipoPrice,
             boardSeatsTotal: 9,
             playerBoardMember: (ipo.playerSubscribedShares || 0) > launchShares * 0.05,
-          } as StockCompany;
-
-          // Media/film IPOs get a live production slate like any real studio
-          const filmIpo = /studio|film|entertainment|media|cinema|picture/i.test(ipo.industry);
-          if (filmIpo) {
-            newStock.isFilmStudio = true;
-            newStock.slate = seedSlate(newStock.id);
-            newStock.slateHealth = 55 + Math.floor(Math.random() * 20);
-          }
+          };
 
           s.stocks.unshift(newStock);
 
@@ -2159,10 +1086,46 @@ export class MarketEngineService {
       headlineNews.push(`NEW IPO ANNOUNCEMENT: ${pick.name} (${pick.ticker}) files for Wall Street initial public offering!`);
     }
 
-    // (Crypto listings are handled by the living market section above —
-    // every 10-12 weeks with real market caps, wire events and inbox alerts)
+    // 6. PERIODICALLY GENERATE NEW CRYPTO COINS (Every 6 weeks)
+    if (playerWeek % 6 === 0 && s.cryptoCoins.length < 12) {
+      const newCryptoTemplates = [
+        { name: 'Red Carpet Token', symbol: '$RED', price: 1.25, cap: 45000000, sec: 'Event Access', risk: 'Medium' as const, desc: 'VIP backstage passes and festival premiere access token.' },
+        { name: 'Screenwriter AI', symbol: '$SCRIPT', price: 3.5, cap: 88000000, sec: 'AI & Creative', risk: 'High' as const, desc: 'Decentralized AI script generation compute network.' },
+        { name: 'Box Office Gold', symbol: '$BOX', price: 0.88, cap: 25000000, sec: 'Payment & Ticketing', risk: 'Medium' as const, desc: 'Global theater chain ticketing discount & reward token.' },
+      ];
 
-    // ENDLESS MARKET (v2): infinite stock bankruptcies, acquisitions
+      const cPick = newCryptoTemplates[Math.floor(Math.random() * newCryptoTemplates.length)];
+      if (!s.cryptoCoins.some((c) => c.symbol === cPick.symbol)) {
+        const newCoin: CryptoCoin = {
+          id: `crypto_gen_${Date.now()}`,
+          name: cPick.name,
+          symbol: cPick.symbol,
+          price: cPick.price,
+          prevPrice: cPick.price * 0.9,
+          change24h: 11.1,
+          change7d: 18.5,
+          marketCap: cPick.cap,
+          circulatingSupply: Math.round(cPick.cap / cPick.price),
+          volume24h: Math.round(cPick.cap * 0.15),
+          popularity: 70,
+          communityStrength: 75,
+          volatility: 'High',
+          sector: cPick.sec,
+          risk: cPick.risk,
+          techDescription: cPick.desc,
+          sparkline: [cPick.price * 0.85, cPick.price * 0.9, cPick.price],
+          news: `Newly launched crypto asset $${cPick.symbol} lists on Web3 exchanges with strong volume!`,
+          status: 'Active',
+          playerHoldings: 0,
+          playerAvgBuyPrice: 0,
+        };
+
+        s.cryptoCoins.push(newCoin);
+        headlineNews.push(`NEW CRYPTO LISTING: $${cPick.symbol} (${cPick.name}) deploys on Hollywood Web3 Exchange!`);
+      }
+    }
+
+    // ENDLESS MARKET (v2): infinite listings, delistings, bankruptcies, acquisitions
     try {
       const endlessNews = processEndlessMarket(s, playerWeek, playerYear);
       headlineNews.push(...endlessNews);
@@ -2171,13 +1134,7 @@ export class MarketEngineService {
     }
 
     this.saveMarketState(s);
-    const delistPayouts = (s as any)._delistPayouts || 0;
-    const whaleCopyPnl = (s as any).__whaleCopyPnl || 0;
-    const whaleEvents = ((s as any).cryptoEvents as any[] | undefined) || [];
-    delete (s as any)._delistPayouts;
-    delete (s as any).__whaleCopyPnl;
-    delete (s as any).cryptoEvents;
-    return { updatedState: s, headlineNews, cryptoEvents: [...whaleEvents, ...cryptoEvents], delistPayouts, whaleCopyPnl, studioCastingCalls, studioEvents };
+    return { updatedState: s, headlineNews };
   }
 
   /**
@@ -2415,20 +1372,6 @@ export class MarketEngineService {
     }
 
     const totalDollarRevenue = coinAmount * coin.price;
-    // ---- REALIZED PnL → CRYPTO TAX (fed weekly into the tax engine) ----
-    const avgBuy = coin.playerAvgBuyPrice || 0;
-    const realizedPerUnit = coin.price - avgBuy;
-    const realizedPnl = realizedPerUnit * coinAmount;
-    if (realizedPnl > 0) {
-      s.pendingCryptoGains = (s.pendingCryptoGains || 0) + Math.floor(realizedPnl);
-    } else if (realizedPnl < 0) {
-      s.pendingCryptoLosses = (s.pendingCryptoLosses || 0) + Math.floor(-realizedPnl);
-    }
-    const taxNote = realizedPnl > 0
-      ? ` Taxable gain of $${Math.floor(realizedPnl).toLocaleString()} recorded — withholding applies this week.`
-      : realizedPnl < 0
-      ? ` Realized loss of $${Math.floor(-realizedPnl).toLocaleString()} offsets this week's crypto gains.`
-      : '';
     coin.playerHoldings = owned - coinAmount;
     if (coin.playerHoldings <= 0.00001) {
       coin.playerHoldings = 0;
@@ -2454,25 +1397,9 @@ export class MarketEngineService {
 
     return {
       success: true,
-      message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!${taxNote}`,
+      message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!`,
       totalDollarRevenue,
     };
-  }
-
-  /**
-   * NET CRYPTO TAXABLE GAINS — consumed weekly by GameContext and fed into
-   * the tax engine as 'crypto' income. Losses offset gains; net below zero
-   * reports 0 (no fake negative income).
-   */
-  public static consumePendingCryptoTax(): number {
-    const s = this.getMarketState();
-    const gains = s.pendingCryptoGains || 0;
-    const losses = s.pendingCryptoLosses || 0;
-    const net = Math.max(0, gains - losses);
-    s.pendingCryptoGains = 0;
-    s.pendingCryptoLosses = Math.max(0, losses - gains);
-    this.saveMarketState(s);
-    return net;
   }
 
   /**
@@ -2584,12 +1511,52 @@ export class MarketEngineService {
 
 // ============================================================
 // ENDLESS MARKET ENGINE (v2) — invisible procedural pool
-// Coin generation + lifecycle now lives in the LIVING CRYPTO MARKET
-// section above (regimes, listings, delists). This block keeps the
-// endless STUDIO generator for stock bankruptcies/acquisitions.
+// Infinite coins & studios: list, rise/fall, delist, acquired, bankrupt
 // ============================================================
 
+const COIN_PREFIX = ['Red', 'Gold', 'Star', 'Neon', 'Crimson', 'Velvet', 'Lunar', 'Solar', 'Pixel', 'Quantum', 'Royal', 'Cosmic', 'Vivid', 'Echo', 'Apex', 'Nova', 'Phantom', 'Crystal', 'Ivory', 'Obsidian'];
+const COIN_SUFFIX = ['Token', 'Coin', 'Credit', 'Cash', 'Dollar', 'Bucks', 'Notes', 'Coinage', 'Chips', 'Script', 'Pay', 'Flux', 'Bond', 'Yield', 'Mint', 'Shares'];
+const COIN_SECTORS = ['Entertainment', 'Streaming', 'AI & Creative', 'Ticketing', 'Gaming', 'Music', 'Fashion', 'Real Estate', 'Fintech', 'Social', 'Sports', 'Travel'];
+const COIN_SYMBOLS = ['R', 'G', 'S', 'N', 'C', 'V', 'L', 'Q', 'P', 'X', 'K', 'M', 'A', 'E', 'T', 'B', 'D', 'Y', 'W', 'F'];
+
 function rand<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ENDLESS COIN GENERATOR — never runs out (combinatorial pool)
+export function generateEndlessCoin(): Omit<CryptoCoin, 'playerHoldings' | 'playerAvgBuyPrice'> {
+  const prefix = rand(COIN_PREFIX);
+  const suffix = rand(COIN_SUFFIX);
+  const sector = rand(COIN_SECTORS);
+  const sym = '$' + prefix[0] + suffix[0];
+  const price = Math.round((0.5 + Math.random() * 9.5) * 100) / 100;
+  const supply = Math.floor(1000000 + Math.random() * 50000000);
+  const cap = Math.floor(price * supply);
+  const vol = (['Low', 'Moderate', 'High', 'Extreme Degen'] as const)[Math.floor(Math.random() * 4)];
+  return {
+    id: `coin_gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    name: `${prefix} ${suffix}`,
+    symbol: sym,
+    price,
+    prevPrice: price * 0.92,
+    change24h: 8.7,
+    change7d: 15.2,
+    marketCap: cap,
+    circulatingSupply: supply,
+    volume24h: Math.floor(cap * (0.08 + Math.random() * 0.2)),
+    popularity: Math.floor(40 + Math.random() * 55),
+    communityStrength: Math.floor(35 + Math.random() * 60),
+    volatility: vol,
+    sector,
+    risk: vol === 'Extreme Degen' ? 'Extreme Degen' : vol === 'High' ? 'High' : vol === 'Moderate' ? 'Medium' : 'Low',
+    techDescription: `${prefix} ${suffix} powers ${sector.toLowerCase()} payments and community rewards across Hollywood.`,
+    sparkline: [price * 0.8, price * 0.9, price * 0.95, price],
+    news: `$${sym} (${prefix} ${suffix}) lists on Hollywood Web3 Exchange!`,
+    status: 'Active',
+    weeksSinceListing: 0,
+    weakStreak: 0,
+    listedWeek: 1,
+    listedYear: 2026,
+  };
+}
 
 const STUDIO_PREFIX = ['Apex', 'Stellar', 'Meridian', 'Cascade', 'Ironclad', 'Sunburst', 'Northstar', 'Vanguard', 'Golden', 'Silverline', 'Bluebird', 'Redwood', 'Crestline', 'Atlas', 'Monarch', 'Quill', 'Summit', 'Harbor', 'Sterling', 'Blackwood'];
 const STUDIO_SUFFIX = ['Studios', 'Pictures', 'Entertainment', 'Films', 'Productions', 'Media', 'Pictures Group', 'Works', 'Cinema', 'Motion Co.', 'Pictures Co.', 'Entertainment Group', 'Films Co.', 'Studios Group'];
@@ -2650,8 +1617,33 @@ export function processEndlessMarket(s: any, playerWeek: number, playerYear: num
   const news: string[] = [];
 
   // ---- COINS ----
-  // Coin lifecycle (regimes, listings, delists) is handled by the living
-  // crypto market section in processEndWeek — nothing to do here anymore.
+  // Age + delisting logic
+  s.cryptoCoins = (s.cryptoCoins || []).map((c: any) => {
+    if (c.status !== 'Active' && c.status !== 'TopLeader') return c;
+    c.weeksSinceListing = (c.weeksSinceListing || 0) + 1;
+    // Weak detection: price fell below 15% of its peak
+    const peak = Math.max(...(c.sparkline || [c.price]), c.price);
+    const crashed = c.price < peak * 0.15;
+    c.weakStreak = crashed ? (c.weakStreak || 0) + 1 : 0;
+    // Delist: crashed 6 straight weeks OR too old (>52 weeks) and weak
+    if (c.weakStreak >= 6 || (c.weeksSinceListing > 52 && c.weakStreak >= 3)) {
+      const delisted = { ...c, status: 'Delisted' as const, news: `$${c.symbol} (${c.name}) has been DELISTED after sustained losses. Holders left with dust.` };
+      news.push(`🚨 DELISTED: $${c.symbol} (${c.name}) removed from the exchange after sustained collapse.`);
+      return delisted;
+    }
+    return c;
+  });
+  // New endless listings every 5 weeks (keep up to 15 active)
+  if (playerWeek % 5 === 0) {
+    const activeCoins = (s.cryptoCoins || []).filter((c: any) => c.status === 'Active' || c.status === 'TopLeader').length;
+    if (activeCoins < 15) {
+      const newCoin = generateEndlessCoin();
+      (newCoin as any).listedWeek = playerWeek;
+      (newCoin as any).listedYear = playerYear;
+      s.cryptoCoins.push(newCoin);
+      news.push(`🪙 NEW LISTING: $${newCoin.symbol} (${newCoin.name}) deploys on the exchange!`);
+    }
+  }
 
   // ---- STUDIOS ----
   s.stocks = (s.stocks || []).map((st: any) => {
@@ -2686,12 +1678,7 @@ export function processEndlessMarket(s: any, playerWeek: number, playerYear: num
   if (playerWeek % 4 === 0) {
     const publicCount = (s.stocks || []).filter((x: any) => x.status === 'Public').length;
     if (publicCount < 12) {
-      const newStudio = generateEndlessStudio() as StockCompany;
-      // normalize to the full StockCompany shape (news array + player fields)
-      newStudio.news = Array.isArray(newStudio.news) ? newStudio.news : [String(newStudio.news)];
-      newStudio.playerSharesOwned = 0;
-      newStudio.playerAvgBuyPrice = 0;
-      newStudio.playerBoardMember = false;
+      const newStudio = generateEndlessStudio();
       (newStudio as any).listedWeek = playerWeek;
       (newStudio as any).listedYear = playerYear;
       s.stocks.push(newStudio);

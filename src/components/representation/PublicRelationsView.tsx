@@ -411,16 +411,6 @@ Cost: $${cost.toLocaleString()}
                     }`}>
                       {s.severity} SCANDAL
                     </span>
-                    {(() => {
-                      const fadeAt = s.severity === 'CRITICAL' ? 6 : s.severity === 'MODERATE' ? 5 : 4;
-                      const age = ((player.dateYear || 2026) * 52 + (player.dateWeek || 1)) - ((s.yearOccurred || 2026) * 52 + (s.weekOccurred || 1));
-                      const left = Math.max(0, fadeAt - age);
-                      return (
-                        <span className="px-2 py-1 rounded-full text-[9px] font-bold uppercase shrink-0 bg-white/5 text-gray-400 border border-white/10">
-                          ⏳ fades in {left}w
-                        </span>
-                      );
-                    })()}
                   </div>
 
                   {s.source === 'NPC_ATTACK' && s.instigator && (

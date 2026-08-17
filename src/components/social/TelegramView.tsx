@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, Send, MessageCircle, Users, Megaphone, Camera, Check, Crown, Radio, Search } from 'lucide-react';
-import { PremiumPanel, WriterSheet } from './HubPanels';
+import { PremiumPanel } from './HubPanels';
 
 export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, releasedMovies, saveData, updateSave } = useGame();
@@ -26,11 +26,6 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const username = `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`;
 
   const postChannel = () => {
-    if (SocialsService.playerPostsLeft('telegram') <= 0) {
-      setFb("You've already posted twice on Telegram this week — END WEEK to post again.");
-      setTimeout(() => setFb(null), 3500);
-      return;
-    }
     const text = channelDraft.trim() || (latest ? `📣 '${latest.movieTitle}' update — stay tuned!` : '📣 Channel announcement');
     state.telegramStories = state.telegramStories || [];
     state.telegramStories.unshift({
@@ -44,7 +39,6 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     });
     const growth = Math.floor(1 + (player.fameXp || 0) * 0.15);
     state.telegramChannelSubs = subs + growth;
-    SocialsService.notePlayerPost('telegram');
     SocialsService.saveState(state);
     setState({ ...state });
     setChannelDraft('');
@@ -54,11 +48,6 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const postStory = () => {
     if (!storyDraft.trim()) return;
-    if (SocialsService.playerPostsLeft('telegram') <= 0) {
-      setFb("You've already posted twice on Telegram this week — END WEEK to post again.");
-      setTimeout(() => setFb(null), 3500);
-      return;
-    }
     state.telegramStories = state.telegramStories || [];
     state.telegramStories.unshift({
       id: `tg_st_${Date.now()}`,
@@ -69,7 +58,6 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       week: player.dateWeek || 1,
       year: player.dateYear || 2026,
     });
-    SocialsService.notePlayerPost('telegram');
     SocialsService.saveState(state);
     setState({ ...state });
     setStoryDraft('');
@@ -198,7 +186,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">✈️ Telegram</span>
-        <WriterSheet state={state} platform="telegram" onRefresh={() => setState({ ...SocialsService.getState() })} />
+        <Search className="w-4 h-4 text-gray-500" />
       </div>
 
       {tab === 'CHATS' && (

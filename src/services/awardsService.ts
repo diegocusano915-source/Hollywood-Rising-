@@ -19,7 +19,6 @@ import {
   AwardCategoryResult,
   AwardCeremonyResult,
 } from '../types/game';
-import { FAME_XP_MULTIPLIER, FameService } from './fameService';
 import { BoxOfficeEngineService } from './boxOfficeEngineService';
 import { BoxOfficeItem } from '../types/world';
 import { AWARD_ACTOR_POOL } from '../database/representationDatabase';
@@ -168,7 +167,6 @@ export class AwardsService {
     newRecords: AwardRecord[];
     newInboxMessages: InboxMessage[];
     fameGained: number;
-    fanGained: number;
     ceremonyEvent: AwardRecord | null;
     ceremonyData: AwardCeremonyResult | null;
     playerEligible: boolean;
@@ -181,7 +179,6 @@ export class AwardsService {
       newRecords: [] as AwardRecord[],
       newInboxMessages: [] as InboxMessage[],
       fameGained: 0,
-      fanGained: 0,
       ceremonyEvent: null as AwardRecord | null,
       ceremonyData: null as AwardCeremonyResult | null,
       playerEligible: false,
@@ -206,13 +203,7 @@ export class AwardsService {
     const playerEligible = playerMovies.length > 0;
 
     // ---- BUILD CATEGORY LINEUP (12-15, rotating) ----
-    // Deterministic per-year seeded shuffle: every year draws a DIFFERENT set
-    // of rotating categories (7 core + 5-8 rotating), so no two years repeat.
-    let seed = (year * 2654435761) % 4294967296;
-    const rnd = () => {
-      seed = (seed * 1664525 + 1013904223) % 4294967296;
-      return seed / 4294967296;
-    };
+    const yearSeed = year % 3;
     const rotating = ROTATING_CATEGORIES.filter((def) => {
       if (def.kind === 'genre') {
         const anyMovie = [...playerMovies, ...npcPool].some((m) => this.genreMatches(m, def.id));
@@ -224,19 +215,17 @@ export class AwardsService {
       }
       return true;
     });
-    for (let i = rotating.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [rotating[i], rotating[j]] = [rotating[j], rotating[i]];
+    const rotated = rotating.filter((_, i) => (i + yearSeed) % 2 === 0 || i < 3);
+    const lineup: CeremonyCategoryDef[] = [...CORE_CATEGORIES, ...rotated].slice(0, 15);
+    if (lineup.length < 12) {
+      lineup.push(...rotated.slice(0, 15 - lineup.length));
     }
-    const rotateCount = 5 + Math.floor(rnd() * 4); // 5-8 rotating slots per year
-    const lineup: CeremonyCategoryDef[] = [...CORE_CATEGORIES, ...rotating.slice(0, rotateCount)].slice(0, 15);
 
     const categories: AwardCategoryResult[] = [];
     const newTrophies: TrophyItem[] = [];
     const newRecords: AwardRecord[] = [];
     const newInboxMessages: InboxMessage[] = [];
     let fameGained = 0;
-    let fanGained = 0;
     let playerWins = 0;
     let playerNominations = 0;
     const updatedPlayer = { ...player };
@@ -356,8 +345,6 @@ export class AwardsService {
       if (playerWon && playerNominee) {
         // PLAYER WINS
         fameGained += def.baseXp;
-        const fansWon = this.awardFanPayout(player, true, def.prestige);
-        fanGained += fansWon;
         updatedPlayer.awardsWon = (updatedPlayer.awardsWon || 0) + 1;
         updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + def.baseXp;
         playerWins++;
@@ -409,7 +396,7 @@ export class AwardsService {
           senderRole: 'Academy',
           senderAvatar: player.avatarUrl,
           subject: `🏆 WINNER: ${category}!`,
-          body: `Congratulations! You won the ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". Your trophy has been added to your Trophy Room! (+${Math.max(1, Math.floor(def.baseXp * FAME_XP_MULTIPLIER))} Fame XP · +${fansWon.toLocaleString()} fans)`,
+          body: `Congratulations! You won the ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". Your trophy has been added to your Trophy Room! (+${def.baseXp} Fame XP)`,
           date: `W52, ${year}`,
           dateWeek: 52,
           dateYear: year,
@@ -419,8 +406,6 @@ export class AwardsService {
         // PLAYER NOMINATED, NPC WINS
         const nomXp = Math.floor(def.baseXp * 0.35);
         fameGained += nomXp;
-        const fansNom = this.awardFanPayout(player, false, def.prestige);
-        fanGained += fansNom;
         updatedPlayer.fameXp = (updatedPlayer.fameXp || 0) + nomXp;
 
         const record: AwardRecord = {
@@ -456,7 +441,7 @@ export class AwardsService {
           senderRole: 'Academy',
           senderAvatar: player.avatarUrl,
           subject: `✨ NOMINATED: ${category}!`,
-          body: `You were nominated for ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". ${winner.name} took the trophy for "${winner.movieTitle}" this year. (+${Math.max(1, Math.floor(nomXp * FAME_XP_MULTIPLIER))} Fame XP · +${fansNom.toLocaleString()} fans)`,
+          body: `You were nominated for ${category} at the ${year} ${eventName} for "${playerNominee.movieTitle}". ${winner.name} took the trophy for "${winner.movieTitle}" this year. (+${nomXp} Fame XP)`,
           date: `W52, ${year}`,
           dateWeek: 52,
           dateYear: year,
@@ -502,11 +487,7 @@ export class AwardsService {
       playerNominations,
       newTrophies,
       newRecords,
-      // display value: what the player actually receives after the global
-      // slow burn (the raw fameGained below flows into the weekly pool)
-      fameGained: Math.floor(fameGained * FAME_XP_MULTIPLIER),
-      fanGained,
-      viewersBase: Math.round(2000000 + (player.fameXp || 0) * 15000 + (player.fans || 0) * 3),
+      fameGained,
       inboxMessages: newInboxMessages,
       newPlayerAwardsWon: playerWins,
       playerEligible,
@@ -519,45 +500,10 @@ export class AwardsService {
       newRecords,
       newInboxMessages,
       fameGained,
-      fanGained,
       ceremonyEvent: newRecords[0] || null,
       ceremonyData,
       playerEligible,
     };
-  }
-
-  /**
-   * REAL fan payout for a win/nomination, scaled by fame level:
-   * L1-3 win 5K-25K · L4-5 win 10K-100K · L6+ much bigger (grows per level).
-   * Nominations pay ~1/3 of a win. Prestige weights the roll (fan-voted
-   * categories pay nearly full — fans voted for you).
-   */
-  private static awardFanPayout(
-    player: Player,
-    won: boolean,
-    prestige: CeremonyCategoryDef['prestige']
-  ): number {
-    const fameLevel = FameService.getFameLevelDetails(player.fameXp || 0).level;
-    let min: number;
-    let max: number;
-    if (fameLevel <= 3) {
-      min = 5000; max = 25000;
-    } else if (fameLevel <= 5) {
-      min = 10000; max = 100000;
-    } else {
-      min = 150000 + (fameLevel - 6) * 75000;
-      max = 600000 + (fameLevel - 6) * 300000;
-    }
-    if (!won) {
-      min = Math.floor(min / 3);
-      max = Math.floor(max / 3);
-    }
-    const w = prestige === 'Legendary' ? 1
-      : prestige === 'Global' ? 0.85
-      : prestige === 'National' ? 0.7
-      : prestige === 'Fan' ? 0.9
-      : 0.6;
-    return Math.max(500, Math.floor((min + Math.random() * Math.max(1, max - min)) * w));
   }
 
   private static getHistoricalNpcPool(): BoxOfficeItem[] {
