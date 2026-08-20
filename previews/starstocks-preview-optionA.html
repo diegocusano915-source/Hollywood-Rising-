@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A — Wall Street West Terminal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #050608; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #d4dae4; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #59616e; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+  .up { color: #2ecc8f; } .down { color: #f6465d; }
+
+  .term { background: #0b0d12; border: 1px solid #161b24; border-radius: 16px; overflow: hidden; }
+  .tbar { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; background: #0e1118; border-bottom: 1px solid #161b24; }
+  .tbar .dots { display: flex; gap: 5px; }
+  .tbar .dots i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+  .tbar .t { font-size: 8.5px; letter-spacing: 2.5px; color: #2ecc8f; font-weight: 900; }
+  .tbar .clock { font-size: 8.5px; color: #59616e; font-family: 'Courier New', monospace; }
+
+  .ticker-wrap { overflow: hidden; border-bottom: 1px solid #161b24; }
+  .ticker { display: flex; gap: 20px; white-space: nowrap; width: max-content; animation: tick 20s linear infinite; padding: 7px 0; }
+  @keyframes tick { to { transform: translateX(-50%); } }
+  .ticker span { font-size: 9.5px; font-weight: 800; font-family: 'Courier New', monospace; }
+  .ticker b { color: #8b96a8; margin-right: 4px; }
+
+  .idx-bar { display: grid; grid-template-columns: repeat(4, 1fr); padding: 10px 12px; gap: 1px; background: #0e1118; border-bottom: 1px solid #161b24; }
+  .idx div { text-align: center; }
+  .idx span { font-size: 7.5px; color: #59616e; letter-spacing: 1px; display: block; }
+  .idx b { font-size: 11.5px; font-family: 'Courier New', monospace; }
+
+  /* studio rows */
+  .srow { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid #12161e; cursor: pointer; }
+  .srow:active { background: #0e1118; }
+  .slogo { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .sinfo { flex: 1; min-width: 0; }
+  .sinfo b { font-size: 11.5px; display: block; }
+  .sinfo span { font-size: 8px; color: #59616e; font-family: 'Courier New', monospace; }
+  .spark { width: 56px; height: 24px; flex-shrink: 0; }
+  .snums { text-align: right; width: 78px; }
+  .snums b { font-size: 11.5px; font-family: 'Courier New', monospace; display: block; }
+  .snums span { font-size: 9px; font-weight: 900; font-family: 'Courier New', monospace; }
+  .jobs-pill { font-size: 7px; font-weight: 900; background: #f0b90b20; color: #f0b90b; padding: 1.5px 6px; border-radius: 99px; margin-left: 5px; letter-spacing: 0.5px; }
+  .new-pill { font-size: 7px; font-weight: 900; background: #2ecc8f; color: #04231a; padding: 1.5px 6px; border-radius: 4px; margin-left: 5px; }
+
+  /* studio detail */
+  .d-head { padding: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #161b24; }
+  .d-left { display: flex; gap: 10px; align-items: center; }
+  .d-left .big-logo { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #1565c0, #0d2650); display: flex; align-items: center; justify-content: center; font-size: 21px; }
+  .d-left b { font-size: 15px; display: block; }
+  .d-left span { font-size: 8px; color: #59616e; font-family: 'Courier New', monospace; }
+  .d-price { text-align: right; }
+  .d-price b { font-size: 22px; font-family: 'Courier New', monospace; color: #2ecc8f; }
+  .d-price span { font-size: 10px; font-weight: 900; display: block; font-family: 'Courier New', monospace; }
+
+  .candles { padding: 10px 8px 6px; background: #080a0e; border-bottom: 1px solid #161b24; }
+  .c-tabs { display: flex; gap: 3px; padding: 0 6px 8px; }
+  .c-tabs span { font-size: 8px; font-weight: 900; color: #59616e; padding: 3px 7px; border-radius: 4px; }
+  .c-tabs span.on { color: #f0b90b; background: #f0b90b1f; }
+
+  .sect { padding: 12px 14px; border-bottom: 1px solid #161b24; }
+  .sect-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+  .sect-h b { font-size: 10px; letter-spacing: 1.5px; color: #8b96a8; }
+  .sect-h span { font-size: 8px; color: #59616e; font-family: 'Courier New', monospace; }
+
+  /* SLATE PIPELINE — the real connection */
+  .pipe { display: flex; flex-direction: column; gap: 7px; }
+  .movie { display: flex; gap: 10px; align-items: center; background: #0e1118; border: 1px solid #161b24; border-radius: 10px; padding: 8px 10px; }
+  .stage { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .st-dev { background: #5b9ce020; } .st-film { background: #f0b90b20; } .st-post { background: #b06be020; } .st-rel { background: #2ecc8f20; }
+  .m-info { flex: 1; min-width: 0; }
+  .m-info b { font-size: 10.5px; display: block; }
+  .m-info span { font-size: 8px; color: #59616e; }
+  .m-conn { font-size: 8px; font-weight: 900; color: #f0b90b; background: #f0b90b15; border: 1px solid #f0b90b35; border-radius: 6px; padding: 3px 7px; white-space: nowrap; flex-shrink: 0; }
+  .m-conn.live { color: #2ecc8f; background: #2ecc8f15; border-color: #2ecc8f35; animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #2ecc8f30; } 50% { box-shadow: 0 0 0 5px transparent; } }
+
+  .kv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .kv { background: #0e1118; border: 1px solid #161b24; border-radius: 9px; padding: 7px 4px; text-align: center; }
+  .kv span { font-size: 7px; color: #59616e; letter-spacing: 0.5px; display: block; }
+  .kv b { font-size: 11px; font-family: 'Courier New', monospace; }
+
+  /* launch wire */
+  .wire-item { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #161b24; }
+  .wire-item:last-child { border: none; }
+  .wire-ic { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .wire-item b { font-size: 10.5px; display: block; }
+  .wire-item span { font-size: 8.5px; color: #59616e; }
+  .wire-item .when { margin-left: auto; font-size: 8px; color: #59616e; font-family: 'Courier New', monospace; white-space: nowrap; }
+
+  .order { margin: 12px 14px 14px; background: #0e1118; border: 1px solid #161b24; border-radius: 12px; padding: 12px; }
+  .bs { display: flex; background: #080a0e; border-radius: 9px; padding: 3px; margin-bottom: 9px; }
+  .bs div { flex: 1; text-align: center; font-size: 10px; font-weight: 900; padding: 7px; border-radius: 7px; color: #59616e; }
+  .bs .b-on { background: #2ecc8f; color: #04231a; }
+  .fld { display: flex; align-items: center; background: #080a0e; border: 1px solid #161b24; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+  .fld span { font-size: 8.5px; color: #59616e; font-weight: 900; width: 52px; }
+  .fld input { flex: 1; background: none; border: none; outline: none; color: #fff; text-align: right; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 800; }
+  .fld b { font-size: 9px; color: #8b96a8; font-weight: 900; margin-left: 6px; }
+  .submit { width: 100%; margin-top: 8px; padding: 11px; border: none; border-radius: 9px; background: linear-gradient(135deg, #2ecc8f, #1d9e6c); color: #04231a; font-size: 11.5px; font-weight: 900; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option A · Wall Street West — Studio Market (live slates feed the callboard)</div>
+  <div class="term">
+    <div class="tbar">
+      <div class="dots"><i style="background:#f6465d"></i><i style="background:#f0b90b"></i><i style="background:#2ecc8f"></i></div>
+      <span class="t">WALL STREET WEST · STUDIO EXCHANGE</span>
+      <span class="clock">WK 34 · 2026</span>
+    </div>
+
+    <div class="ticker-wrap">
+      <div class="ticker">
+        <span><b>DIS</b>112.45 <i class="up">+2.2%</i></span>
+        <span><b>NFLX</b>684.20 <i class="up">+1.1%</i></span>
+        <span><b>WBD</b>9.84 <i class="down">−1.8%</i></span>
+        <span><b>A24</b>24.60 <i class="up">+6.4%</i></span>
+        <span><b>PARA</b>15.32 <i class="up">+0.9%</i></span>
+        <span><b>SONY</b>84.10 <i class="up">+0.4%</i></span>
+        <span><b>MSLF</b>42.88 <i class="up">+11.2%</i></span>
+        <span><b>DIS</b>112.45 <i class="up">+2.2%</i></span>
+        <span><b>NFLX</b>684.20 <i class="up">+1.1%</i></span>
+        <span><b>WBD</b>9.84 <i class="down">−1.8%</i></span>
+        <span><b>A24</b>24.60 <i class="up">+6.4%</i></span>
+        <span><b>PARA</b>15.32 <i class="up">+0.9%</i></span>
+        <span><b>SONY</b>84.10 <i class="up">+0.4%</i></span>
+        <span><b>MSLF</b>42.88 <i class="up">+11.2%</i></span>
+      </div>
+    </div>
+
+    <div class="idx-bar idx">
+      <div><span>STUDIO IDX</span><b class="up">4,281 ▲1.4%</b></div>
+      <div><span>SLATE HEALTH</span><b class="up">71.2</b></div>
+      <div><span>OPEN PRODUCTIONS</span><b>23 FILMS</b></div>
+      <div><span>CALLBOARD JOBS</span><b style="color:#f0b90b">17 LIVE</b></div>
+    </div>
+
+    <div class="srow">
+      <div class="slogo" style="background:linear-gradient(135deg,#1565c0,#0d2650)">🏰</div>
+      <div class="sinfo"><b>Walt Disney Co<span class="jobs-pill">4 JOBS LIVE</span></b><span>DIS · 3 FILMS IN PRODUCTION · SLATE $1.2B</span></div>
+      <svg class="spark" viewBox="0 0 56 24"><path d="M0,18 L8,16 L16,17 L24,13 L32,14 L40,11 L48,12 L56,8" fill="none" stroke="#2ecc8f" stroke-width="1.6"/></svg>
+      <div class="snums"><b>$112.45</b><span class="up">+2.2%</span></div>
+    </div>
+    <div class="srow">
+      <div class="slogo" style="background:linear-gradient(135deg,#c62828,#7f1010)">🎬</div>
+      <div class="sinfo"><b>A24 Indie Films<span class="jobs-pill">2 JOBS LIVE</span></b><span>A24 · 2 FILMS IN PRODUCTION · SLATE $84M</span></div>
+      <svg class="spark" viewBox="0 0 56 24"><path d="M0,20 L8,17 L16,18 L24,14 L32,12 L40,13 L48,9 L56,6" fill="none" stroke="#2ecc8f" stroke-width="1.6"/></svg>
+      <div class="snums"><b>$24.60</b><span class="up">+6.4%</span></div>
+    </div>
+    <div class="srow">
+      <div class="slogo" style="background:linear-gradient(135deg,#6a1b9a,#3a0d5a)">🌇</div>
+      <div class="sinfo"><b>Meridian Pictures<span class="new-pill">NEW · WK 31</span><span class="jobs-pill">3 JOBS LIVE</span></b><span>MSLF · LISTED WK 31 · ALREADY CASTING 3 FILMS</span></div>
+      <svg class="spark" viewBox="0 0 56 24"><path d="M0,23 L8,21 L16,18 L24,16 L32,14 L40,10 L48,7 L56,4" fill="none" stroke="#2ecc8f" stroke-width="1.6"/></svg>
+      <div class="snums"><b>$42.88</b><span class="up">+11.2%</span></div>
+    </div>
+    <div class="srow">
+      <div class="slogo" style="background:linear-gradient(135deg,#2e7d32,#14401a)">📺</div>
+      <div class="sinfo"><b>Warner Bros. Discovery<span class="jobs-pill">3 JOBS LIVE</span></b><span>WBD · DEBT RESTRUCTURING · SLATE $640M</span></div>
+      <svg class="spark" viewBox="0 0 56 24"><path d="M0,8 L8,10 L16,12 L24,11 L32,14 L40,16 L48,15 L56,18" fill="none" stroke="#f6465d" stroke-width="1.6"/></svg>
+      <div class="snums"><b>$9.84</b><span class="down">−1.8%</span></div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-h"><b>📡 STUDIO LAUNCH WIRE</b><span>NEW STUDIOS EVERY 10-12 WKS</span></div>
+      <div class="wire-item">
+        <div class="wire-ic" style="background:#2ecc8f20">🚀</div>
+        <div><b>Meridian Pictures (MSLF) listed — Week 31</b><span>Debuted at $38 · raised $2.1B · 3 films greenlit day one</span></div>
+        <span class="when">3W AGO</span>
+      </div>
+      <div class="wire-item">
+        <div class="wire-ic" style="background:#f0b90b20">📋</div>
+        <div><b>Sable Studios files for listing</b><span>Expected WK 43 · dark-horse genre label · $480M float</span></div>
+        <span class="when">1W AGO</span>
+      </div>
+      <div class="wire-item">
+        <div class="wire-ic" style="background:#f6465d20">⚠️</div>
+        <div><b>Redwood Cinema under delist review</b><span>4 consecutive slate failures · 2 more trigger removal</span></div>
+        <span class="when">2D AGO</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · Studio Detail — pipeline stages + callboard feed + trade</div>
+  <div class="term">
+    <div class="tbar">
+      <div class="dots"><i style="background:#f6465d"></i><i style="background:#f0b90b"></i><i style="background:#2ecc8f"></i></div>
+      <span class="t">A24 · $24.60 ▲6.4%</span>
+      <span class="clock">SLATE: 2 ACTIVE</span>
+    </div>
+
+    <div class="d-head">
+      <div class="d-left">
+        <div class="big-logo">🎬</div>
+        <div><b>A24 Indie Films</b><span>A24 · INDIE CINEMA · 22 YRS TRADING</span></div>
+      </div>
+      <div class="d-price"><b>$24.60</b><span class="up">▲ +6.4% this week</span></div>
+    </div>
+
+    <div class="candles">
+      <div class="c-tabs"><span>1M</span><span class="on">3M</span><span>6M</span><span>1Y</span><span>ALL</span></div>
+      <div style="position:relative;height:110px" id="chart"></div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-h"><b>🎞️ PRODUCTION PIPELINE</b><span>REAL MOVIES → REAL CASTBOARD</span></div>
+      <div class="pipe">
+        <div class="movie">
+          <div class="stage st-film">🎥</div>
+          <div class="m-info"><b>Midnight Catechism</b><span>Horror · $18M budget · FILMING · 5 wks in</span></div>
+          <span class="m-conn live">● CASTING ON CALLBOARD</span>
+        </div>
+        <div class="movie">
+          <div class="stage st-post">🎛️</div>
+          <div class="m-info"><b>The Lobster Theory</b><span>Drama · $9M budget · POST-PRODUCTION · 3 wks left</span></div>
+          <span class="m-conn">CASTING CLOSED</span>
+        </div>
+        <div class="movie">
+          <div class="stage st-rel">🌟</div>
+          <div class="m-info"><b>Sable Light Symphony</b><span>Released WK 31 · $41M gross · +6.4% stock impact</span></div>
+          <span class="m-conn" style="color:#2ecc8f;background:#2ecc8f15;border-color:#2ecc8f35">HIT ✔</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-h"><b>📊 FUNDAMENTALS</b><span>Q3 EARNINGS IN 4 WKS</span></div>
+      <div class="kv-grid">
+        <div class="kv"><span>MARKET CAP</span><b>$3.1B</b></div>
+        <div class="kv"><span>SLATE VALUE</span><b>$84M</b></div>
+        <div class="kv"><span>SLATE HEALTH</span><b class="up">82/100</b></div>
+        <div class="kv"><span>BOARD SEAT</span><b>5% NEEDED</b></div>
+      </div>
+    </div>
+
+    <div class="order">
+      <div class="bs"><div class="b-on">BUY A24</div><div>SELL</div></div>
+      <div class="fld"><span>SHARES</span><input value="400"><b>@ $24.60</b></div>
+      <div class="fld"><span>TOTAL</span><input value="$9,840.00" readonly><b>USD</b></div>
+      <button class="submit">BUY 400 A24 — $9,840</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // candlesticks for studio chart
+  const chart = document.getElementById('chart');
+  let price = 19.2;
+  const data = [];
+  for (let i = 0; i < 24; i++) {
+    const o = price;
+    const c = o + (Math.random() - 0.42) * 0.5 + (i > 16 ? 0.22 : 0.02);
+    data.push({ o, c, h: Math.max(o, c) + Math.random() * 0.25, l: Math.min(o, c) - Math.random() * 0.25 });
+    price = c;
+  }
+  const lo = Math.min(...data.map(d => d.l)) - 0.2, hi = Math.max(...data.map(d => d.h)) + 0.2;
+  const H = 110, pad = 6;
+  const y = v => H - pad - ((v - lo) / (hi - lo)) * (H - pad * 2);
+  const bw = 100 / 24;
+  chart.innerHTML = [0, 0.25, 0.5, 0.75].map(p => `<div class="gl" style="position:absolute;left:0;right:0;top:${p * H}px;height:1px;background:#12161e"></div>`).join('') +
+    data.map((d, i) => {
+      const x = i * bw + bw / 2, up = d.c >= d.o, col = up ? '#2ecc8f' : '#f6465d';
+      const bt = y(Math.max(d.o, d.c)), bh = Math.max(2, Math.abs(y(d.o) - y(d.c)));
+      return `<div style="position:absolute;left:${x}%;top:${y(d.h)}px;width:1.5px;height:${Math.max(1, y(d.l) - y(d.h))}px;background:${col};opacity:0.7"></div>
+              <div style="position:absolute;left:${x - bw * 0.32}%;top:${bt}px;width:${bw * 0.64}%;height:${bh}px;background:${col};border-radius:1px"></div>`;
+    }).join('');
+</script>
+
+</body>
+</html>

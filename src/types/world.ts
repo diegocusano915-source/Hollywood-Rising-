@@ -162,7 +162,7 @@ export interface BankrollOpportunity {
   payoutAmount?: number;
 }
 
-export type TvStationType = 'Morning' | 'Entertainment' | 'Late Night' | 'News' | 'Sports' | 'International';
+export type TvStationType = 'Morning' | 'Entertainment' | 'Late Night' | 'News' | 'Sports' | 'International' | 'Talk';
 
 export interface TvInterviewOffer {
   id: string;
@@ -194,7 +194,7 @@ export interface TvStation {
 
 export interface TvAnswerChoice {
   text: string;
-  style: 'WITTY' | 'HUMBLE' | 'CONTROVERSIAL';
+  style: string; // archetype chip — TV and Radio use DIFFERENT archetype pools
   repChange: number; // reputation delta
   fansMult: number; // fans multiplier (0.5 - 2)
   scandalRisk: number; // 0-0.3 chance to spark a minor scandal
@@ -220,7 +220,7 @@ export interface TvInterviewResult {
   reactions: string[];
 }
 
-export type RadioStationType = 'HipHop' | 'Top40' | 'Talk' | 'News' | 'International' | 'Morning';
+export type RadioStationType = 'HipHop' | 'Top40' | 'Talk' | 'News' | 'International' | 'Morning' | 'Rock' | 'Sports';
 
 export interface RadioStation {
   id: string;
@@ -305,8 +305,11 @@ export interface HiredWriter {
   agencyName?: string;
   minFame?: number;
   minLeadRoles?: number;
+  minMovies?: number;
+  minFans?: number;
   bio?: string;
   avatar?: string;
+  platform?: string; // lowercase platform id this writer is retained for (e.g. 'twitter')
 }
 
 export type AwardPrestige = 'Local' | 'Regional' | 'National' | 'International' | 'Global' | 'Legendary';

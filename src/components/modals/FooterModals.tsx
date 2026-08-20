@@ -426,253 +426,112 @@ export const ScrollingCreditsModal: React.FC = () => {
 
 export const RoadmapModal: React.FC = () => (
   <BaseFooterModal title="Official Roadmap" icon={<Map className="w-5 h-5 text-amber-400" />} maxWidth="max-w-2xl">
-    <div className="p-4 space-y-4 overflow-y-auto">
-      {/* HEADER */}
-      <div
-        className="p-4 rounded-2xl text-center border relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(168,85,247,0.10), rgba(14,165,233,0.10))',
-          borderColor: 'rgba(251,191,36,0.35)',
-          boxShadow: '0 0 40px rgba(251,191,36,0.15), inset 0 0 30px rgba(251,191,36,0.05)',
-        }}
-      >
-        <h3 className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 uppercase tracking-widest">
-          ★ HOLLYWOOD RISING — 8-PHASE MASTER ROADMAP ★
-        </h3>
-        <p className="text-[11px] text-gray-300 mt-1">
-          From unknown actor to immortal legend. Every phase ships real, playable systems — no vaporware.
-        </p>
-
-        {/* OVERALL PROGRESS */}
-        <div className="mt-3 flex items-center gap-3">
-          <div className="flex-1 h-2.5 rounded-full bg-black/60 border border-white/10 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-purple-400 transition-all duration-1000"
-              style={{ width: '75%', boxShadow: '0 0 12px rgba(52,211,153,0.8)' }}
-            />
-          </div>
-          <span className="text-[11px] font-black text-emerald-300" style={{ textShadow: '0 0 10px rgba(52,211,153,0.8)' }}>
-            6 / 8 SHIPPED
-          </span>
-        </div>
-        <div className="flex justify-center gap-3 mt-2 text-[9px] font-bold">
-          <span className="text-emerald-300">● 6 Completed</span>
-          <span className="text-sky-300">● 2 In Development</span>
-        </div>
+    <div className="space-y-4">
+      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-center">
+        <h3 className="text-xs font-black text-amber-300 uppercase tracking-widest">HOLLYWOOD RISING DEVELOPMENT ROADMAP</h3>
+        <p className="text-[11px] text-gray-300">Five official phases guiding the future of film industry simulation.</p>
       </div>
 
-      {/* ============ PHASE 1 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+      {/* PHASE 1 */}
+      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <Film className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 1 — THE RISING STAR</h4>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 1: FOUNDATION</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">
+            Completed
           </span>
         </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Your first steps in Hollywood: audition, book roles, build your craft and break into the guild.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['Weekly Callboard (20-25 roles)', 'Multi-stage Auditions', 'Production Hub Filming', 'Acting Conservatory Courses', '6 Talent Attributes', 'SAG-AFTRA Membership'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-emerald-200">
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Career</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Production</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Relationships</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Empire</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Economy</div>
         </div>
       </div>
 
-      {/* ============ PHASE 2 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+      {/* PHASE 2 */}
+      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <Briefcase className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 2 — INDUSTRY POWER</h4>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 2: HOLLYWOOD EXPANSION</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">
+            Completed
           </span>
         </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Agents & managers fight for you. Your face hits every screen — TV, radio, red carpets and headlines.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['28 Agents + 28 Managers', '15 TV Stations (live interviews)', '12 Radio Stations', 'Red Carpet Premieres', 'PR & Scandal System', 'Fan Club (5 tiers)', 'Endorsements & Sponsorships', 'Media Gallery', 'Official Website'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-emerald-200">
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Social Media</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Awards</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Box Office</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">NPC Careers</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Studios</div>
         </div>
       </div>
 
-      {/* ============ PHASE 3 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+      {/* PHASE 3 */}
+      <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-400/50 space-y-2 shadow-lg">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <TrendingUp className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 3 — BOX OFFICE DYNASTY</h4>
+            <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+            <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider">PHASE 3: FINAL POLISH</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-black uppercase shadow">
+            Currently In Progress
           </span>
         </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Your movies battle for the top of the charts. Sequels, streaming wars and the biggest night of the year.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['Living Box Office (up to $500B)', 'Sequel & Franchise Tracker', '12 Real Streaming Platforms', 'Streaming Bids & Negotiation', 'Year-End Awards Night', 'FYC Award Campaigns', 'Box Office Records Hall', 'Star-Power Fame Multipliers', 'Theater Expansion'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-amber-200">
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">AAA UI</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Animations</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Performance</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Audio</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Settings</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Credits</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center col-span-2">Roadmap</div>
         </div>
       </div>
 
-      {/* ============ PHASE 4 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+      {/* PHASE 4 */}
+      <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <DollarSign className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 4 — MOGUL ECONOMY</h4>
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 4: LIVE OPERATIONS</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 uppercase border border-purple-500/40">
+            Future Expansion
           </span>
         </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Money makes movies. Build businesses, play the markets, bankroll films and outsmart the IRS.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['Business Ventures', 'Real Estate Empire', 'Stock Market + Crypto', 'Investments & Dividends', 'Manager Bankroll Deals', 'Real Tax System + Audits', 'Charity & Foundations', 'Achievements (70+)', 'Endless Market Engine'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-purple-200">
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Community Events</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Seasonal Updates</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Holiday Events</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Limited Time Content</div>
         </div>
       </div>
 
-      {/* ============ PHASE 5 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+      {/* PHASE 5 */}
+      <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/30 space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <Award className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 5 — PERSONAL STUDIO</h4>
+            <Globe className="w-4 h-4 text-sky-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 5: GLOBAL EXPANSION</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 uppercase border border-sky-500/40">
+            Future DLC
           </span>
         </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Stop acting in other people's movies. Greenlight your own — from script to worldwide release.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['4-Stage Pipeline (Dev → Release)', '52 Actor Casting Pool', '70+ Global Locations', 'Budget Allocation (100% rule)', '12-Platform Bidding', 'Movie Renewals (Part 7)', 'Series Renewals (20 Seasons)', 'Studio Equipment Upgrades', 'Real Studio Financials'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-sky-200">
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Director Career</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Producer Career</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Studio Owner</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Online Features</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Future DLC</div>
         </div>
       </div>
-
-      {/* ============ PHASE 6 — COMPLETED ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2"
-        style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(16,185,129,0.4)', boxShadow: '0 0 24px rgba(16,185,129,0.12)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40" style={{ boxShadow: '0 0 14px rgba(16,185,129,0.4)' }}>
-              <Globe className="w-4 h-4 text-emerald-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 6 — DIGITAL SUPERSTAR</h4>
-          </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/50" style={{ textShadow: '0 0 8px rgba(52,211,153,0.9)' }}>
-            ✓ Shipped
-          </span>
-        </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          Rule the internet. Seven real social platforms, premium blue ticks and a ghostwriting army.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-emerald-200">
-          {['7 Social Platforms', 'Real NPC Feeds & Trends', 'Premium Subscriptions', '24 Hired Writers', 'Creator Studio Earnings', 'Real-Event Posts Only', 'Fan Growth Algorithm', 'Offline Notifications', 'Notification Center'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-emerald-500/25 text-center">{f}</div>
-          ))}
-        </div>
-      </div>
-
-      {/* ============ PHASE 7 — IN DEVELOPMENT ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2 animate-pulse"
-        style={{ background: 'linear-gradient(135deg, rgba(14,165,233,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(14,165,233,0.5)', boxShadow: '0 0 28px rgba(14,165,233,0.2)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-sky-500/20 border border-sky-500/40" style={{ boxShadow: '0 0 14px rgba(14,165,233,0.5)' }}>
-              <Crown className="w-4 h-4 text-sky-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 7 — GLOBAL ICON</h4>
-          </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-sky-500/20 text-sky-300 uppercase border border-sky-500/50">
-            ⚡ In Development
-          </span>
-        </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          The world knows your name. Festivals, foreign markets, a star on the boulevard — and the director's chair.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-sky-200">
-          {['Film Festival Circuit (Cannes/Venice/TIFF)', 'Hollywood Walk of Fame Star', 'Direct Your Own Films', 'Soundtrack & Music Career', 'Foreign Market Box Office', 'TIME Magazine Cover', 'International Press Tours', 'Biopic Rights Bidding Wars', 'Award Season Calendar'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-sky-500/30 text-center">🔮 {f}</div>
-          ))}
-        </div>
-      </div>
-
-      {/* ============ PHASE 8 — IN DEVELOPMENT ============ */}
-      <div
-        className="p-3.5 rounded-2xl border space-y-2 animate-pulse"
-        style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.12), rgba(0,0,0,0.4))', borderColor: 'rgba(168,85,247,0.5)', boxShadow: '0 0 28px rgba(168,85,247,0.2)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-purple-500/20 border border-purple-500/40" style={{ boxShadow: '0 0 14px rgba(168,85,247,0.5)' }}>
-              <Sparkles className="w-4 h-4 text-purple-300" />
-            </span>
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 8 — LEGEND & LEGACY</h4>
-          </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-black bg-purple-500/20 text-purple-300 uppercase border border-purple-500/50">
-            ⚡ In Development
-          </span>
-        </div>
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          They build museums about you. Your memoir, your biopic, your dynasty — and the walk into forever.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[9px] font-bold text-purple-200">
-          {['Lifetime Achievement Award', 'Autobiography & Book Deal', 'Your Own Biopic', 'Hollywood Museum Wing', 'Family Dynasty (Heirs in Film)', 'Hall of Fame Induction', 'Career Retrospective Doc', 'Prestige New Game+ Mode', 'Legacy Score Leaderboards'].map((f) => (
-            <div key={f} className="p-1.5 rounded-lg bg-black/40 border border-purple-500/30 text-center">🔮 {f}</div>
-          ))}
-        </div>
-      </div>
-
-      {/* FOOTER NOTE */}
-      <p className="text-[9px] text-gray-500 text-center pt-1">
-        Every shipped phase above is live and playable right now — no placeholder features. Future phases ship one real system at a time.
-      </p>
     </div>
   </BaseFooterModal>
 );

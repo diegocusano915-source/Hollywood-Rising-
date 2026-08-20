@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A — Official Tax Notice</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a12;
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    padding: 24px 12px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+  .phone { width: 100%; max-width: 420px; }
+  .label { text-align: center; color: #8888a0; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-family: Arial, sans-serif; margin-bottom: 10px; }
+
+  /* ============ INBOX CARD ============ */
+  .inbox-card {
+    background: linear-gradient(135deg, #16161f, #101018);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid #3d6bff;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex; gap: 12px; margin-bottom: 10px;
+    animation: slideIn 0.4s ease;
+  }
+  @keyframes slideIn { from { transform: translateX(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .inbox-seal {
+    width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, #1e3a8a, #172554);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; border: 1px solid rgba(59,110,255,0.4);
+  }
+  .inbox-meta { flex: 1; min-width: 0; }
+  .inbox-meta h4 { color: #e8e8f0; font-size: 12px; font-family: Arial, sans-serif; }
+  .inbox-meta p { color: #c8c8d8; font-size: 11px; margin-top: 2px; font-family: Arial, sans-serif; }
+  .inbox-unread { width: 8px; height: 8px; background: #3d6bff; border-radius: 50%; margin-top: 4px; }
+
+  /* ============ PAPER DOCUMENT ============ */
+  .paper {
+    background: #f5f1e6;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(0,0,0,0.025) 28px),
+      radial-gradient(circle at 85% 10%, rgba(180,160,110,0.12), transparent 55%);
+    border-radius: 4px;
+    padding: 0;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4);
+    color: #1a1a24;
+    position: relative;
+    overflow: hidden;
+    animation: paperDrop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  @keyframes paperDrop { from { transform: translateY(-30px) rotate(-1deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .paper-head {
+    background: #1e2a4a; color: #f0ede2;
+    padding: 18px 20px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 3px double #c9a227;
+  }
+  .dept { display: flex; align-items: center; gap: 12px; }
+  .dept-seal {
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2px solid #c9a227; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; position: relative;
+  }
+  .dept-seal::after { content: ''; position: absolute; inset: 3px; border: 1px solid rgba(201,162,39,0.5); border-radius: 50%; }
+  .dept h2 { font-size: 13px; letter-spacing: 1.5px; }
+  .dept p { font-size: 9px; color: #a8b4cc; letter-spacing: 1px; margin-top: 2px; }
+  .doc-no { text-align: right; font-size: 8.5px; color: #a8b4cc; font-family: 'Courier New', monospace; line-height: 1.7; }
+
+  .paper-body { padding: 18px 20px 20px; }
+  .notice-title { text-align: center; font-size: 15px; letter-spacing: 3px; font-weight: bold; margin-bottom: 4px; }
+  .notice-sub { text-align: center; font-size: 9.5px; color: #6a6a78; letter-spacing: 2px; margin-bottom: 14px; font-family: Arial, sans-serif; }
+  .rule { height: 1px; background: #1a1a24; opacity: 0.25; margin: 10px 0; position: relative; }
+  .rule::after { content: '✂'; position: absolute; right: -2px; top: -9px; font-size: 11px; color: #999; }
+
+  .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 12.5px; border-bottom: 1px dotted rgba(0,0,0,0.18); }
+  .row span:first-child { color: #44445a; }
+  .row span:last-child { font-family: 'Courier New', monospace; font-weight: bold; }
+  .row.total { border-bottom: 2px solid #1a1a24; font-size: 14px; }
+  .row.total span { font-weight: bold; }
+
+  .stamp {
+    position: absolute; padding: 6px 14px; border: 3px solid; border-radius: 6px;
+    font-size: 13px; font-weight: 900; letter-spacing: 2px; font-family: Arial, sans-serif;
+    transform: rotate(-12deg); text-transform: uppercase; opacity: 0;
+    animation: stampIn 0.35s 0.9s cubic-bezier(0.5, 0, 1, 2) forwards;
+    mix-blend-mode: multiply;
+  }
+  @keyframes stampIn { 0% { transform: rotate(-12deg) scale(2.4); opacity: 0; } 60% { transform: rotate(-12deg) scale(0.92); opacity: 1; } 100% { transform: rotate(-12deg) scale(1); opacity: 0.85; } }
+  .stamp.ok { color: #0a6e35; border-color: #0a6e35; top: 118px; right: 18px; background: rgba(10,110,53,0.06); }
+  .stamp.audit { color: #a02020; border-color: #a02020; top: 118px; right: 18px; background: rgba(160,32,32,0.06); }
+
+  .audit-note {
+    margin-top: 14px; padding: 10px 12px; border: 1px solid #a02020; background: rgba(160,32,32,0.06);
+    font-size: 10.5px; line-height: 1.5; font-family: Arial, sans-serif; color: #6e1414;
+  }
+  .audit-note b { text-transform: uppercase; letter-spacing: 1px; }
+
+  .yearly-big { text-align: center; margin: 14px 0 6px; padding: 16px 10px; border: 2px solid #1a1a24; border-radius: 6px; background: rgba(30,42,74,0.04); }
+  .yearly-big .cap { font-size: 10px; letter-spacing: 3px; color: #44445a; font-family: Arial, sans-serif; }
+  .yearly-big .amt { font-size: 34px; font-weight: 900; font-family: 'Courier New', monospace; margin-top: 4px; }
+  .yearly-big .amt.refund { color: #0a6e35; }
+  .yearly-big .amt.due { color: #a02020; }
+
+  .check {
+    margin: 12px auto 0; width: 200px; background: #fff; border: 1px solid #999;
+    padding: 10px 12px; font-family: 'Courier New', monospace; font-size: 11px; color: #1a1a24;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15); transform: rotate(-1.5deg);
+  }
+  .check .bank { display: flex; justify-content: space-between; font-size: 9px; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 6px; }
+  .check .amt { font-size: 16px; font-weight: 900; }
+
+  .paper-foot {
+    padding: 10px 20px 16px; display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px dashed rgba(0,0,0,0.25); font-size: 8.5px; color: #77778a; font-family: 'Courier New', monospace;
+  }
+  .btn-bar { display: flex; gap: 8px; padding: 0 20px 18px; }
+  .doc-btn {
+    flex: 1; padding: 10px; font-family: Arial, sans-serif; font-size: 11px; font-weight: 900;
+    letter-spacing: 1px; border-radius: 3px; cursor: pointer; text-transform: uppercase;
+  }
+  .doc-btn.primary { background: #1e2a4a; color: #f0ede2; border: 1px solid #1e2a4a; }
+  .doc-btn.ghost { background: transparent; color: #1e2a4a; border: 1px solid #1e2a4a; }
+  .barcode { height: 22px; background: repeating-linear-gradient(90deg, #1a1a24 0 2px, transparent 2px 4px, #1a1a24 4px 5px, transparent 5px 9px); opacity: 0.75; margin: 0 20px 14px; }
+</style>
+</head>
+<body>
+
+<!-- ================= MONTHLY ================= -->
+<div class="phone">
+  <div class="label">Option A · Monthly Statement (Inbox card + Popup)</div>
+
+  <div class="inbox-card">
+    <div class="inbox-seal">🏛️</div>
+    <div class="inbox-meta">
+      <h4>DEPT. OF TAXATION</h4>
+      <p><b>MAY STATEMENT ISSUED</b> — Compliance review complete. Tap to view official notice.</p>
+    </div>
+    <div class="inbox-unread"></div>
+  </div>
+
+  <div class="paper">
+    <div class="paper-head">
+      <div class="dept">
+        <div class="dept-seal">🏛️</div>
+        <div>
+          <h2>DEPARTMENT OF TAXATION</h2>
+          <p>STATE OF CALIFORNIA · HOLLYWOOD DIVISION</p>
+        </div>
+      </div>
+      <div class="doc-no">DOC NO. HT-2026-0518<br>REF: HR-88214-M<br>ISSUED: WEEK 22, 2026</div>
+    </div>
+
+    <div class="paper-body">
+      <div class="notice-title">MONTHLY TAX STATEMENT</div>
+      <div class="notice-sub">PERIOD: MAY 2026 · TAXPAYER: AUSTIN BUTLER</div>
+
+      <div class="row"><span>Gross income — May</span><span>$412,500</span></div>
+      <div class="row"><span>Tax withheld — May</span><span>$103,125</span></div>
+      <div class="row"><span>Effective withholding rate</span><span>25.0%</span></div>
+      <div class="rule"></div>
+      <div class="row"><span>YTD gross income</span><span>$1,940,200</span></div>
+      <div class="row"><span>YTD tax withheld</span><span>$485,050</span></div>
+      <div class="row"><span>YTD estimated liability</span><span>$502,340</span></div>
+      <div class="row total"><span>COVERAGE</span><span>96.6%</span></div>
+
+      <div class="stamp ok">Compliant</div>
+    </div>
+
+    <div class="barcode"></div>
+    <div class="paper-foot">
+      <span>SIGNATURE: M. DELANEY, COMPLIANCE OFFICER</span>
+      <span>PAGE 1 OF 1</span>
+    </div>
+    <div class="btn-bar">
+      <button class="doc-btn ghost">Download</button>
+      <button class="doc-btn primary">Acknowledge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MONTHLY + AUDIT ================= -->
+<div class="phone">
+  <div class="label">Option A · Monthly WITH Field Audit</div>
+  <div class="paper">
+    <div class="paper-head">
+      <div class="dept">
+        <div class="dept-seal">🏛️</div>
+        <div>
+          <h2>DEPARTMENT OF TAXATION</h2>
+          <p>STATE OF CALIFORNIA · FIELD AUDIT UNIT</p>
+        </div>
+      </div>
+      <div class="doc-no">DOC NO. HT-2026-0922<br>REF: HR-90442-A<br>ISSUED: WEEK 40, 2026</div>
+    </div>
+    <div class="paper-body">
+      <div class="notice-title">NOTICE OF FIELD AUDIT</div>
+      <div class="notice-sub">PERIOD: SEPTEMBER 2026 · TAXPAYER: AUSTIN BUTLER</div>
+
+      <div class="row"><span>Gross income — September</span><span>$860,000</span></div>
+      <div class="row"><span>Tax withheld — September</span><span>$61,200</span></div>
+      <div class="row"><span>Required withholding</span><span>$88,600</span></div>
+      <div class="row total"><span>UNDER-WITHHELD</span><span style="color:#a02020">−$27,400</span></div>
+
+      <div class="stamp audit">Field Audit</div>
+
+      <div class="audit-note">
+        <b>⚠ Under-withholding detected.</b><br>
+        Withheld 69.1% of required amount (threshold: 85%). A penalty of
+        <b>$2,192</b> (8% of shortfall) has been assessed and charged to your account.
+        Your accountant tier: <b>CPA Firm</b> · Lawyer defense: <b>not retained</b>.
+      </div>
+    </div>
+    <div class="barcode"></div>
+    <div class="paper-foot">
+      <span>SIGNATURE: R. HOLLOWAY, FIELD AUDITOR</span>
+      <span>PAGE 1 OF 1</span>
+    </div>
+    <div class="btn-bar">
+      <button class="doc-btn ghost">Appeal</button>
+      <button class="doc-btn primary">Pay $2,192</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= YEARLY ================= -->
+<div class="phone">
+  <div class="label">Option A · Year-End Filing (Refund)</div>
+  <div class="paper">
+    <div class="paper-head">
+      <div class="dept">
+        <div class="dept-seal">🏛️</div>
+        <div>
+          <h2>DEPARTMENT OF TAXATION</h2>
+          <p>STATE OF CALIFORNIA · ANNUAL FILING OFFICE</p>
+        </div>
+      </div>
+      <div class="doc-no">FORM 1040-C<br>TAX YEAR 2026<br>DUE: WEEK 52</div>
+    </div>
+    <div class="paper-body">
+      <div class="notice-title">ANNUAL TAX RETURN — 2026</div>
+      <div class="notice-sub">TAXPAYER: AUSTIN BUTLER · FILING STATUS: PROFESSIONAL ACTOR</div>
+
+      <div class="row"><span>Total income — 2026</span><span>$6,240,800</span></div>
+      <div class="row"><span>Total deductions</span><span>−$712,400</span></div>
+      <div class="row"><span>Taxable income</span><span>$5,528,400</span></div>
+      <div class="row"><span>Total tax liability</span><span>$1,863,500</span></div>
+      <div class="row"><span>Tax withheld (52 wks)</span><span>$1,942,100</span></div>
+
+      <div class="yearly-big">
+        <div class="cap">REFUND DUE TO TAXPAYER</div>
+        <div class="amt refund">$78,600</div>
+      </div>
+
+      <div class="check">
+        <div class="bank"><span>_CALIFORNIA STATE TREASURY_</span><span>REFUND CHECK</span></div>
+        <div>PAY TO THE ORDER OF: <b>Austin Butler</b></div>
+        <div class="amt">$78,600.00</div>
+        <div>MEMO: 2026 OVERPAYMENT · HT-2026</div>
+      </div>
+
+      <div class="stamp ok">No Audit</div>
+    </div>
+    <div class="barcode"></div>
+    <div class="paper-foot">
+      <span>PROCESSED: WEEK 52, 2026</span>
+      <span>KEEP FOR YOUR RECORDS</span>
+    </div>
+    <div class="btn-bar">
+      <button class="doc-btn ghost">Full Breakdown</button>
+      <button class="doc-btn primary">Deposit Refund</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= YEARLY - BALANCE DUE ================= -->
+<div class="phone">
+  <div class="label">Option A · Year-End Filing (Balance Due + Audit)</div>
+  <div class="paper">
+    <div class="paper-head">
+      <div class="dept">
+        <div class="dept-seal">🏛️</div>
+        <div>
+          <h2>DEPARTMENT OF TAXATION</h2>
+          <p>STATE OF CALIFORNIA · COMPLIANCE SWEEP UNIT</p>
+        </div>
+      </div>
+      <div class="doc-no">FORM 1040-C<br>TAX YEAR 2026<br>FLAGGED</div>
+    </div>
+    <div class="paper-body">
+      <div class="notice-title">ANNUAL RETURN + AUDIT NOTICE</div>
+      <div class="notice-sub">TAXPAYER: AUSTIN BUTLER · COMPLIANCE SWEEP SELECTED</div>
+
+      <div class="row"><span>Total income — 2026</span><span>$6,240,800</span></div>
+      <div class="row"><span>Total tax liability</span><span>$1,863,500</span></div>
+      <div class="row"><span>Tax withheld (52 wks)</span><span>$1,402,900</span></div>
+
+      <div class="yearly-big">
+        <div class="cap">BALANCE DUE</div>
+        <div class="amt due">$460,600</div>
+      </div>
+
+      <div class="stamp audit">Audited</div>
+
+      <div class="audit-note">
+        <b>⚠ Year-end audit triggered.</b><br>
+        Withholding gap of 24.7% exceeded the 10% tolerance. Under audit rules this
+        adds a <b>$46,060</b> penalty (10% of the gap). Total charge:
+        <b>$506,660</b>. Hiring a CPA firm or tax lawyer before filing reduces this risk.
+      </div>
+    </div>
+    <div class="barcode"></div>
+    <div class="paper-foot">
+      <span>SIGNATURE: DIR. OF COMPLIANCE</span>
+      <span>NOTICE HT-2026-5200</span>
+    </div>
+    <div class="btn-bar">
+      <button class="doc-btn ghost">Contest</button>
+      <button class="doc-btn primary">Pay $506,660</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

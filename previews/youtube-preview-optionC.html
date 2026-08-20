@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C — Creator HQ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #090610; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #eeeaf8; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7d7594; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .mono { font-family: 'Courier New', monospace; }
+
+  .app { background: linear-gradient(170deg, #120d1f, #0a0714); border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; overflow: hidden; position: relative; }
+  .glow { position: absolute; top: -70px; left: -40px; width: 250px; height: 250px; background: radial-gradient(circle, rgba(217,70,239,0.22), transparent 65%); filter: blur(8px); pointer-events: none; }
+  .inner { position: relative; padding: 18px 16px; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .brand { display: flex; gap: 9px; align-items: center; }
+  .brand .ic { width: 40px; height: 40px; border-radius: 14px; background: linear-gradient(135deg, #d946ef, #f43f5e); display: flex; align-items: center; justify-content: center; font-size: 19px; box-shadow: 0 0 20px rgba(217,70,239,0.4); }
+  .brand b { font-size: 14px; display: block; }
+  .brand span { font-size: 8px; color: #8a80a5; letter-spacing: 2px; }
+
+  /* level/authority banner */
+  .lvl-banner { margin-top: 14px; border-radius: 18px; border: 1px solid rgba(217,70,239,0.35); background: linear-gradient(135deg, rgba(217,70,239,0.12), rgba(244,63,94,0.06)); padding: 13px; position: relative; overflow: hidden; }
+  .lvl-banner::after { content: ''; position: absolute; top: -50%; left: -40%; width: 50%; height: 200%; transform: rotate(25deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent); animation: shine 4s 1s ease infinite; }
+  @keyframes shine { to { left: 130%; } }
+  .lvl-top { display: flex; justify-content: space-between; align-items: center; }
+  .lvl-top .l b { font-size: 13px; color: #f0abfc; display: block; }
+  .lvl-top .l span { font-size: 8px; color: #a89ec2; }
+  .lvl-num { text-align: right; }
+  .lvl-num b { font-size: 20px; font-family: 'Courier New', monospace; color: #f0abfc; display: block; }
+  .lvl-num span { font-size: 7px; color: #8a80a5; letter-spacing: 1px; }
+  .lvl-xp { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.1); margin-top: 10px; overflow: hidden; }
+  .lvl-xp i { display: block; height: 100%; width: 62%; border-radius: 99px; background: linear-gradient(90deg, #d946ef, #f43f5e); }
+  .lvl-sub { display: flex; justify-content: space-between; font-size: 7.5px; color: #8a80a5; margin-top: 5px; font-weight: 700; }
+
+  /* video type cards */
+  .sec-h { display: flex; justify-content: space-between; align-items: center; margin: 18px 2px 10px; }
+  .sec-h b { font-size: 12px; }
+  .sec-h span { font-size: 8.5px; color: #8a80a5; font-weight: 700; }
+
+  .types { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .vt { border-radius: 17px; padding: 13px; position: relative; overflow: hidden; color: #fff; border: 1px solid rgba(255,255,255,0.12); animation: cardIn 0.5s ease backwards; }
+  @keyframes cardIn { from { transform: translateY(14px); opacity: 0; } }
+  .vt .ic { font-size: 23px; }
+  .vt b { display: block; font-size: 11.5px; margin-top: 7px; }
+  .vt .meta { font-size: 7.5px; opacity: 0.85; display: block; margin-top: 2px; }
+  .vt .stats { display: flex; gap: 4px; margin-top: 8px; }
+  .vt .s { font-size: 6.5px; font-weight: 900; background: rgba(0,0,0,0.35); border-radius: 6px; padding: 3px 6px; }
+  .vt.locked { filter: grayscale(0.9); opacity: 0.55; }
+  .lock-badge { position: absolute; top: 9px; right: 9px; font-size: 7px; font-weight: 900; background: rgba(0,0,0,0.55); padding: 3px 8px; border-radius: 99px; }
+  .g1 { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+  .g2 { background: linear-gradient(135deg, #0ea5e9, #0c4a6e); }
+  .g3 { background: linear-gradient(135deg, #f43f5e, #881337); }
+  .g4 { background: linear-gradient(135deg, #f59e0b, #92400e); }
+
+  /* Algorithm Machine */
+  .machine { border-radius: 18px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.35); padding: 14px; margin-top: 4px; }
+  .mach-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .mach-h b { font-size: 12px; color: #f0abfc; }
+  .gauge-wrap { display: flex; align-items: center; gap: 13px; }
+  .gauge { width: 92px; height: 92px; border-radius: 50%; background: conic-gradient(#d946ef 0deg 260deg, rgba(255,255,255,0.1) 260deg 360deg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 0 25px rgba(217,70,239,0.3); }
+  .gauge .in { width: 70px; height: 70px; border-radius: 50%; background: #0d0918; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gauge .in b { font-size: 22px; font-family: 'Courier New', monospace; color: #f0abfc; }
+  .gauge .in span { font-size: 6px; letter-spacing: 1.5px; color: #8a80a5; }
+  .dials { flex: 1; }
+  .dial { margin-bottom: 7px; }
+  .dial .d-top { display: flex; justify-content: space-between; font-size: 8px; margin-bottom: 2px; }
+  .dial .d-top span { color: #a89ec2; font-weight: 700; }
+  .dial .d-top b { font-family: 'Courier New', monospace; }
+  .d-bar { height: 4px; border-radius: 99px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .d-bar i { display: block; height: 100%; border-radius: 99px; }
+  .mach-verdict { margin-top: 11px; padding: 9px 11px; border-radius: 11px; background: rgba(217,70,239,0.1); border: 1px solid rgba(217,70,239,0.3); font-size: 9px; line-height: 1.5; color: #e9d5ff; }
+
+  /* schedule slots */
+  .slots { display: flex; flex-direction: column; gap: 7px; }
+  .slot { display: flex; align-items: center; gap: 10px; border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); }
+  .slot.prime { border-color: rgba(74,222,128,0.45); background: rgba(74,222,128,0.07); }
+  .slot .ic { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .slot .s-main { flex: 1; min-width: 0; }
+  .slot .s-main b { font-size: 10.5px; display: block; }
+  .slot .s-main span { font-size: 8px; color: #8a80a5; }
+  .boost { font-size: 9px; font-weight: 900; font-family: 'Courier New', monospace; flex-shrink: 0; }
+
+  /* results feed */
+  .res { display: flex; flex-direction: column; gap: 7px; }
+  .r-item { display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 15px; padding: 10px 12px; }
+  .r-grade { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; flex-shrink: 0; }
+  .rg-S { background: linear-gradient(135deg, #d946ef, #f43f5e); color: #fff; }
+  .rg-A { background: #22c55e; color: #052e16; }
+  .rg-B { background: #f59e0b; color: #1a1206; }
+  .rg-D { background: #64748b; color: #fff; }
+  .r-main { flex: 1; min-width: 0; }
+  .r-main b { font-size: 10.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .r-main span { font-size: 8px; color: #8a80a5; display: block; margin-top: 1px; }
+  .r-nums { text-align: right; flex-shrink: 0; }
+  .r-nums b { font-size: 11px; font-family: 'Courier New', monospace; display: block; }
+  .r-nums span { font-size: 7px; color: #8a80a5; }
+
+  .go-btn { margin-top: 12px; width: 100%; text-align: center; padding: 13px; border-radius: 14px; font-size: 11px; font-weight: 900; background: linear-gradient(135deg, #d946ef, #f43f5e); color: #fff; box-shadow: 0 10px 28px rgba(217,70,239,0.4); cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option C · Creator HQ — channel authority + video type cards</div>
+  <div class="app">
+    <div class="glow"></div>
+    <div class="inner">
+      <div class="topbar">
+        <div class="brand"><div class="ic">▶️</div><div><b>Creator HQ</b><span>YOUR YOUTUBE EMPIRE · ALGORITHM-GRADED</span></div></div>
+        <span class="mono" style="font-size:9px;color:#8a80a5">WK 34</span>
+      </div>
+
+      <div class="lvl-banner">
+        <div class="lvl-top">
+          <div class="l"><b>🧊 COLD START — TIER 1 OF 5</b><span>The algorithm is testing you on tiny audiences. Upload consistently to rank up.</span></div>
+          <div class="lvl-num"><b>3/8</b><span>UPLOADS THIS CYCLE</span></div>
+        </div>
+        <div class="lvl-xp"><i></i></div>
+        <div class="lvl-sub"><span>AUTHORITY 62% TO TIER 2 "RISING CREATOR"</span><span>TIER 2 = 3× TEST AUDIENCE</span></div>
+      </div>
+
+      <div class="sec-h"><b>🎬 Choose Your Video</b><span>each type feeds the algorithm differently</span></div>
+      <div class="types">
+        <div class="vt g1" style="animation-delay:0.05s">
+          <span class="ic">🎬</span><b>BTS Film Special</b>
+          <span class="meta">Requires: movie in production/theaters</span>
+          <div class="stats"><span class="s">⏱ 4 HRS EDIT</span><span class="s">🔥 VIRAL 80</span><span class="s">💰 $2K</span></div>
+        </div>
+        <div class="vt g2" style="animation-delay:0.12s">
+          <span class="ic">🎤</span><b>Fan Q&amp;A</b>
+          <span class="meta">Uses top comments from your posts</span>
+          <div class="stats"><span class="s">⏱ 2 HRS</span><span class="s">🔥 VIRAL 55</span><span class="s">💰 $500</span></div>
+        </div>
+        <div class="vt g4" style="animation-delay:0.19s">
+          <span class="ic">⚡</span><b>60s Short</b>
+          <span class="meta">The viral lottery — huge ceiling, fast fade</span>
+          <div class="stats"><span class="s">⏱ 1 HR</span><span class="s">🔥 VIRAL 95</span><span class="s">💰 $200</span></div>
+        </div>
+        <div class="vt g3 locked" style="animation-delay:0.26s">
+          <span class="lock-badge">🔒 25K SUBS</span>
+          <span class="ic">🎙️</span><b>Live Premiere Event</b>
+          <span class="meta">Live chat + super chats revenue</span>
+          <div class="stats"><span class="s">⏱ LIVE</span><span class="s">🔥 VIRAL 70</span><span class="s">💰 $5K</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option C · Algorithm Machine + Prime slots + graded results</div>
+  <div class="app">
+    <div class="glow" style="background:radial-gradient(circle, rgba(244,63,94,0.2), transparent 65%)"></div>
+    <div class="inner">
+      <div class="machine">
+        <div class="mach-h"><b>🤖 THE ALGORITHM MACHINE</b><span class="mono" style="font-size:8px;color:#8a80a5">BTS FILM · SAT 7PM</span></div>
+        <div class="gauge-wrap">
+          <div class="gauge"><div class="in"><b>72</b><span>PUSH SCORE</span></div></div>
+          <div class="dials">
+            <div class="dial"><div class="d-top"><span>Title hook</span><b style="color:#4ade80">82</b></div><div class="d-bar"><i style="width:82%;background:#4ade80"></i></div></div>
+            <div class="dial"><div class="d-top"><span>Timing</span><b style="color:#4ade80">90</b></div><div class="d-bar"><i style="width:90%;background:#4ade80"></i></div></div>
+            <div class="dial"><div class="d-top"><span>Authority (cold)</span><b style="color:#f43f5e">24</b></div><div class="d-bar"><i style="width:24%;background:#f43f5e"></i></div></div>
+          </div>
+        </div>
+        <div class="mach-verdict">
+          SCORE 72 — the Machine will test this on <b>8,400 viewers</b> first. If first-hour engagement beats your channel average, it escalates to the 50K tier, then 250K. Cold-start channels that pass 2 escalations in a row gain permanent authority.
+        </div>
+      </div>
+
+      <div class="sec-h"><b>⏰ Schedule Slot</b><span>your fans' live windows</span></div>
+      <div class="slots">
+        <div class="slot">
+          <div class="ic" style="background:rgba(255,255,255,0.08)">☀️</div>
+          <div class="s-main"><b>Weekday Noon</b><span>Mon-Fri 12PM · decent scroll traffic</span></div>
+          <span class="boost" style="color:#f59e0b">+6%</span>
+        </div>
+        <div class="slot">
+          <div class="ic" style="background:rgba(255,255,255,0.08)">🌆</div>
+          <div class="s-main"><b>Friday 5PM</b><span>Pre-weekend binge wave</span></div>
+          <span class="boost" style="color:#f59e0b">+11%</span>
+        </div>
+        <div class="slot prime">
+          <div class="ic" style="background:rgba(74,222,128,0.15)">🔥</div>
+          <div class="s-main"><b>Saturday 7PM PRIME</b><span>Your audience's #1 window · 2,940 subs online</span></div>
+          <span class="boost" style="color:#4ade80">+18%</span>
+        </div>
+      </div>
+
+      <div class="sec-h"><b>📊 Graded Results</b><span>every upload, ranked</span></div>
+      <div class="res">
+        <div class="r-item">
+          <div class="r-grade rg-A">A</div>
+          <div class="r-main"><b>30 Days Behind The Scenes</b><span>SAT 7PM · passed 2 escalations</span></div>
+          <div class="r-nums"><b>48.2K</b><span>VIEWS</span></div>
+        </div>
+        <div class="r-item">
+          <div class="r-grade rg-B">B</div>
+          <div class="r-main"><b>Q&amp;A — the audition story</b><span>WED 12PM · passed 1 escalation</span></div>
+          <div class="r-nums"><b>12.7K</b><span>VIEWS</span></div>
+        </div>
+        <div class="r-item">
+          <div class="r-grade rg-D">D</div>
+          <div class="r-main"><b>quick gym vlog</b><span>MON 6AM · buried at test tier</span></div>
+          <div class="r-nums"><b>891</b><span>VIEWS</span></div>
+        </div>
+      </div>
+
+      <div class="go-btn">SCHEDULE BTS FILM — SAT 7PM PRIME · SCORE 72</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

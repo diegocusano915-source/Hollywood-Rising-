@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B — Noir Fintech Bank</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #060609; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #e8e8f4; }
+  .phone { width: 100%; max-width: 420px; }
+  .label { text-align: center; color: #67677e; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+
+  .app {
+    background: linear-gradient(165deg, #0e0e18, #08080f);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 26px; overflow: hidden; position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+  }
+  .mesh { position: absolute; top: -80px; right: -60px; width: 260px; height: 260px; background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 65%); filter: blur(10px); pointer-events: none; }
+  .mesh2 { position: absolute; top: 40px; left: -80px; width: 220px; height: 220px; background: radial-gradient(circle, rgba(34,211,238,0.22), transparent 65%); filter: blur(10px); pointer-events: none; }
+
+  .inner { position: relative; padding: 20px 18px 18px; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .avatar { width: 40px; height: 40px; border-radius: 14px; background: linear-gradient(135deg, #8b5cf6, #22d3ee); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #fff; }
+  .bell { width: 38px; height: 38px; border-radius: 13px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 15px; position: relative; }
+  .bell::after { content: ''; position: absolute; top: 9px; right: 10px; width: 6px; height: 6px; background: #f472b6; border-radius: 50%; box-shadow: 0 0 8px #f472b6; }
+
+  .hero { text-align: center; margin-top: 18px; }
+  .hero .cap { font-size: 10px; letter-spacing: 4px; color: #8888a8; font-weight: 800; }
+  .hero .amt { font-size: 44px; font-weight: 900; margin-top: 4px; background: linear-gradient(90deg, #fff, #c4b5fd); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero .delta { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; font-weight: 800; color: #4ade80; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); padding: 4px 12px; border-radius: 999px; }
+
+  /* quick pills */
+  .pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 20px; }
+  .pill { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 12px 4px; text-align: center; font-size: 9.5px; font-weight: 800; color: #d8d8ec; cursor: pointer; }
+  .pill .ic { display: block; font-size: 17px; margin-bottom: 4px; }
+  .pill.hot { background: linear-gradient(135deg, #8b5cf6, #6d28d9); border: none; color: #fff; box-shadow: 0 8px 22px rgba(139,92,246,0.4); }
+
+  /* account chips carousel */
+  .chips-title { display: flex; justify-content: space-between; align-items: center; margin: 22px 2px 10px; }
+  .chips-title h4 { font-size: 11px; font-weight: 900; letter-spacing: 1px; color: #b0b0cc; }
+  .chips-title a { font-size: 10px; color: #8b5cf6; font-weight: 800; text-decoration: none; }
+  .carousel { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .chip {
+    min-width: 150px; border-radius: 20px; padding: 14px; position: relative; overflow: hidden; flex-shrink: 0;
+    animation: chipIn 0.5s ease backwards;
+  }
+  @keyframes chipIn { from { transform: translateX(18px); opacity: 0; } }
+  .chip .c-ic { width: 30px; height: 30px; border-radius: 10px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 14px; margin-bottom: 18px; }
+  .chip .c-bal { font-size: 17px; font-weight: 900; font-family: 'Courier New', monospace; }
+  .chip .c-name { font-size: 9px; opacity: 0.8; margin-top: 2px; letter-spacing: 1px; }
+  .chip .c-tail { font-size: 8.5px; margin-top: 8px; opacity: 0.85; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 3px 7px; display: inline-block; }
+  .chip.v1 { background: linear-gradient(135deg, #7c3aed, #4c1d95); color: #fff; }
+  .chip.v2 { background: linear-gradient(135deg, #06b6d4, #0e7490); color: #fff; }
+  .chip.v3 { background: linear-gradient(135deg, #f59e0b, #b45309); color: #fff; }
+  .chip.v4 { background: linear-gradient(135deg, #10b981, #065f46); color: #fff; }
+
+  /* credit ring */
+  .ring-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 22px; padding: 18px; margin-top: 8px; }
+  .ring-flex { display: flex; align-items: center; gap: 18px; }
+  .ring { width: 112px; height: 112px; border-radius: 50%; background: conic-gradient(#8b5cf6 0deg 0deg, rgba(255,255,255,0.07) 0deg 360deg); display: flex; align-items: center; justify-content: center; animation: ringFill 1.4s cubic-bezier(0.2,0.8,0.3,1) forwards; flex-shrink: 0; }
+  @keyframes ringFill { to { background: conic-gradient(#8b5cf6 0deg 238deg, rgba(255,255,255,0.07) 238deg 360deg); } }
+  .ring-in { width: 86px; height: 86px; border-radius: 50%; background: #0c0c16; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-in b { font-size: 26px; font-family: 'Courier New', monospace; }
+  .ring-in span { font-size: 7.5px; letter-spacing: 2px; color: #8888a8; }
+  .ring-stats { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+  .rstat { display: flex; justify-content: space-between; font-size: 10.5px; }
+  .rstat span { color: #8888a8; } .rstat b { font-family: 'Courier New', monospace; }
+  .rstat b.g { color: #4ade80; } .rstat b.r { color: #f87171; }
+
+  /* sparkline card */
+  .spark-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 22px; padding: 16px 18px; margin-top: 12px; }
+  .spark-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .spark-head h4 { font-size: 11px; font-weight: 900; color: #b0b0cc; letter-spacing: 1px; }
+  .spark-head b { font-family: 'Courier New', monospace; color: #4ade80; font-size: 13px; }
+  .spark { display: flex; align-items: flex-end; gap: 5px; height: 64px; }
+  .spark i { flex: 1; border-radius: 4px 4px 2px 2px; background: linear-gradient(180deg, #8b5cf6, #4c1d95); animation: barUp 0.7s cubic-bezier(0.2,0.8,0.3,1) backwards; }
+  .spark i.neg { background: linear-gradient(180deg, #fb7185, #9f1239); }
+  @keyframes barUp { from { transform: scaleY(0); } }
+
+  /* transactions */
+  .tx-list { margin-top: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 22px; overflow: hidden; }
+  .tx { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .tx:last-child { border-bottom: none; }
+  .tx .t-ic { width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .tx .t-main { flex: 1; min-width: 0; }
+  .tx .t-main b { font-size: 11.5px; display: block; }
+  .tx .t-main span { font-size: 9px; color: #77778f; }
+  .tx .t-amt { font-family: 'Courier New', monospace; font-size: 12px; font-weight: 800; }
+  .tx .t-amt.in { color: #4ade80; } .tx .t-amt.out { color: #f87171; }
+  .cat-chip { font-size: 8px; font-weight: 900; padding: 2px 7px; border-radius: 99px; letter-spacing: 0.5px; margin-left: 6px; }
+
+  /* bottom nav */
+  .bnav { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid rgba(255,255,255,0.08); margin: 16px -18px -18px; padding: 10px 8px 14px; background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); }
+  .bnav div { text-align: center; font-size: 8.5px; color: #77778f; font-weight: 800; }
+  .bnav .ic { font-size: 17px; display: block; margin-bottom: 3px; }
+  .bnav .on { color: #a78bfa; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option B · Home (animated balance, mesh glow, account chips)</div>
+  <div class="app">
+    <div class="mesh"></div><div class="mesh2"></div>
+    <div class="inner">
+      <div class="topbar">
+        <div class="avatar">AB</div>
+        <div style="text-align:center"><span style="font-size:9px;letter-spacing:3px;color:#8888a8;font-weight:800">NOIR BANK</span></div>
+        <div class="bell">🔔</div>
+      </div>
+
+      <div class="hero">
+        <div class="cap">TOTAL BALANCE</div>
+        <div class="amt" id="countup">$0</div>
+        <div class="delta">▲ $18,240 · +1.4% this week</div>
+      </div>
+
+      <div class="pills">
+        <div class="pill hot"><span class="ic">＋</span>Transfer</div>
+        <div class="pill"><span class="ic">⇅</span>Exchange</div>
+        <div class="pill"><span class="ic">🤝</span>Loans</div>
+        <div class="pill"><span class="ic">💳</span>Cards</div>
+      </div>
+
+      <div class="chips-title"><h4>YOUR ACCOUNTS</h4><a href="#">See all →</a></div>
+      <div class="carousel">
+        <div class="chip v1" style="animation-delay:0.05s">
+          <div class="c-ic">💵</div>
+          <div class="c-bal">$337,000</div>
+          <div class="c-name">CHECKING</div>
+          <div class="c-tail">Instant · 0% APY</div>
+        </div>
+        <div class="chip v2" style="animation-delay:0.12s">
+          <div class="c-ic">🏦</div>
+          <div class="c-bal">$612,400</div>
+          <div class="c-name">SAVINGS</div>
+          <div class="c-tail">2.5% APY · Goal 68%</div>
+        </div>
+        <div class="chip v3" style="animation-delay:0.19s">
+          <div class="c-ic">📈</div>
+          <div class="c-bal">$148,900</div>
+          <div class="c-name">INVESTMENTS</div>
+          <div class="c-tail">+12.4% all-time</div>
+        </div>
+        <div class="chip v4" style="animation-delay:0.26s">
+          <div class="c-ic">🏝️</div>
+          <div class="c-bal">$335,200</div>
+          <div class="c-name">OFFSHORE</div>
+          <div class="c-tail">4.0% APY · Private</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bnav">
+      <div class="on"><span class="ic">🏠</span>Home</div>
+      <div><span class="ic">💳</span>Cards</div>
+      <div><span class="ic">📊</span>Analytics</div>
+      <div><span class="ic">🤝</span>Credit</div>
+      <div><span class="ic">⚙️</span>Settings</div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option B · Credit Ring + Weekly Cash Flow</div>
+  <div class="app">
+    <div class="mesh"></div>
+    <div class="inner">
+      <div class="topbar">
+        <div class="avatar" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">🤝</div>
+        <div style="text-align:center"><span style="font-size:9px;letter-spacing:3px;color:#8888a8;font-weight:800">CREDIT CENTER</span></div>
+        <div class="bell">🎓</div>
+      </div>
+
+      <div class="ring-card" style="margin-top:16px">
+        <div class="ring-flex">
+          <div class="ring"><div class="ring-in"><b>672</b><span>SCORE / 850</span></div></div>
+          <div class="ring-stats">
+            <div class="rstat"><span>Rating</span><b style="color:#a78bfa">GOOD · A</b></div>
+            <div class="rstat"><span>On-time payments</span><b class="g">41 / 0 missed</b></div>
+            <div class="rstat"><span>Loans repaid</span><b class="g">3 cycles</b></div>
+            <div class="rstat"><span>Credit age</span><b>38 weeks</b></div>
+            <div class="rstat"><span>Defaults</span><b class="g">0</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spark-card">
+        <div class="spark-head"><h4>WEEKLY CASH FLOW</h4><b>+$18,240</b></div>
+        <div class="spark">
+          <i style="height:34%; animation-delay:0s"></i>
+          <i style="height:52%; animation-delay:0.05s"></i>
+          <i class="neg" style="height:22%; animation-delay:0.1s"></i>
+          <i style="height:64%; animation-delay:0.15s"></i>
+          <i style="height:48%; animation-delay:0.2s"></i>
+          <i class="neg" style="height:18%; animation-delay:0.25s"></i>
+          <i style="height:78%; animation-delay:0.3s"></i>
+          <i style="height:58%; animation-delay:0.35s"></i>
+        </div>
+      </div>
+
+      <div class="tx-list" style="margin-top:12px">
+        <div class="tx">
+          <div class="t-ic" style="background:rgba(74,222,128,0.14)">🎬</div>
+          <div class="t-main"><b>Studio Paycheck<span class="cat-chip" style="background:rgba(139,92,246,0.18);color:#a78bfa">ACTING</span></b><span>Week 34 · 2026</span></div>
+          <div class="t-amt in">+$125,000</div>
+        </div>
+        <div class="tx">
+          <div class="t-ic" style="background:rgba(248,113,113,0.14)">🏠</div>
+          <div class="t-main"><b>Sunset Tower Mortgage<span class="cat-chip" style="background:rgba(251,191,36,0.15);color:#fbbf24">PROPERTY</span></b><span>Week 34 · 2026</span></div>
+          <div class="t-amt out">−$3,090</div>
+        </div>
+        <div class="tx">
+          <div class="t-ic" style="background:rgba(251,191,36,0.14)">🏛️</div>
+          <div class="t-main"><b>Tax Withholding<span class="cat-chip" style="background:rgba(34,211,238,0.14);color:#22d3ee">TAX</span></b><span>Week 34 · 2026</span></div>
+          <div class="t-amt out">−$28,400</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // animated count-up for hero balance
+  const el = document.getElementById('countup');
+  const target = 1284600; const start = performance.now();
+  function tick(now) {
+    const p = Math.min(1, (now - start) / 1300);
+    el.textContent = '$' + Math.floor(target * (1 - Math.pow(1 - p, 3))).toLocaleString();
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>

@@ -3,6 +3,13 @@
  * Calculates actor Fame Levels, XP progress bars, and career reputation.
  */
 
+/**
+ * GLOBAL SLOW-BURN: every fame XP source (releases, achievements, awards,
+ * interviews, courses, signings) pays this fraction of its base value.
+ * Tuned so Level 5 (5,000 XP) takes ~3-5 game years of active play.
+ */
+export const FAME_XP_MULTIPLIER = 0.2;
+
 export interface FameLevelInfo {
   level: number;
   title: string;

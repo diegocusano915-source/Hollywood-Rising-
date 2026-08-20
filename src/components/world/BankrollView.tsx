@@ -152,7 +152,8 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
             />
           </div>
           <p className="text-[9px] text-gray-500 mt-1.5">
-            Payouts build trust · flops and broken deals burn it. High trust = bigger, better deals.
+            Payouts build trust · flops and broken deals burn it. High trust = bigger, better deals
+            {state.trust >= 95 ? ' · LEGENDARY trust unlocks $1B mega-deals' : state.trust >= 80 ? ' · TREASURED trust unlocks $750M mega-deals + a 3rd investment slot' : ' · TREASURED trust (80+) unlocks mega-deals & a 3rd slot'}.
           </p>
         </div>
 
@@ -161,7 +162,7 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
           {hasManager ? (
             state.trust < 25 ? (
-              <span className="text-rose-300 font-bold">Producers are hesitant — rebuild trust before new offers arrive.</span>
+              <span className="text-rose-300 font-bold">Producers are hesitant — trust rebuilds +1/week ({state.trust}/25 needed for offers).</span>
             ) : (
               <span>
                 {mgr?.name} sources a new opportunity every {state.trust >= 80 ? '~3' : '~4'} weeks · offers expire after 6 weeks.
@@ -217,6 +218,11 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
                 {pendingDeals.map((deal) => {
                   const riskStyle = RISK_STYLE[deal.risk] || RISK_STYLE.Medium;
                   const amt = amounts[deal.id] || deal.ask;
+                  // Honest projections from the advertised Expected Return %
+                  const E = 1 + deal.expectedReturnPct / 100;
+                  const bestMult = Math.min(3.0, E * 1.45);
+                  const likelyMult = E * 1.1;
+                  const worstMult = 0.4;
                   return (
                     <div key={deal.id} className="p-4 rounded-3xl border border-amber-500/25 bg-black/50 backdrop-blur-md space-y-3 shadow-xl">
                       <div className="flex items-center justify-between">
@@ -279,16 +285,43 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleInvest(deal)}
-                        className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-[1.01] active:scale-[0.98] transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
-                      >
-                        <DollarSign className="w-4 h-4" />
-                        INVEST ${(amt / 1000000).toFixed(0)}M
-                      </button>
-                      <p className="text-[8px] text-gray-500 text-center">
-                        Producers dislike over-aggressive offers — and under-funding hurts your odds.
-                      </p>
+                  <button
+                    onClick={() => handleInvest(deal)}
+                    className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-[1.01] active:scale-0.98 transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    INVEST ${(amt / 1000000).toFixed(0)}M
+                  </button>
+
+                  {/* Soft stopper warning — keeps the exact limit invisible */}
+                  {amt > deal.ask * 1.5 && (
+                    <p className="text-[9px] text-rose-300 font-bold text-center animate-pulse">
+                      ⚠ This offer is well above the ask — the producer may walk away.
+                    </p>
+                  )}
+
+                  {/* Honest projections from the advertised return */}
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-[8px] text-emerald-300/80 font-bold block">BEST</span>
+                      <span className="text-[10px] font-black text-emerald-300">{bestMult.toFixed(2)}×</span>
+                      <span className="text-[8px] text-gray-500 block">${((amt * bestMult) / 1000000).toFixed(0)}M</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                      <span className="text-[8px] text-sky-300/80 font-bold block">LIKELY</span>
+                      <span className="text-[10px] font-black text-sky-300">{likelyMult.toFixed(2)}×</span>
+                      <span className="text-[8px] text-gray-500 block">${((amt * likelyMult) / 1000000).toFixed(0)}M</span>
+                    </div>
+                    <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                      <span className="text-[8px] text-rose-300/80 font-bold block">WORST</span>
+                      <span className="text-[10px] font-black text-rose-300">{worstMult.toFixed(2)}×</span>
+                      <span className="text-[8px] text-gray-500 block">${((amt * worstMult) / 1000000).toFixed(0)}M</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[8px] text-gray-500 text-center">
+                    Producers dislike over-aggressive offers — and under-funding hurts your odds.
+                  </p>
                     </div>
                   );
                 })}
@@ -299,7 +332,7 @@ export const BankrollView: React.FC<BankrollViewProps> = ({ onBack }) => {
           {/* ============ ACTIVE INVESTMENTS ============ */}
           <div>
             <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2 flex items-center gap-1.5">
-              <Film className="w-4 h-4 text-sky-400" /> Active Investments ({activeInv.length}/2)
+              <Film className="w-4 h-4 text-sky-400" /> Active Investments ({activeInv.length}/{state.trust >= 80 ? 3 : 2})
             </h3>
             {activeInv.length === 0 ? (
               <div className="p-5 rounded-2xl border border-white/10 bg-black/30 text-center">

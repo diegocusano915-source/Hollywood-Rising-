@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insider Option A — The Trade Paper</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0806; font-family: Georgia, 'Times New Roman', serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #f2ede4; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7a7260; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; font-family: Arial, sans-serif; }
+  .mono { font-family: 'Courier New', monospace; }
+  .sans { font-family: 'Segoe UI', Arial, sans-serif; }
+
+  .paper { background: #100d09; border: 1px solid #2e2410; border-radius: 4px; overflow: hidden; }
+
+  /* masthead */
+  .masthead { padding: 14px 16px 10px; border-bottom: 3px double #c9a227; text-align: center; }
+  .masthead h1 { font-size: 21px; letter-spacing: 2px; font-weight: 900; color: #f0e6cc; }
+  .masthead p { font-size: 7.5px; letter-spacing: 3px; color: #8a8069; margin-top: 2px; font-family: Arial, sans-serif; }
+
+  /* breaking bar */
+  .breaking { display: flex; align-items: center; gap: 8px; background: #7a1e2e; padding: 8px 14px; overflow: hidden; }
+  .breaking .lamp { font-size: 8px; font-weight: 900; background: #f2ede4; color: #7a1e2e; padding: 3px 8px; border-radius: 3px; letter-spacing: 1px; animation: bk 1.4s infinite; font-family: Arial, sans-serif; }
+  @keyframes bk { 50% { opacity: 0.4; } }
+  .breaking p { font-size: 9.5px; font-weight: 700; white-space: nowrap; animation: tick 18s linear infinite; font-family: Arial, sans-serif; }
+  @keyframes tick { from { transform: translateX(15%); } to { transform: translateX(-100%); } }
+
+  /* section rail */
+  .rail { display: flex; gap: 4px; padding: 9px 12px; overflow-x: auto; border-bottom: 1px solid #2e2410; background: #0c0a07; }
+  .rail div { font-size: 7.5px; font-weight: 900; padding: 5px 10px; border-radius: 99px; background: #1a150c; color: #8a8069; border: 1px solid #2e2410; white-space: nowrap; font-family: Arial, sans-serif; }
+  .rail div.on { background: #c9a227; color: #1a1206; border-color: #c9a227; }
+  .rail div .n { opacity: 0.7; }
+
+  /* headline article */
+  .lead { padding: 14px 16px; border-bottom: 1px solid #2e2410; }
+  .receipt { display: inline-flex; align-items: center; gap: 4px; font-size: 6px; font-weight: 900; padding: 3px 8px; border-radius: 3px; letter-spacing: 1px; font-family: Arial, sans-serif; margin-bottom: 7px; }
+  .rc-real { background: rgba(61,220,151,0.12); color: #5fd6a4; border: 1px solid rgba(61,220,151,0.3); }
+  .rc-box { background: rgba(245,185,66,0.12); color: #f5b942; border: 1px solid rgba(245,185,66,0.3); }
+  .rc-player { background: rgba(224,69,94,0.12); color: #ff8fa3; border: 1px solid rgba(224,69,94,0.3); }
+  .lead h2 { font-size: 16px; line-height: 1.25; font-weight: 900; color: #f0e6cc; }
+  .lead h3 { font-size: 9.5px; color: #b0a685; font-weight: 400; margin-top: 5px; line-height: 1.5; font-style: italic; }
+  .lead .byline { font-size: 7px; color: #6f6752; margin-top: 8px; font-family: Arial, sans-serif; }
+  .lead .stats { display: flex; gap: 12px; font-size: 7px; color: #8a8069; margin-top: 5px; font-family: Arial, sans-serif; }
+
+  /* article rows */
+  .art { display: flex; gap: 10px; padding: 11px 16px; border-bottom: 1px solid #1c160c; }
+  .art:last-child { border: none; }
+  .art .txt { flex: 1; min-width: 0; }
+  .art h4 { font-size: 11px; line-height: 1.3; font-weight: 900; color: #e8dfc8; }
+  .art p { font-size: 7.5px; color: #8a8069; margin-top: 3px; line-height: 1.45; font-family: Arial, sans-serif; }
+  .art .meta { font-size: 6.5px; color: #6f6752; margin-top: 4px; font-family: Arial, sans-serif; }
+  .art .thumb { width: 62px; height: 62px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; background: #1a150c; border: 1px solid #2e2410; position: relative; }
+  .art .thumb .fresh { position: absolute; top: -3px; right: -3px; font-size: 5px; font-weight: 900; background: #5fd6a4; color: #06251a; padding: 2px 5px; border-radius: 3px; font-family: Arial, sans-serif; }
+
+  /* comment sheet */
+  .sheet { margin-top: 10px; border-top: 3px double #c9a227; }
+  .sheet-h { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 8px; }
+  .sheet-h b { font-size: 10px; letter-spacing: 1px; color: #f0e6cc; }
+  .sheet-h span { font-size: 6.5px; color: #6f6752; font-family: Arial, sans-serif; }
+  .cmt { display: flex; gap: 8px; padding: 8px 16px; border-bottom: 1px solid #1c160c; }
+  .cmt .av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; background: #1a150c; border: 1px solid #2e2410; }
+  .cmt .av.v { border-color: #c9a227; }
+  .cmt .m { flex: 1; min-width: 0; }
+  .cmt .m b { font-size: 8.5px; display: inline; font-family: Arial, sans-serif; }
+  .cmt .m .vb { font-size: 6px; color: #c9a227; font-weight: 900; font-family: Arial, sans-serif; }
+  .cmt .m p { font-size: 8.5px; color: #b0a685; line-height: 1.45; margin-top: 2px; font-family: Arial, sans-serif; }
+  .cmt .m .sub { font-size: 6.5px; color: #6f6752; margin-top: 3px; font-family: Arial, sans-serif; }
+
+  .foot { padding: 9px 16px; background: #0c0a07; border-top: 1px solid #2e2410; }
+  .foot p { font-size: 6.5px; color: #5c5443; line-height: 1.6; font-family: 'Courier New', monospace; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">Option A · The Trade Paper — every article traces to a real game event</div>
+  <div class="paper">
+    <div class="masthead">
+      <h1>THE HOLLYWOOD INSIDER</h1>
+      <p>THE TRADE PAPER OF RECORD · FIRST WITH THE REAL STORY</p>
+    </div>
+
+    <div class="breaking">
+      <span class="lamp">● LIVE</span>
+      <p>BOX OFFICE WK 34: "Midnight Catechism" holds #1 with $8.6M · A24 pipeline adds 2 films · Star Exchange lists $NEON at $0.42 → +61%</p>
+    </div>
+
+    <div class="rail">
+      <div class="on">ALL <span class="n">(24)</span></div>
+      <div>MOVIES <span class="n">(3)</span></div>
+      <div>BOX OFFICE <span class="n">(2)</span></div>
+      <div>AWARDS <span class="n">(2)</span></div>
+      <div>CASTING <span class="n">(3)</span></div>
+      <div>LEGAL <span class="n">(1)</span></div>
+      <div>STUDIOS <span class="n">(3)</span></div>
+      <div>STREAMING <span class="n">(2)</span></div>
+      <div>SOCIAL <span class="n">(3)</span></div>
+      <div>SCANDALS <span class="n">(1)</span></div>
+      <div>INDUSTRY <span class="n">(4)</span></div>
+    </div>
+
+    <div class="lead">
+      <span class="receipt rc-box">▣ SOURCE: BOX OFFICE RESULTS · WK 34</span>
+      <h2>"Midnight Catechism" Claims Third Frame at #1 as A24's Horror Run Crosses $84M</h2>
+      <h3>Exhibitors extend the run as word-of-mouth defies projections — the studio's slate health climbs to 82/100.</h3>
+      <div class="byline">By Maya Chen, Film Editor · Week 34, 2026 · 4 min read</div>
+      <div class="stats"><span>👁 148K</span><span>♥ 12.4K</span><span>💬 61</span><span>↗ 3.1K</span></div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ YOUR CASTING · REAL</span>
+        <h4>YOU Booked the Lead in A24's "Midnight Catechism" — 34 Rivals, 71/100 Audition Score</h4>
+        <p>The Insider confirms the booking after a competitive room. Your $85K deal includes backend.</p>
+        <div class="meta">Week 34 · TRENDING · 👁 96K</div>
+      </div>
+      <div class="thumb">🎬<span class="fresh">FRESH</span></div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ STUDIO PIPELINE · WALL ST W</span>
+        <h4>Meridian Pictures Lists on the Exchange — Slate Greenlit Day One</h4>
+        <p>MSLF opened at $38 and closed its debut week at $42.88 after announcing 3 productions.</p>
+        <div class="meta">Week 31 · 🪙 +61% · 👁 82K</div>
+      </div>
+      <div class="thumb">🌇</div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-player" style="margin-bottom:4px">▣ ACADEMY · YOUR NOMINATION</span>
+        <h4>Awards Radar: Your Name Enters the Best Actor Conversation After the Second Weekend</h4>
+        <p>Tracking boards moved the performance up three spots following the hold. Campaign budgets follow.</p>
+        <div class="meta">Week 33 · 👁 71K</div>
+      </div>
+      <div class="thumb">🏆<span class="fresh">FRESH</span></div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ SOCIETY WIRE</span>
+        <h4>Monaco Superyacht Weekend Draws Billionaire Cohort — Two Deals Signed On Board</h4>
+        <p>Attendees included Elon Musk and Roman Kirkov. The guest list moved markets by Monday.</p>
+        <div class="meta">Week 32 · 👁 64K</div>
+      </div>
+      <div class="thumb">🛥️</div>
+    </div>
+
+    <div class="foot">
+      <p>EVERY ARTICLE CARRIES ITS SOURCE RECEIPT · NO EVENT = NO ARTICLE · SECTIONS REFRESH EVERY 2-3 WEEKS</p>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · Deduped comment pool — no repeated text, rotating voices</div>
+  <div class="paper">
+    <div class="sheet">
+      <div class="sheet-h"><b>💬 THE COMMENTS (61)</b><span>DEDUPED · ~900 VARIANTS · NEVER THE SAME TEXT TWICE</span></div>
+
+      <div class="cmt">
+        <div class="av v">🎬</div>
+        <div class="m">
+          <b>Victoria Reign</b> <span class="vb">✔ Reign Media</span>
+          <p>Third frame at #1 in this market is a distribution masterclass. The holding pattern tells you everything about the audience math.</p>
+          <div class="sub">♥ 4,211 · 2h ago · <span style="color:#c9a227">TOP COMMENT</span></div>
+        </div>
+      </div>
+
+      <div class="cmt">
+        <div class="av v">⚖️</div>
+        <div class="m">
+          <b>Marcus Thorne</b> <span class="vb">✔ Thorne Capital</span>
+          <p>A24's slate health at 82 is the real headline here. That's the number the street prices in.</p>
+          <div class="sub">♥ 2,880 · 3h ago</div>
+        </div>
+      </div>
+
+      <div class="cmt">
+        <div class="av">🍿</div>
+        <div class="m">
+          <b>Dana K. · Inglewood</b>
+          <p>Saw it twice. The second time just to catch what I missed. Take my money again honestly.</p>
+          <div class="sub">♥ 412 · 4h ago</div>
+        </div>
+      </div>
+
+      <div class="cmt">
+        <div class="av">📊</div>
+        <div class="m">
+          <b>BoxOfficeBrett</b>
+          <p>$8.6M hold with only a 31% drop? In this economy of superhero fatigue? That's organically earned.</p>
+          <div class="sub">♥ 388 · 5h ago</div>
+        </div>
+      </div>
+
+      <div class="cmt">
+        <div class="av">👻</div>
+        <div class="m">
+          <b>noorwatcher</b>
+          <p>Horror is carrying the theatrical year and nobody in the big five wants to admit it.</p>
+          <div class="sub">♥ 305 · 6h ago</div>
+        </div>
+      </div>
+
+      <div class="cmt">
+        <div class="av">🧢</div>
+        <div class="m">
+          <b>studiolot_lurker</b>
+          <p>The real story is the marketing spend was HALF the genre standard. Word of mouth did the rest.</p>
+          <div class="sub">♥ 261 · 7h ago</div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <p>COMMENT ENGINE: SHUFFLED POOL CYCLING + MODIFIERS · SAME TEXT NEVER APPEARS TWICE IN A THREAD</p>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">Option A · Section page — Casting section, all stories sourced</div>
+  <div class="paper">
+    <div class="masthead"><h1>CASTING DESK</h1><p>EVERY ROLE · EVERY ROOM · IF IT HAPPENED, IT'S HERE</p></div>
+
+    <div class="art" style="border-top:1px solid #2e2410">
+      <div class="txt">
+        <span class="receipt rc-player" style="margin-bottom:4px">▣ YOUR BOOKING</span>
+        <h4>Signed: You Join "The Lobster Theory" in a Supporting Turn</h4>
+        <p>After callbacks across 3 weeks, the Greta Gerwig drama locks its ensemble.</p>
+        <div class="meta">Week 34 · FRESH</div>
+      </div>
+      <div class="thumb">🦞</div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ CALLBOARD ROOM · 34 AUDITIONING</span>
+        <h4>Competitive Watch: The "Velvet Hour" Lead Draws a Crowded Room</h4>
+        <p>Meridian's $46M drama is the hottest open role of the month — odds currently favor experience.</p>
+        <div class="meta">Week 34 · FRESH</div>
+      </div>
+      <div class="thumb">🎭<span class="fresh">FRESH</span></div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ STUDIO PIPELINE → CASTING</span>
+        <h4>Disney's "Avengers: Secret Wars" Enters Casting — 4 Roles Hit the Callboard</h4>
+        <p>The DIS slate moved to filming this week; casting directors opened the doors.</p>
+        <div class="meta">Week 33</div>
+      </div>
+      <div class="thumb">🏰</div>
+    </div>
+
+    <div class="art">
+      <div class="txt">
+        <span class="receipt rc-real" style="margin-bottom:4px">▣ AGENCY MOVES</span>
+        <h4>Pitch Wars: CAA and WME Battle Over the "Neon Reels" Package</h4>
+        <p>Endless pool combinatorics: agency × project × stake — this headline form has 400+ variants.</p>
+        <div class="meta">Week 32</div>
+      </div>
+      <div class="thumb">🤝</div>
+    </div>
+
+    <div class="foot">
+      <p>EMPTY SECTIONS SHOW "NOTHING FILED THIS CYCLE" — NEVER PADDING · ROTATION EVERY 2-3 WEEKS</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

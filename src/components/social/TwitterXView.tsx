@@ -5,10 +5,17 @@
  */
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
+import {
+  SocialsService,
+  SocialsState,
+  PremiumService,
+  TW_AUTHORITY_TIERS,
+  TW_PAYOUT_FOLLOWER_GATE,
+  twAuthorityTier,
+} from '../../services/socialsService';
 import {
   ArrowLeft, Home, Search, Bell, Mail, PenTool, Heart, Repeat2, MessageCircle, BarChart2, Bookmark,
-  Share, MoreHorizontal, Image as ImageIcon, Star, TrendingUp, BadgeCheck, Crown,
+  Share, MoreHorizontal, Image as ImageIcon, Star, TrendingUp, BadgeCheck, Crown, DollarSign,
 } from 'lucide-react';
 import { PremiumPanel, WritersPanel, CreatorStudioPanel } from './HubPanels';
 
@@ -23,10 +30,11 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, settings, saveData, updateSave, releasedMovies } = useGame();
   const [state, setState] = useState<SocialsState>(() => SocialsService.getState());
   const [tab, setTab] = useState<'FOR_YOU' | 'SCENE'>('FOR_YOU');
-  const [subView, setSubView] = useState<'HOME' | 'PROFILE' | 'TRENDS' | 'SEARCH' | 'PREMIUM' | 'CREATOR' | 'WRITERS'>('HOME');
+  const [subView, setSubView] = useState<'HOME' | 'PROFILE' | 'TRENDS' | 'SEARCH' | 'PREMIUM' | 'CREATOR' | 'WRITERS' | 'BANK'>('HOME');
   const [draft, setDraft] = useState('');
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [fb, setFb] = useState<string | null>(null);
+  const [payoutAmt, setPayoutAmt] = useState('');
 
   const theme = settings.theme || 'Hollywood Gold';
   const handle = `@${(player.firstName || 'actor').toLowerCase()}${(player.lastName || '').toLowerCase()}`;
@@ -48,6 +56,11 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const publish = () => {
     if (!draft.trim()) return;
+    if (SocialsService.playerPostsLeft('twitter') <= 0) {
+      setFb("You've already posted twice on X this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const maxLen = premium.tier !== 'none' ? 500 : 280;
     const text = draft.trim().slice(0, maxLen);
     const handleClean = handle;
@@ -69,6 +82,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       sentiment: 'Positive' as const,
     };
     state.playerPosts.Twitter = [post, ...playerPosts];
+    SocialsService.notePlayerPost('twitter');
     SocialsService.saveState(state);
     setState({ ...state });
     setDraft('');
@@ -128,7 +142,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <button onClick={() => engage(post.id, 'like')} className="flex items-center gap-1 cursor-pointer hover:text-rose-400">
             <Heart className="w-3.5 h-3.5" /> {post.likes || 0}
           </button>
-          <span className="flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" /> {Math.max(10, Math.floor((post.likes || 0) * 3))}</span>
+          <span className="flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" /> {((post.views || 0) > 0 ? post.views : Math.max(10, Math.floor((post.likes || 0) * 3))).toLocaleString()}</span>
           <button onClick={() => engage(post.id, 'bookmark')} className="cursor-pointer hover:text-amber-400"><Bookmark className="w-3.5 h-3.5" /></button>
           <button className="cursor-pointer hover:text-sky-400"><Share className="w-3.5 h-3.5" /></button>
         </div>
@@ -153,8 +167,8 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const BottomNav = (
-    <div className="grid grid-cols-5 gap-1 pt-2 border-t border-white/10">
-      {([['HOME', Home], ['SEARCH', Search], ['CREATOR', BarChart2], ['PREMIUM', Crown], ['PROFILE', Star]] as const).map(([id, Icon]) => (
+    <div className="grid grid-cols-7 gap-1 pt-2 border-t border-white/10">
+      {([['HOME', Home], ['SEARCH', Search], ['CREATOR', BarChart2], ['BANK', DollarSign], ['PREMIUM', Crown], ['WRITERS', PenTool], ['PROFILE', Star]] as const).map(([id, Icon]) => (
         <button key={id} onClick={() => setSubView(id)} className={`flex flex-col items-center py-1.5 rounded-xl cursor-pointer ${subView === id ? 'text-amber-400' : 'text-gray-500 hover:text-white'}`}>
           <Icon className="w-4 h-4" />
           <span className="text-[8px] font-black">{id === 'CREATOR' ? 'STUDIO' : id}</span>
@@ -250,7 +264,92 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {subView === 'PREMIUM' && <PremiumPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
       {subView === 'CREATOR' && <CreatorStudioPanel state={state} />}
-      {subView === 'WRITERS' && <WritersPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
+      {subView === 'WRITERS' && <WritersPanel state={state} platform="twitter" onRefresh={() => setState({ ...SocialsService.getState() })} />}
+
+      {/* X CREATOR BANK — ads revenue accrues here; transfers are taxed and clear in 1-5 weeks */}
+      {subView === 'BANK' && (() => {
+        const twXp = state.twitterAuthorityXp || 0;
+        const twTier = twAuthorityTier(twXp);
+        const nextTw = TW_AUTHORITY_TIERS.find((t) => t.minXp > twXp);
+        const twFollowers = state.followers.Twitter || 0; // this platform's OWN follower count
+        const balance = state.twitterBalance || 0;
+        const pending = state.twitterPendingPayouts || [];
+        const payoutsActive = twFollowers >= TW_PAYOUT_FOLLOWER_GATE;
+        const doPayout = () => {
+          const res = SocialsService.requestTwitterPayout(parseInt(payoutAmt) || 0);
+          setFb(res.message);
+          setTimeout(() => setFb(null), 4500);
+          if (res.success) setPayoutAmt('');
+          setState({ ...SocialsService.getState() });
+        };
+        return (
+          <div className="space-y-3">
+            <div className="p-4 rounded-2xl bg-black/50 border border-emerald-400/30 space-y-1.5">
+              <span className="text-[9px] font-black text-emerald-300 tracking-[2px]">X CREATOR BANK — ADS REVENUE</span>
+              <b className="text-3xl font-mono text-emerald-300 block">${balance.toLocaleString()}</b>
+              <div className="flex justify-between text-[9px] text-gray-400 font-mono">
+                <span>+${(state.twitterAccruedLastWeek || 0).toLocaleString()} last week</span>
+                <span>RPM {twTier.rpm ? `$${twTier.rpm.toFixed(1)}` : '—'} / 1K impressions</span>
+              </div>
+            </div>
+
+            {/* authority tier strip */}
+            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <b className="text-[10px] text-sky-300">TIER {twTier.tier} — {twTier.name.toUpperCase()}</b>
+                <span className="text-[8px] text-gray-500 font-mono">weekly impressions cap {twTier.weeklyImpressionCap.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <i className="block h-full bg-sky-500" style={{ width: nextTw ? `${Math.round(((twXp - twTier.minXp) / (nextTw.minXp - twTier.minXp)) * 100)}%` : '100%' }} />
+              </div>
+              <p className="text-[8px] text-gray-500">Impressions convert to REAL followers (0.4-0.9% per tweet). This bank is separate from YouTube & Instagram.</p>
+            </div>
+
+            {/* monthly envelope */}
+            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <b className="text-[10px] text-gray-200">This Month (all platforms)</b>
+                <span className="text-[8px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-full">CAP $25,000</span>
+              </div>
+              <div className="flex justify-between text-[9px]"><span className="text-gray-400">Accrued so far</span><b className="font-mono text-gray-100">${(state.socialMonthlyEarnings?.accrued || 0).toLocaleString()}</b></div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <i className="block h-full bg-emerald-500" style={{ width: `${Math.min(100, ((state.socialMonthlyEarnings?.accrued || 0) / 25000) * 100)}%` }} />
+              </div>
+              <p className="text-[8px] text-gray-500 leading-relaxed">PAYOUTS ARE AUTOMATIC — the bank pays out on the last week of every month (no withdrawals before then). Active creators earn between the $5,000 floor and the $25,000 cap depending on impressions. X payouts are <b className="text-emerald-300">TAX-FREE</b> — only YouTube is taxed.</p>
+            </div>
+
+            {/* premium gate — the revenue requirement */}
+            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex justify-between items-center">
+                <b className="text-[10px] text-gray-200">Ads Revenue</b>
+                <span className={`text-[8px] font-black px-2.5 py-1 rounded-full ${PremiumService.getActive(state) ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/40' : 'bg-white/5 text-gray-400 border border-white/15'}`}>
+                  {PremiumService.getActive(state) ? 'EARNING' : 'PREMIUM REQUIRED'}
+                </span>
+              </div>
+              {!PremiumService.getActive(state)
+                ? <p className="text-[8px] text-gray-500 leading-relaxed">Posts only generate revenue with an ACTIVE PREMIUM subscription. Subscribe from the Premium panel — followers alone don't pay.</p>
+                : <p className="text-[8px] text-emerald-300/80 leading-relaxed">Premium active — every tweet earns ads revenue into this bank.</p>}
+            </div>
+
+            {pending.length > 0 && (
+              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-400/30 space-y-2">
+                <b className="text-[9px] font-black text-amber-300 tracking-wider">⏳ MONTH-END PAYOUTS CLEARING</b>
+                {pending.map((p) => (
+                  <div key={p.id}>
+                    <div className="flex justify-between text-[9px] font-mono mb-1">
+                      <span className="text-gray-300">${p.net.toLocaleString()} clearing (no tax)</span>
+                      <span className="text-amber-300">{p.weeksRemaining} wk{p.weeksRemaining > 1 ? 's' : ''} left</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <i className="block h-full rounded-full bg-amber-400" style={{ width: `${((p.totalWeeks - p.weeksRemaining) / p.totalWeeks) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {BottomNav}
     </div>

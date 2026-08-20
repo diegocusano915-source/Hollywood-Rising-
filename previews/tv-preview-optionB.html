@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Option B — The Green Room</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0710; font-family: 'Segoe UI', Arial, sans-serif; min-height: 100vh; padding: 24px 12px 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; color: #f0ecf6; }
+  .phone { width: 100%; max-width: 430px; }
+  .label { text-align: center; color: #7d7594; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+
+  .app { background: linear-gradient(170deg, #141020, #0a0710); border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; overflow: hidden; position: relative; }
+  .spot { position: absolute; top: -60px; right: -40px; width: 240px; height: 200px; background: radial-gradient(ellipse, rgba(224,69,94,0.2), transparent 70%); pointer-events: none; }
+  .inner { position: relative; padding: 16px; }
+
+  /* ON AIR marquee */
+  .onair-box { border-radius: 16px; border: 1px solid rgba(224,69,94,0.4); background: linear-gradient(135deg, rgba(224,69,94,0.12), transparent); padding: 14px; position: relative; overflow: hidden; }
+  .onair-box::after { content: ''; position: absolute; top: -50%; left: -40%; width: 50%; height: 200%; transform: rotate(20deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: shine 3.5s 1s ease infinite; }
+  @keyframes shine { to { left: 130%; } }
+  .oa-row { display: flex; justify-content: space-between; align-items: center; }
+  .oa-lamp { display: flex; align-items: center; gap: 8px; }
+  .oa-lamp .bulb { width: 12px; height: 12px; border-radius: 50%; background: #ff4d6d; box-shadow: 0 0 16px #ff4d6d; animation: blink 1.1s infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  .oa-lamp b { letter-spacing: 3px; font-size: 12px; color: #ff8fa3; }
+  .oa-meta { text-align: right; }
+  .oa-meta b { font-size: 10px; color: #ffd6de; display: block; }
+  .oa-meta span { font-size: 7px; color: #9a8fa8; letter-spacing: 1px; }
+
+  /* dressing room list */
+  .sec-h { display: flex; justify-content: space-between; align-items: center; margin: 16px 2px 9px; }
+  .sec-h b { font-size: 12px; }
+  .sec-h span { font-size: 8px; color: #8a80a0; font-weight: 700; }
+
+  .show { display: flex; gap: 11px; align-items: center; border-radius: 17px; padding: 12px; margin-bottom: 9px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); }
+  .show.ready { border-color: rgba(255,77,109,0.5); background: rgba(224,69,94,0.08); }
+  .show.invite { border-color: rgba(122,179,236,0.35); }
+  .show.lock { opacity: 0.55; }
+  .show .cam { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; background: rgba(255,255,255,0.07); }
+  .show .s-main { flex: 1; min-width: 0; }
+  .show .s-main b { font-size: 11.5px; display: block; }
+  .show .s-main span { font-size: 7.5px; color: #9a8fa8; display: block; margin-top: 1px; }
+  .show .s-act { flex-shrink: 0; text-align: right; }
+  .live-btn { display: inline-block; font-size: 9px; font-weight: 900; padding: 8px 13px; border-radius: 10px; background: #ff4d6d; color: #fff; letter-spacing: 1px; animation: pulse 1.8s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(255,77,109,0.15); } }
+  .cnt { font-size: 8px; color: #f5b942; font-weight: 900; display: block; }
+  .inv { font-size: 7px; color: #7ab3ec; font-weight: 800; display: block; margin-top: 2px; }
+
+  /* stage / question */
+  .stage { border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.4); overflow: hidden; margin-top: 4px; }
+  .stage-h { padding: 12px 14px; background: rgba(224,69,94,0.1); border-bottom: 1px solid rgba(224,69,94,0.25); display: flex; justify-content: space-between; align-items: center; }
+  .stage-h b { font-size: 11px; color: #ff8fa3; letter-spacing: 1px; }
+  .stage-h span { font-size: 7.5px; color: #9a8fa8; font-family: 'Courier New', monospace; }
+  .host-q { padding: 14px; }
+  .host-row { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 12px; }
+  .host-av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #e0455e, #7a1e2e); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .bubble { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px 14px 14px 14px; padding: 10px 12px; }
+  .bubble .who { font-size: 7.5px; color: #ff8fa3; font-weight: 900; display: block; margin-bottom: 2px; }
+  .bubble p { font-size: 11px; line-height: 1.45; color: #f0ecf6; font-weight: 600; }
+  .tag-row { display: flex; gap: 4px; margin-top: 7px; }
+  .qt { font-size: 6px; font-weight: 900; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px; }
+  .qt.career { background: rgba(91,156,224,0.15); color: #7ab3ec; }
+  .qt.live { background: rgba(224,69,94,0.15); color: #ff8fa3; }
+  .qt.fan { background: rgba(245,185,66,0.15); color: #f5b942; }
+
+  .answers { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .ans-card { display: flex; gap: 9px; align-items: center; padding: 11px 12px; border-radius: 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  .ans-card:hover { border-color: rgba(255,143,163,0.4); }
+  .ans-card .arch { width: 52px; text-align: center; font-size: 6.5px; font-weight: 900; padding: 5px 0; border-radius: 7px; flex-shrink: 0; letter-spacing: 0.5px; }
+  .a-humble { background: rgba(46,204,143,0.14); color: #5fd6a4; }
+  .a-witty { background: rgba(245,185,66,0.14); color: #f5b942; }
+  .a-bold { background: rgba(224,69,94,0.14); color: #ff8fa3; }
+  .a-honest { background: rgba(91,156,224,0.14); color: #7ab3ec; }
+  .a-deflect { background: rgba(176,107,224,0.14); color: #cf9df0; }
+  .ans-card p { font-size: 9.5px; color: #d4cde0; line-height: 1.4; flex: 1; }
+  .ans-card .fx { font-size: 6px; color: #8a80a0; font-family: 'Courier New', monospace; text-align: right; flex-shrink: 0; line-height: 1.6; }
+
+  /* results */
+  .res { padding: 14px; }
+  .res b.h { font-size: 12px; color: #ff8fa3; letter-spacing: 1px; display: block; margin-bottom: 10px; }
+  .res-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .res-k { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .res-k span { font-size: 6.5px; color: #8a80a0; display: block; letter-spacing: 1px; }
+  .res-k b { font-size: 13px; font-family: 'Courier New', monospace; }
+  .res-note { font-size: 8px; color: #8a80a0; line-height: 1.5; }
+  .claim { width: 100%; padding: 13px; border: none; border-radius: 14px; background: linear-gradient(135deg, #ff4d6d, #c9184a); color: #fff; font-size: 11px; font-weight: 900; margin-top: 11px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="label">TV Option B · The Green Room — booking board with real-status marquee</div>
+  <div class="app">
+    <div class="spot"></div>
+    <div class="inner">
+      <div class="onair-box">
+        <div class="oa-row">
+          <div class="oa-lamp"><span class="bulb"></span><b>ON AIR</b></div>
+          <div class="oa-meta"><b>Entertainment Tonight</b><span>SEGMENT 1 OF 5 · STUDIO 4 · BURBANK</span></div>
+        </div>
+      </div>
+
+      <div class="sec-h"><b>🎫 Tonight's Bookings</b><span>REAL OFFERS ONLY — NO GHOST NOTICES</span></div>
+
+      <div class="show ready">
+        <div class="cam">🎬</div>
+        <div class="s-main"><b>Entertainment Tonight</b><span>ENTERTAINMENT · 4.2M VIEWERS · host: Nischelle Turner</span></div>
+        <div class="s-act"><span class="live-btn">🔴 GO LIVE</span></div>
+      </div>
+
+      <div class="show">
+        <div class="cam">☀️</div>
+        <div class="s-main"><b>Good Morning America</b><span>MORNING · 3.8M VIEWERS · sofa segment booked</span></div>
+        <div class="s-act"><span class="cnt">2 WKS OUT</span></div>
+      </div>
+
+      <div class="show invite">
+        <div class="cam">📰</div>
+        <div class="s-main"><b>60 Minutes</b><span>NEWS · 10.5M VIEWERS · 2000 fame required</span>
+          <span class="inv">✉ invitation held warm — unlocks when you hit 2,000 fame</span></div>
+        <div class="s-act"><span class="cnt" style="color:#7ab3ec">INVITED</span></div>
+      </div>
+
+      <div class="show lock">
+        <div class="cam">🌙</div>
+        <div class="s-main"><b>Tonight Show</b><span>LATE NIGHT · 3.1M VIEWERS · 1000 fame required</span></div>
+        <div class="s-act"><span class="cnt" style="color:#6b7484">🔒 LOCKED</span></div>
+      </div>
+      <p style="font-size:7px;color:#5c5470;text-align:center;font-family:'Courier New',monospace">25+ SHOWS · INVITATIONS SURVIVE ON LOCKED SETS · NOTHING NOTIFIED THAT ISN'T REAL</p>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="label">TV Option B · Live Stage — host chat bubbles, rotating archetypes, toned rewards</div>
+  <div class="app">
+    <div class="spot"></div>
+    <div class="inner">
+      <div class="stage">
+        <div class="stage-h"><b>🔴 LIVE — SEGMENT 2/5</b><span>ENDLESS Q POOL</span></div>
+        <div class="host-q">
+          <div class="host-row">
+            <div class="host-av">🎤</div>
+            <div class="bubble">
+              <span class="who">NISCHELLE · HOST</span>
+              <p>A caller from Ohio wants the truth about you and your co-star. Set it straight, right here.</p>
+              <div class="tag-row"><span class="qt live">LIVE CALL-IN</span><span class="qt fan">FAN SUBMITTED</span></div>
+            </div>
+          </div>
+
+          <div class="answers">
+            <div class="ans-card">
+              <span class="arch a-honest">HONEST</span>
+              <p>We're great friends. I'm here to talk about the film — next question.</p>
+              <span class="fx">REP +2<br>FANS ×1.5</span>
+            </div>
+            <div class="ans-card">
+              <span class="arch a-witty">WITTY</span>
+              <p>Ohio, the only romance on that set was me and the 4AM call sheet.</p>
+              <span class="fx">REP +2<br>FANS ×1.8</span>
+            </div>
+            <div class="ans-card">
+              <span class="arch a-bold">BOLD</span>
+              <p>Wouldn't you like to know. Watch the movie and decide for yourself.</p>
+              <span class="fx">REP −2<br>FANS ×2.0<br>RISK 25%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="res">
+          <b class="h">📊 POST-SHOW SCORECARD</b>
+          <div class="res-row">
+            <div class="res-k"><span>NEW FANS</span><b style="color:#5fd6a4">+580</b></div>
+            <div class="res-k"><span>FEE</span><b style="color:#f5b942">$1,100</b></div>
+            <div class="res-k"><span>FAME</span><b style="color:#7ab3ec">+2</b></div>
+            <div class="res-k"><span>REP</span><b style="color:#5fd6a4">+4</b></div>
+          </div>
+          <p class="res-note">Rewards cut ~60%: interviews buy presence, not paychecks. Every notice maps to a real booking; locked-show invitations wait visibly instead of hiding.</p>
+          <button class="claim">CLAIM & EXIT STUDIO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

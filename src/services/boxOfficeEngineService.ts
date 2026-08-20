@@ -19,12 +19,10 @@ import { AWARD_ACTOR_POOL } from '../database/representationDatabase';
 // (theaters drop slow titles). The chart floor equals the run floor - no junk on the chart.
 const THEATER_FLOOR_WEEKLY_GROSS = 1250000;
 const MIN_CHART_WEEKLY_GROSS = THEATER_FLOOR_WEEKLY_GROSS;
-// Player theatrical runs: up to 20 weeks (sequel greenlight window), extended to 26 with LEGS
-const PLAYER_MAX_WEEKS = 20;
-const PLAYER_MAX_EXTENDED_WEEKS = 26;
-// NPC theatrical runs: 10 weeks, extended to 12 with LEGS
-const NPC_MAX_WEEKS = 10;
-const NPC_MAX_EXTENDED_WEEKS = 12;
+// Flat theatrical run caps: player movies 15 weeks, NPC movies 10 weeks.
+// No LEGS extensions — long runs must be earned at the floor, not by timer.
+export const PLAYER_MAX_WEEKS = 15;
+export const NPC_MAX_WEEKS = 10;
 
 const STORAGE_KEY = 'HOLLYWOOD_BOX_OFFICE_STATE_V1';
 
@@ -286,7 +284,12 @@ const SEED_BOX_OFFICE_ITEMS: BoxOfficeItem[] = [
 
 // Generate additional initial seed items to reach 200 total items
 const GENERATE_FULL_SEED_CHART = (): BoxOfficeItem[] => {
-  const chart: BoxOfficeItem[] = [...SEED_BOX_OFFICE_ITEMS];
+  // Clamp seed runs under the NPC 10-week cap so no movie spawns already dead
+  const chart: BoxOfficeItem[] = SEED_BOX_OFFICE_ITEMS.map((s) => ({
+    ...s,
+    weeksReleased: Math.min(NPC_MAX_WEEKS - 1, s.weeksReleased || 1),
+    weeksInRelease: Math.min(NPC_MAX_WEEKS - 1, s.weeksInRelease || s.weeksReleased || 1),
+  }));
 
   for (let i = chart.length + 1; i <= 200; i++) {
     const isMovie = Math.random() > 0.25;
@@ -315,8 +318,8 @@ const GENERATE_FULL_SEED_CHART = (): BoxOfficeItem[] => {
       internationalGross: isMovie ? international : 0,
       worldwideGross: isMovie ? worldwide : 0,
       lifetimeGross: isMovie ? worldwide : 0,
-      weeksReleased: Math.floor(1 + Math.random() * 12),
-      weeksInRelease: Math.floor(1 + Math.random() * 12),
+      weeksReleased: Math.floor(1 + Math.random() * 9),
+      weeksInRelease: Math.floor(1 + Math.random() * 9),
       movement: 'STABLE',
       studio: studioObj.name,
       genres,
@@ -467,9 +470,9 @@ export class BoxOfficeEngineService {
       if (!item.inTheaters) return false;
       if ((item.weeklyGross || 0) < MIN_CHART_WEEKLY_GROSS && !item.isPlayerMovie) return false;
       if (item.isPlayerMovie) {
-        return (item.weeksReleased || 1) <= ((item as any).extendedRun ? PLAYER_MAX_EXTENDED_WEEKS : PLAYER_MAX_WEEKS);
+        return (item.weeksReleased || 1) <= PLAYER_MAX_WEEKS;
       }
-      return (item.weeksReleased || 1) <= ((item as any).extendedRun ? NPC_MAX_EXTENDED_WEEKS : NPC_MAX_WEEKS);
+      return (item.weeksReleased || 1) <= NPC_MAX_WEEKS;
     });
 
     const activeIds = new Set(validActive.map((i) => i.id));
@@ -590,14 +593,14 @@ export class BoxOfficeEngineService {
       );
       if (!item) return null;
       const week = item.weeksReleased || item.weeksInRelease || 1;
-      const maxWeeks = (item as any).extendedRun ? PLAYER_MAX_EXTENDED_WEEKS : PLAYER_MAX_WEEKS;
+      const maxWeeks = PLAYER_MAX_WEEKS;
       const prev = (item as any).previousWeeklyGross || item.weeklyGross || 0;
       const cur = item.weeklyGross || 0;
       let projectedWeeksLeft = 0;
       if (cur > 0 && prev >= cur) {
         const dropPct = Math.max(0.15, 1 - cur / Math.max(1, prev));
         let proj = cur;
-        while (proj >= THEATER_FLOOR_WEEKLY_GROSS && projectedWeeksLeft < 20) {
+        while (proj >= THEATER_FLOOR_WEEKLY_GROSS && projectedWeeksLeft < PLAYER_MAX_WEEKS) {
           proj = Math.floor(proj * (1 - dropPct));
           projectedWeeksLeft += 1;
         }
@@ -837,22 +840,9 @@ export class BoxOfficeEngineService {
           item.lifetimeGross = item.worldwideGross;
 
           // DYNAMIC THEATRICAL RUNS: movies leave when they stop earning (realistic).
-          // Flops die fast, hits run long, blockbusters earn LEGS, awards extend runs.
+          // Flops die fast, hits run long — flat caps (player 15w, NPC 10w).
           const isPlayerMovie = !!item.isPlayerMovie;
-          const maxWeeks = isPlayerMovie
-            ? ((item as any).extendedRun ? PLAYER_MAX_EXTENDED_WEEKS : PLAYER_MAX_WEEKS)
-            : ((item as any).extendedRun ? NPC_MAX_EXTENDED_WEEKS : NPC_MAX_WEEKS);
-
-          // LEGS: blockbusters earn extended runs
-          if (!(item as any).extendedRun) {
-            if (isPlayerMovie && item.weeksReleased >= 18 && (item.weeklyGross || 0) >= 8000000) {
-              (item as any).extendedRun = true;
-              logs.push(`🦵 LEGS! '${item.title}' still pulls $${((item.weeklyGross || 0) / 1000000).toFixed(1)}M weekly — extended to ${PLAYER_MAX_EXTENDED_WEEKS} weeks!`);
-            } else if (!isPlayerMovie && item.weeksReleased >= 8 && (item.weeklyGross || 0) >= 10000000) {
-              (item as any).extendedRun = true;
-              logs.push(`🦵 LEGS! '${item.title}' extends its run to ${NPC_MAX_EXTENDED_WEEKS} weeks!`);
-            }
-          }
+          const maxWeeks = isPlayerMovie ? PLAYER_MAX_WEEKS : NPC_MAX_WEEKS;
 
           // Below the theater floor the movie stops earning; flops still get a short run (min 2-3 weeks)
           const belowFloor = (item.weeklyGross || 0) < THEATER_FLOOR_WEEKLY_GROSS;
@@ -869,10 +859,8 @@ export class BoxOfficeEngineService {
         item.weeklyGross = 0;
       }
 
-      // Mandatory Cap Enforcement (dynamic: extended runs allowed, floor enforced for NPC)
-      const hardMax = item.isPlayerMovie
-        ? ((item as any).extendedRun ? PLAYER_MAX_EXTENDED_WEEKS : PLAYER_MAX_WEEKS)
-        : ((item as any).extendedRun ? NPC_MAX_EXTENDED_WEEKS : NPC_MAX_WEEKS);
+      // Mandatory Cap Enforcement (flat caps: player 15w, NPC 10w; floor enforced for NPC)
+      const hardMax = item.isPlayerMovie ? PLAYER_MAX_WEEKS : NPC_MAX_WEEKS;
       const isBoosting = ((item as any).awardBoostWeeks || 0) > 0;
       if (!isBoosting && ((item.weeksReleased && item.weeksReleased >= hardMax) ||
           (item.weeksInRelease && item.weeksInRelease >= hardMax) ||

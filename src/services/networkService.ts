@@ -24,6 +24,7 @@ import {
   RoyaltySource,
   BankableStar,
   ForbesCelebrity,
+  ForbesNpc,
   FinancialAdvisor,
   EstatePlan,
   FinancialReputationRating,
@@ -976,74 +977,233 @@ export const INITIAL_AUCTION_LOTS: AuctionLot[] = [
   },
 ];
 
-// Initial Top Forbes Celebrities (100)
-export const GENERATE_FORBES_100 = (player: Player): ForbesCelebrity[] => {
-  const baseStars: { name: string; category: ForbesCelebrity['category']; netWorth: number; topAsset: string }[] = [
-    { name: 'George Lucas', category: 'Mogul', netWorth: 5200000000, topAsset: 'Skywalker Ranch & Lucasfilm Royalty' },
-    { name: 'Steven Spielberg', category: 'Director', netWorth: 4800000000, topAsset: 'Amblin Entertainment & Universal Royalty' },
-    { name: 'Oprah Winfrey', category: 'Mogul', netWorth: 2800000000, topAsset: 'Harpo Studios & Real Estate' },
-    { name: 'Jay-Z (Shawn Carter)', category: 'Mogul', netWorth: 2500000000, topAsset: 'Armand de Brignac & Marcy Venture' },
-    { name: 'Rihanna (Robyn Fenty)', category: 'Musician', netWorth: 1400000000, topAsset: 'Fenty Beauty & Savage X Fenty' },
-    { name: 'Tyler Perry', category: 'Director', netWorth: 1000000000, topAsset: 'Tyler Perry Studios Atlanta' },
-    { name: 'Jerry Seinfeld', category: 'Actor', netWorth: 950000000, topAsset: 'Seinfeld Syndication Rights' },
-    { name: 'Dwayne "The Rock" Johnson', category: 'Actor', netWorth: 800000000, topAsset: 'Teremana Tequila & Seven Bucks Productions' },
-    { name: 'Tom Cruise', category: 'Actor', netWorth: 600000000, topAsset: 'Top Gun & M:I First-Dollar Gross' },
-    { name: 'Beyoncé Knowles-Carter', category: 'Musician', netWorth: 540000000, topAsset: 'Parkwood Entertainment' },
-    { name: 'Brad Pitt', category: 'Actor', netWorth: 400000000, topAsset: 'Plan B Entertainment' },
-    { name: 'Leonardo DiCaprio', category: 'Actor', netWorth: 380000000, topAsset: 'Appian Way Productions' },
-    { name: 'Margot Robbie', category: 'Actor', netWorth: 120000000, topAsset: 'LuckyChap Entertainment' },
-    { name: 'Zendaya', category: 'Actor', netWorth: 45000000, topAsset: 'Lancôme & Bulgari Endorsements' },
-  ];
+// ============================================================
+// FORBES — LIVING WORLD LEADERBOARD
+// The 120-NPC world persists in network state and DRIFTS every
+// week: fortunes grow, scandals hit, rankings reshuffle, and the
+// #1 crown can change hands. The player's entry is their REAL
+// net worth from calculateFinancialSummary — never invented.
+// ============================================================
 
-  // Fill up to 100 with procedural stars
-  const list: ForbesCelebrity[] = baseStars.map((s, idx) => ({
-    rank: idx + 1,
+const FORBES_SEED_STARS: { name: string; category: ForbesCelebrity['category']; netWorth: number; topAsset: string; growth: number }[] = [
+  { name: 'George Lucas', category: 'Mogul', netWorth: 5200000000, topAsset: 'Lucasfilm Royalty Stream', growth: 0.0016 },
+  { name: 'Steven Spielberg', category: 'Director', netWorth: 4800000000, topAsset: 'Amblin Back-End Points', growth: 0.0013 },
+  { name: 'Oprah Winfrey', category: 'Mogul', netWorth: 2800000000, topAsset: 'Harpo Studios & OWN Stake', growth: 0.0011 },
+  { name: 'Jay-Z (Shawn Carter)', category: 'Mogul', netWorth: 2500000000, topAsset: 'Marcy Venture Portfolio', growth: 0.0019 },
+  { name: 'Rihanna (Robyn Fenty)', category: 'Musician', netWorth: 1400000000, topAsset: 'Fenty Beauty Majority Stake', growth: 0.0021 },
+  { name: 'Tyler Perry', category: 'Director', netWorth: 1000000000, topAsset: 'Tyler Perry Studios Lot', growth: 0.0014 },
+  { name: 'Jerry Seinfeld', category: 'Actor', netWorth: 950000000, topAsset: 'Seinfeld Syndication Rights', growth: 0.0008 },
+  { name: 'Dwayne "The Rock" Johnson', category: 'Actor', netWorth: 800000000, topAsset: 'Teremana Tequila Equity', growth: 0.0018 },
+  { name: 'Tom Cruise', category: 'Actor', netWorth: 600000000, topAsset: 'First-Dollar Gross Deals', growth: 0.0010 },
+  { name: 'Beyoncé Knowles-Carter', category: 'Musician', netWorth: 540000000, topAsset: 'Parkwood Entertainment', growth: 0.0016 },
+  { name: 'Brad Pitt', category: 'Actor', netWorth: 400000000, topAsset: 'Plan B Entertainment', growth: 0.0009 },
+  { name: 'Leonardo DiCaprio', category: 'Actor', netWorth: 380000000, topAsset: 'Appian Way Productions', growth: 0.0010 },
+  { name: 'Margot Robbie', category: 'Actor', netWorth: 120000000, topAsset: 'LuckyChap Entertainment', growth: 0.0022 },
+  { name: 'Zendaya', category: 'Actor', netWorth: 45000000, topAsset: 'Global Endorsement Portfolio', growth: 0.0026 },
+];
+
+// Real-sounding name pools for the generated mid/low tier (no more "Titan #17")
+const FORBES_FIRST = ['Marcus', 'Elena', 'Victor', 'Priya', 'Donovan', 'Simone', 'Ray', 'Isabella', 'Grant', 'Amara', 'Theo', 'Camille', 'Julian', 'Naomi', 'Elliott', 'Sloane', 'Dominic', 'Aisha', 'Rowan', 'Vivienne', 'Cassius', 'Lena', 'Beau', 'Margot', 'Hugo', 'Talía', 'Sterling', 'Ondine', 'Pierce', 'Kira', 'Lazlo', 'Bianca', 'Emmett', 'Freya', 'Roman', 'Selia', 'Bram', 'Yara', 'Cole', 'Odette', 'Nico', 'Salma', 'Dashiell', 'Wren', 'Lucien', 'Petra', 'Anders', 'Mireille', 'Cyrus', 'Elodie'];
+const FORBES_LAST = ['Voss', 'Ashford', 'Calloway', 'Mittal', 'Sterling', 'Marchetti', 'Beaumont', 'Kruger', 'Ferreira', 'Nakamura', 'Halloway', 'Duval', 'Rothstein', 'Okafor', 'Winterbourne', 'Castellano', 'Vance', 'Petrova', 'Lindqvist', 'Amari', 'Whitlock', 'Devereaux', 'Fontaine', 'Okonkwo', 'Hargrove', 'Salvatierra', 'Blackwood', 'Mercier', 'Thornfield', 'Kalani', 'Draven', 'Moreau', 'Eastwick', 'Barros', 'Kingsley', 'Solano', 'Ashcombe', 'Delacroix', 'Ferro', 'Vitali', 'Prescott', 'Njoku', 'St. Clair', 'Maddox', 'Reyes'];
+const FORBES_ASSETS: Record<ForbesCelebrity['category'], string[]> = {
+  Actor: ['Box-Office Points Portfolio', 'Production Banner Stake', 'Streaming Megadeal Backend', 'Real Estate Portfolio', 'Brand Ambassador Equity'],
+  Director: ['Studio Overall Deal', 'Back-End Gross Points', 'VFX Company Stake', 'Bibliography Film Rights'],
+  Producer: ['Franchise Rights Library', 'Independent Studio Stake', 'Reality TV Format Rights', 'Podcast Network Holdings'],
+  Musician: ['Master Recordings Catalog', 'Publishing Rights Catalog', 'Touring Company Equity', 'Liquor Brand Stake', 'Fashion Label Stake'],
+  Mogul: ['Private Equity Portfolio', 'Sports Team Minority Stake', 'Media Conglomerate Shares', 'Hospitality Group Holdings', 'Venture Capital Fund'],
+};
+const FORBES_EVENTS_WIN = [
+  'Streaming megadeal signed', 'Tequila brand IPO', 'Sports team stake sold', 'Catalog rights auction win',
+  'Blockbuster points paid out', 'Fashion label acquired', 'World tour gross record', 'Real estate flip jackpot',
+];
+const FORBES_EVENTS_LOSE = [
+  'Costly divorce settlement', 'Ponzi scheme exposure', 'Studio bankruptcy hit', 'Lawsuit judgment lost',
+  'Box office bomb write-off', 'Tax evasion penalties', 'Luxury asset fire sale', 'Endorsement contract voided',
+];
+
+/** Build the initial 120-NPC world once (14 real stars + 106 generated, log-scale distribution) */
+export const initForbesWorld = (): ForbesNpc[] => {
+  const world: ForbesNpc[] = FORBES_SEED_STARS.map((s, i) => ({
+    id: `fs_${i}`,
     name: s.name,
     category: s.category,
-    netWorth: s.netWorth,
     topAsset: s.topAsset,
-    isPlayer: false,
+    netWorth: s.netWorth,
+    prevNetWorth: s.netWorth,
+    growthRate: s.growth,
   }));
 
-  for (let i = list.length + 1; i <= 100; i++) {
-    const net = Math.round(500000000 / (i * 0.3));
-    list.push({
-      rank: i,
-      name: `Hollywood Titan #${i}`,
-      category: i % 2 === 0 ? 'Actor' : 'Producer',
-      netWorth: Math.max(15000000, net),
-      topAsset: 'Private Equity & Real Estate',
-      isPlayer: false,
+  const usedNames = new Set(world.map((w) => w.name));
+  const cats: ForbesCelebrity['category'][] = ['Actor', 'Director', 'Producer', 'Musician', 'Mogul'];
+  // 106 NPCs from $280M down to ~$1.2M (log distribution)
+  for (let i = 0; i < 106; i++) {
+    let name = '';
+    let tries = 0;
+    do {
+      name = `${FORBES_FIRST[Math.floor(Math.random() * FORBES_FIRST.length)]} ${FORBES_LAST[Math.floor(Math.random() * FORBES_LAST.length)]}`;
+      tries++;
+    } while (usedNames.has(name) && tries < 60);
+    usedNames.add(name);
+
+    const t = i / 105; // 0 = richest generated, 1 = poorest
+    const net = Math.round(280000000 * Math.pow(1.2 / 280, t)); // log-scale $280M → $1.2M
+    const cat = cats[Math.floor(Math.random() * cats.length)];
+    const assets = FORBES_ASSETS[cat];
+    // Younger fortunes grow faster; some decline
+    const growth = Math.random() < 0.22 ? -(0.0006 + Math.random() * 0.0016) : 0.0008 + Math.random() * 0.0024;
+
+    world.push({
+      id: `fg_${i}`,
+      name,
+      category: cat,
+      topAsset: assets[Math.floor(Math.random() * assets.length)],
+      netWorth: Math.max(800000, net + Math.floor(Math.random() * net * 0.12)),
+      prevNetWorth: 0,
+      growthRate: growth,
     });
   }
+  world.forEach((w) => { w.prevNetWorth = w.netWorth; });
+  return world.sort((a, b) => b.netWorth - a.netWorth);
+};
 
-  // Insert or adjust player position based on net worth
-  const playerName = `${player.firstName} ${player.lastName}`;
-  let playerNet = player.money;
-  try {
-    const netState = NetworkService.loadState(player);
-    const finSummary = NetworkService.calculateFinancialSummary(netState, player.money);
-    playerNet = Math.max(0, finSummary.netWorth);
-  } catch (err) {
-    playerNet = Math.max(0, player.money);
+/**
+ * Weekly drift: every NPC fortune moves. Small % get a headline event
+ * (±6-18%). Leader changes tracked. Player's previous net worth stored
+ * for their own ▲/▼ movement arrow.
+ */
+export const updateForbesWorld = (state: NetworkFullState, playerNetWorth: number): void => {
+  if (!state.forbesWorld || state.forbesWorld.length < 50) {
+    state.forbesWorld = initForbesWorld();
+    state.forbesLastLeaderId = state.forbesWorld[0]?.id;
+    state.forbesLeaderChanges = 0;
   }
+  for (const npc of state.forbesWorld) {
+    npc.prevNetWorth = npc.netWorth;
+    npc.event = undefined;
+    let drift = npc.growthRate + (Math.random() - 0.5) * 0.012;
+    if (Math.random() < 0.07) {
+      if (Math.random() < 0.58) {
+        drift += 0.06 + Math.random() * 0.12;
+        npc.event = FORBES_EVENTS_WIN[Math.floor(Math.random() * FORBES_EVENTS_WIN.length)];
+      } else {
+        drift -= 0.06 + Math.random() * 0.12;
+        npc.event = FORBES_EVENTS_LOSE[Math.floor(Math.random() * FORBES_EVENTS_LOSE.length)];
+      }
+    }
+    npc.netWorth = Math.max(500000, Math.floor(npc.netWorth * (1 + drift)));
+  }
+  state.forbesWorld.sort((a, b) => b.netWorth - a.netWorth);
 
-  const playerObj: ForbesCelebrity = {
-    rank: 100,
+  // Track the #1 crown changing hands
+  const topId = state.forbesWorld[0]?.id;
+  if (topId && state.forbesLastLeaderId && topId !== state.forbesLastLeaderId) {
+    state.forbesLeaderChanges = (state.forbesLeaderChanges || 0) + 1;
+  }
+  if (topId) state.forbesLastLeaderId = topId;
+
+  if (typeof state.forbesPlayerPrevNet !== 'number') state.forbesPlayerPrevNet = playerNetWorth;
+};
+
+export interface ForbesLeaderboardResult {
+  list: ForbesCelebrity[];          // top 100 (player included if they qualify)
+  playerEntry: ForbesCelebrity;     // the player's entry with true world rank
+  playerWorldRank: number;          // 1..121 — real position among ALL entries
+  playerPrevNet: number;
+  leaderChanges: number;
+  no1Name: string;
+  /** What the player needs to pass the person directly above them */
+  gapToNext: { name: string; amount: number } | null;
+}
+
+/** Merge living world + player (REAL net worth), rank, slice top 100 */
+export const buildForbesLeaderboard = (
+  state: NetworkFullState,
+  playerName: string,
+  playerNetWorth: number
+): ForbesLeaderboardResult => {
+  if (!state.forbesWorld || state.forbesWorld.length < 50) {
+    state.forbesWorld = initForbesWorld();
+    state.forbesLastLeaderId = state.forbesWorld[0]?.id;
+    state.forbesLeaderChanges = 0;
+  }
+  const entries: ForbesCelebrity[] = state.forbesWorld.map((n) => ({
+    rank: 0,
+    name: n.name,
+    category: n.category,
+    netWorth: n.netWorth,
+    prevNetWorth: n.prevNetWorth,
+    topAsset: n.topAsset,
+    isPlayer: false,
+    event: n.event,
+  }));
+  const playerEntry: ForbesCelebrity = {
+    rank: 0,
     name: playerName,
     category: 'Actor',
-    netWorth: playerNet,
+    netWorth: Math.max(0, Math.floor(playerNetWorth)),
+    prevNetWorth: state.forbesPlayerPrevNet ?? Math.max(0, Math.floor(playerNetWorth)),
     topAsset: 'Personal Portfolio & Studio Contracts',
     isPlayer: true,
   };
+  entries.push(playerEntry);
+  entries.sort((a, b) => b.netWorth - a.netWorth);
+  entries.forEach((e, i) => { e.rank = i + 1; });
 
-  list.push(playerObj);
-  list.sort((a, b) => b.netWorth - a.netWorth);
-  list.forEach((item, index) => {
-    item.rank = index + 1;
-  });
+  // Person directly above the player
+  let above: ForbesCelebrity | null = null;
+  const playerIdx = entries.findIndex((e) => e.isPlayer);
+  for (let i = playerIdx - 1; i >= 0; i--) {
+    if (!entries[i].isPlayer) { above = entries[i]; break; }
+  }
 
-  return list.slice(0, 100);
+  return {
+    list: entries.slice(0, 100),
+    playerEntry,
+    playerWorldRank: playerEntry.rank,
+    playerPrevNet: state.forbesPlayerPrevNet ?? playerEntry.netWorth,
+    leaderChanges: state.forbesLeaderChanges || 0,
+    no1Name: state.forbesWorld[0]?.name || '—',
+    gapToNext: above && above.netWorth > playerEntry.netWorth
+      ? { name: above.name, amount: above.netWorth - playerEntry.netWorth }
+      : null,
+  };
+};
+
+/** Compatibility wrapper — same export the UI imports, now backed by the living world */
+export const GENERATE_FORBES_100 = (player: Player): ForbesCelebrity[] => {
+  const state = NetworkService.loadState(player);
+  const netState = NetworkService.calculateFinancialSummary(state, player.money);
+  return buildForbesLeaderboard(state, `${player.firstName} ${player.lastName}`, Math.max(0, netState.netWorth)).list;
+};
+
+/** Transparent net-worth breakdown for the Forbes player card — every dollar accounted for */
+export const getWealthBreakdown = (state: NetworkFullState, playerMoney: number): {
+  cash: number; properties: number; vehicles: number; vault: number; bank: number; empire: number; debt: number; total: number;
+} => {
+  const cash = Math.max(0, playerMoney || 0);
+  const properties = (state.properties || []).filter((p) => p.isOwned).reduce((s, p) => s + (p.price || 0), 0);
+  const vehicles = (state.vehicles || []).filter((v) => v.isOwned).reduce((s, v) => s + (v.price || 0), 0);
+  const vault = (state.vaultItems || []).reduce((s, i) => s + (i.estimatedValue || 0), 0);
+  const bank = (state.bankAccount?.savingsBalance || 0) + (state.bankAccount?.offshoreBalance || 0) + (state.bankAccount?.investmentBalance || 0) + (state.bankAccount?.businessBalance || 0);
+  let empire = 0;
+  try {
+    const es = EmpireService.getState();
+    if (es) {
+      if (es.holdingCompany?.isFormed) {
+        empire += es.holdingCompany.totalValuation || 0;
+        empire += (es.holdingCompany as any).cashPool || 0;
+      } else if (es.businesses?.length) {
+        empire += es.businesses.reduce((a, b) => a + (b.status !== 'Bankrupt' ? b.totalValuation || 0 : 0), 0);
+      }
+      if (es.investments?.portfolio?.length) {
+        empire += es.investments.portfolio.reduce((a, i) => a + (i.currentValue || 0), 0);
+      }
+    }
+  } catch { /* safe */ }
+  const propertyDebt = (state.properties || []).filter((p) => p.isOwned && p.isMortgaged).reduce((s, p) => s + (p.mortgageRemaining ?? (p.price || 0) * 0.8), 0);
+  const bankLoans = (state.bankAccount?.activeLoans || []).reduce((s, l) => s + (l.balanceRemaining || 0), 0);
+  const debt = propertyDebt + bankLoans;
+  return { cash, properties, vehicles, vault, bank, empire, debt, total: cash + properties + vehicles + vault + bank + empire - debt };
 };
 
 // Initial Bankable 100 Stars
@@ -2145,7 +2305,15 @@ export const NetworkService = {
   updateForbesAndBankableRankings: (player: Player): void => {
     try {
       const state = NetworkService.loadState(player);
-      state.forbesList = GENERATE_FORBES_100(player);
+      // Player's REAL net worth — same formula as the Bank screen
+      const summary = NetworkService.calculateFinancialSummary(state, player.money);
+      const playerNet = Math.max(0, summary.netWorth);
+      // Weekly world drift: NPC fortunes move, events fire, leader changes tracked
+      updateForbesWorld(state, playerNet);
+      state.forbesList = buildForbesLeaderboard(state, `${player.firstName} ${player.lastName}`, playerNet).list;
+      // Store this week's net as NEXT week's "previous" AFTER building (so this
+      // week's arrows compare against last week's stored value)
+      state.forbesPlayerPrevNet = playerNet;
       state.bankableStarsList = GENERATE_BANKABLE_100(player);
       NetworkService.saveState(state);
     } catch {

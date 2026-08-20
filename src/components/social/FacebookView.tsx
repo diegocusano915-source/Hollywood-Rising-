@@ -8,7 +8,7 @@ import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { RepresentationService } from '../../services/representationService';
 import { ArrowLeft, ThumbsUp, Heart, Laugh, Frown, Angry, MessageCircle, Share, Users, ShoppingBag, Clock, Crown, Image as ImageIcon } from 'lucide-react';
-import { PremiumPanel } from './HubPanels';
+import { PremiumPanel, WriterSheet } from './HubPanels';
 
 const REACTIONS = [
   { id: 'like', icon: '👍', label: 'Like' },
@@ -75,6 +75,11 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const posts = state.facebookPosts || [];
 
   const publish = () => {
+    if (SocialsService.playerPostsLeft('facebook') <= 0) {
+      setFb("You've already posted twice on Facebook this week — END WEEK to post again.");
+      setTimeout(() => setFb(null), 3500);
+      return;
+    }
     const text = draft.trim() || (latest ? `Just thinking about '${latest.movieTitle}' — what a ride! 🎬` : 'Another amazing day in Hollywood! ✨');
     state.facebookPosts = state.facebookPosts || [];
     state.facebookPosts.unshift({
@@ -94,6 +99,7 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       isNpc: false,
       sentiment: 'Positive',
     } as any);
+    SocialsService.notePlayerPost('facebook');
     SocialsService.saveState(state);
     setState({ ...state });
     setDraft('');
@@ -177,7 +183,7 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-xs font-bold cursor-pointer"><ArrowLeft className="w-4 h-4" /> Back</button>
         <span className="text-sm font-black tracking-wide">📘 Facebook</span>
-        <div className="flex items-center gap-2 text-gray-500"><MessageCircle className="w-4 h-4" /><Users className="w-4 h-4" /></div>
+        <WriterSheet state={state} platform="facebook" onRefresh={() => setState({ ...SocialsService.getState() })} />
       </div>
 
       {tab === 'HOME' && (

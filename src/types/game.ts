@@ -245,6 +245,12 @@ export interface CallboardProject {
   tvSeason?: number;
   maxTvSeason?: number;
   proposedContract?: ProposedContract;
+  /** Links this listing to a real Wall Street West studio production */
+  productionRef?: string;
+  /** Ticker of the listed studio behind this production */
+  studioTicker?: string;
+  /** Completed acting courses required — the invisible talent gate */
+  requiredCourses?: number;
 }
 
 export interface AuditionApplication {
@@ -402,6 +408,7 @@ export interface ReleasedMovie {
   audienceScore?: number;
   boxOfficeGross?: number;
   sequelCheckWeeks?: number;
+  sequelEligibleAfter?: number;
   sequelOffered?: boolean;
   sequelOfferedPart?: number;
   sequelTarget?: number;
@@ -475,6 +482,7 @@ export type InboxCategory =
   | 'PERSONAL'
   | 'SYSTEM'
   | 'EVENTS'
+  | 'CRISIS'
   // Legacy mappings
   | 'CASTING'
   | 'RELATIONSHIPS'
@@ -589,6 +597,15 @@ export interface NpcProfile {
   prenupTerms?: PrenupTerms;
   history?: RelationshipHistoryEvent[];
   children?: ChildRecord[];
+  /** Active pregnancy — weeks tick down weekly until the birth event fires */
+  pregnancy?: {
+    weeksUntilBirth: number;
+    totalWeeks: number;
+    childName: string;
+    childGender: 'Male' | 'Female' | 'Non-Binary';
+    conceivedWeek: number;
+    conceivedYear: number;
+  };
   lastInteractionWeek?: number;
 }
 
@@ -783,6 +800,10 @@ export interface AwardCeremonyResult {
   newTrophies: TrophyItem[];
   newRecords: AwardRecord[];
   fameGained: number;
+  /** REAL fans gained from wins + nominations this ceremony (paid on close). */
+  fanGained?: number;
+  /** Broadcast opener: estimated live viewers derived from real fame/fans. */
+  viewersBase?: number;
   inboxMessages: InboxMessage[];
   newPlayerAwardsWon: number;
   playerEligible: boolean;

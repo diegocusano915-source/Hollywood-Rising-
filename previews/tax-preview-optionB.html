@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B — Live Tax Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #07070d;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+    padding: 24px 12px 60px;
+    display: flex; flex-direction: column; align-items: center; gap: 28px;
+    color: #e8e8f4;
+  }
+  .phone { width: 100%; max-width: 420px; }
+  .label { text-align: center; color: #8888a0; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+
+  /* ============ MODAL SHELL ============ */
+  .modal {
+    background: linear-gradient(160deg, #12121e, #0c0c16);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 40px rgba(59,110,255,0.08);
+    animation: modalUp 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+    position: relative;
+  }
+  @keyframes modalUp { from { transform: translateY(36px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .modal-glow { position: absolute; top: -60px; left: 50%; transform: translateX(-50%); width: 260px; height: 120px; background: radial-gradient(ellipse, rgba(59,110,255,0.35), transparent 70%); pointer-events: none; }
+
+  .head { padding: 18px 18px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .head-left { display: flex; align-items: center; gap: 10px; }
+  .head-ico { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #1e3a8a, #3b2f8a); display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 18px rgba(59,110,255,0.4); }
+  .head h3 { font-size: 13px; font-weight: 900; letter-spacing: 1px; }
+  .head p { font-size: 9px; color: #7878a0; letter-spacing: 2px; margin-top: 1px; }
+  .live-badge { display: flex; align-items: center; gap: 5px; font-size: 8.5px; font-weight: 900; letter-spacing: 2px; color: #4ade80; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.35); padding: 4px 9px; border-radius: 999px; }
+  .live-dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: blink 1.2s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .body { padding: 4px 18px 18px; }
+
+  /* ============ GAUGE ============ */
+  .gauge-wrap { display: flex; align-items: center; gap: 16px; padding: 8px 0 14px; }
+  .gauge { width: 108px; height: 108px; border-radius: 50%; flex-shrink: 0; background: conic-gradient(#4ade80 0deg 347deg, rgba(255,255,255,0.07) 347deg 360deg); display: flex; align-items: center; justify-content: center; position: relative; animation: spinIn 1s cubic-bezier(0.2,0.8,0.3,1); }
+  @keyframes spinIn { from { background: conic-gradient(#4ade80 0deg 0deg, rgba(255,255,255,0.07) 0deg 360deg); } }
+  .gauge-inner { width: 82px; height: 82px; border-radius: 50%; background: #0e0e18; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gauge-inner b { font-size: 20px; font-family: 'Courier New', monospace; }
+  .gauge-inner span { font-size: 7.5px; letter-spacing: 1.5px; color: #8888a8; margin-top: 2px; }
+  .gauge-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .gstat { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; }
+  .gstat span { color: #8888a8; }
+  .gstat b { font-family: 'Courier New', monospace; font-size: 12px; }
+  .gstat b.green { color: #4ade80; } .gstat b.red { color: #f87171; } .gstat b.gold { color: #fbbf24; }
+
+  /* ============ RISK METER ============ */
+  .risk-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .risk-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .risk-head span { font-size: 9px; letter-spacing: 2px; color: #8888a8; font-weight: 700; }
+  .risk-pill { font-size: 8.5px; font-weight: 900; letter-spacing: 1px; padding: 3px 10px; border-radius: 999px; }
+  .risk-pill.low { color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.4); }
+  .risk-pill.high { color: #f87171; background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.4); animation: pulseRed 1.4s infinite; }
+  @keyframes pulseRed { 0%,100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.35); } 50% { box-shadow: 0 0 0 7px rgba(248,113,113,0); } }
+  .risk-bar { height: 7px; border-radius: 999px; background: linear-gradient(90deg, #4ade80, #fbbf24, #f87171); position: relative; }
+  .risk-marker { position: absolute; top: -4px; width: 4px; height: 15px; background: #fff; border-radius: 3px; box-shadow: 0 0 8px rgba(255,255,255,0.8); }
+  .risk-note { font-size: 9.5px; color: #a8a8c4; margin-top: 8px; line-height: 1.5; }
+  .risk-note b { color: #f87171; }
+
+  /* ============ MONTH BARS ============ */
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 74px; margin-bottom: 10px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; border-radius: 4px 4px 2px 2px; background: linear-gradient(180deg, #3b6bff, #1e3a8a); transform-origin: bottom; animation: grow 0.7s cubic-bezier(0.2,0.8,0.3,1) backwards; }
+  .bar.warn { background: linear-gradient(180deg, #f87171, #7f1d1d); }
+  .bar-cur { background: linear-gradient(180deg, #4ade80, #14532d); box-shadow: 0 0 14px rgba(74,222,128,0.45); }
+  @keyframes grow { from { transform: scaleY(0); } }
+  .bar-lbl { font-size: 7.5px; color: #686890; font-weight: 700; }
+
+  /* ============ YEARLY RESULT ============ */
+  .result-hero { text-align: center; padding: 18px 12px 16px; position: relative; }
+  .result-hero .cap { font-size: 9px; letter-spacing: 3px; color: #8888a8; font-weight: 800; }
+  .result-amt { font-size: 42px; font-weight: 900; font-family: 'Courier New', monospace; margin-top: 6px; }
+  .result-amt.refund { color: #4ade80; text-shadow: 0 0 30px rgba(74,222,128,0.55); animation: popNum 0.6s 0.3s cubic-bezier(0.2,0.9,0.3,1.4) backwards; }
+  .result-amt.due { color: #f87171; text-shadow: 0 0 30px rgba(248,113,113,0.5); animation: popNum 0.6s 0.3s cubic-bezier(0.2,0.9,0.3,1.4) backwards; }
+  @keyframes popNum { from { transform: scale(0.5); opacity: 0; } }
+  .result-sub { font-size: 10px; color: #a8a8c4; margin-top: 6px; }
+
+  .confetti { position: absolute; width: 7px; height: 7px; top: -8px; animation: fall 2.6s linear infinite; }
+  @keyframes fall { to { transform: translateY(150px) rotate(540deg); opacity: 0; } }
+
+  .ledger { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+  .ledger-row { display: flex; justify-content: space-between; padding: 9px 14px; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .ledger-row:last-child { border-bottom: none; }
+  .ledger-row span { color: #9898b8; }
+  .ledger-row b { font-family: 'Courier New', monospace; }
+  .ledger-row.hl b { color: #fbbf24; }
+
+  .btn-row { display: flex; gap: 10px; }
+  .nbtn { flex: 1; padding: 12px; border-radius: 12px; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; cursor: pointer; text-transform: uppercase; }
+  .nbtn.green { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; box-shadow: 0 6px 20px rgba(22,163,74,0.35); }
+  .nbtn.red { background: linear-gradient(135deg, #dc2626, #991b1b); color: #fff; box-shadow: 0 6px 20px rgba(220,38,38,0.35); }
+  .nbtn.ghost { background: rgba(255,255,255,0.06); color: #c8c8e0; border: 1px solid rgba(255,255,255,0.14); }
+
+  .audit-strip { display: flex; gap: 10px; align-items: center; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; animation: shake 0.5s 0.8s; }
+  @keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+  .audit-strip .ico { font-size: 20px; }
+  .audit-strip p { font-size: 10px; line-height: 1.5; color: #fca5a5; }
+  .audit-strip b { color: #fff; }
+
+  .inbox-card { background: linear-gradient(135deg, #16161f, #101018); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid #4ade80; border-radius: 14px; padding: 13px 14px; display: flex; gap: 12px; margin-bottom: 10px; }
+  .inbox-ico { width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; background: linear-gradient(135deg, #14532d, #052e16); display: flex; align-items: center; justify-content: center; font-size: 19px; border: 1px solid rgba(74,222,128,0.4); }
+  .inbox-meta h4 { color: #e8e8f0; font-size: 11.5px; }
+  .inbox-meta p { color: #b0b0c8; font-size: 10px; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ================= MONTHLY ================= -->
+<div class="phone">
+  <div class="label">Option B · Monthly Close (Inbox card + Popup)</div>
+
+  <div class="inbox-card">
+    <div class="inbox-ico">📊</div>
+    <div class="inbox-meta">
+      <h4>TAX DASHBOARD · MAY CLOSED</h4>
+      <p>Withholding coverage <b style="color:#4ade80">96.6%</b> — you're on track. Tap to open live statement.</p>
+    </div>
+  </div>
+
+  <div class="modal">
+    <div class="modal-glow"></div>
+    <div class="head">
+      <div class="head-left">
+        <div class="head-ico">📊</div>
+        <div>
+          <h3>MAY TAX STATEMENT</h3>
+          <p>WEEK 22 · 2026 · AUTO-ISSUED</p>
+        </div>
+      </div>
+      <div class="live-badge"><div class="live-dot"></div>CLOSED</div>
+    </div>
+
+    <div class="body">
+      <div class="gauge-wrap">
+        <div class="gauge"><div class="gauge-inner"><b>96.6%</b><span>COVERAGE</span></div></div>
+        <div class="gauge-stats">
+          <div class="gstat"><span>May income</span><b class="gold">$412.5K</b></div>
+          <div class="gstat"><span>May withheld</span><b class="green">$103.1K</b></div>
+          <div class="gstat"><span>YTD income</span><b class="gold">$1.94M</b></div>
+          <div class="gstat"><span>YTD withheld</span><b class="green">$485.0K</b></div>
+          <div class="gstat"><span>Est. liability</span><b>$502.3K</b></div>
+        </div>
+      </div>
+
+      <div class="risk-card">
+        <div class="risk-head"><span>YEAR-TO-DATE WITHHOLDING TRACKER</span><span class="risk-pill low">ON TRACK</span></div>
+        <div class="bars">
+          <div class="bar-col"><div class="bar" style="height:38%; animation-delay:0.05s"></div><div class="bar-lbl">J</div></div>
+          <div class="bar-col"><div class="bar" style="height:52%; animation-delay:0.1s"></div><div class="bar-lbl">F</div></div>
+          <div class="bar-col"><div class="bar" style="height:44%; animation-delay:0.15s"></div><div class="bar-lbl">M</div></div>
+          <div class="bar-col"><div class="bar" style="height:61%; animation-delay:0.2s"></div><div class="bar-lbl">A</div></div>
+          <div class="bar-col"><div class="bar bar-cur" style="height:78%; animation-delay:0.25s"></div><div class="bar-lbl">M</div></div>
+          <div class="bar-col"><div class="bar" style="height:8%; opacity:0.25"></div><div class="bar-lbl">J</div></div>
+          <div class="bar-col"><div class="bar" style="height:8%; opacity:0.25"></div><div class="bar-lbl">J</div></div>
+          <div class="bar-col"><div class="bar" style="height:8%; opacity:0.25"></div><div class="bar-lbl">A</div></div>
+        </div>
+        <div class="risk-bar"><div class="risk-marker" style="left:18%"></div></div>
+        <div class="risk-note">Audit risk at year-end: <b style="color:#4ade80">LOW</b> · Accountant: <b style="color:#c8c8e0">CPA Firm</b> · Safe zone keeps your marker green.</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="nbtn ghost">Details</button>
+        <button class="nbtn green">Looks Good</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MONTHLY + AUDIT ================= -->
+<div class="phone">
+  <div class="label">Option B · Monthly Close WITH Field Audit</div>
+  <div class="modal">
+    <div class="head">
+      <div class="head-left">
+        <div class="head-ico" style="background:linear-gradient(135deg,#7f1d1d,#450a0a); box-shadow:0 0 18px rgba(248,113,113,0.4)">🚨</div>
+        <div>
+          <h3>SEPTEMBER STATEMENT</h3>
+          <p>WEEK 40 · 2026 · FIELD AUDIT</p>
+        </div>
+      </div>
+      <div class="live-badge" style="color:#f87171; border-color:rgba(248,113,113,0.4); background:rgba(248,113,113,0.1)"><div class="live-dot" style="background:#f87171"></div>FLAGGED</div>
+    </div>
+
+    <div class="body">
+      <div class="gauge-wrap">
+        <div class="gauge" style="background:conic-gradient(#f87171 0deg 249deg, rgba(255,255,255,0.07) 249deg 360deg)"><div class="gauge-inner"><b style="color:#f87171">69.1%</b><span>COVERAGE</span></div></div>
+        <div class="gauge-stats">
+          <div class="gstat"><span>Sep income</span><b class="gold">$860.0K</b></div>
+          <div class="gstat"><span>Sep withheld</span><b class="red">$61.2K</b></div>
+          <div class="gstat"><span>Required</span><b>$88.6K</b></div>
+          <div class="gstat"><span>Shortfall</span><b class="red">−$27.4K</b></div>
+        </div>
+      </div>
+
+      <div class="audit-strip">
+        <div class="ico">⚠️</div>
+        <p><b>MONTH-END FIELD AUDIT.</b> Withheld 69% of required (min 85%). Penalty <b>$2,192</b> (8% of shortfall) charged. Lawyer not retained — no defense roll.</p>
+      </div>
+
+      <div class="risk-card">
+        <div class="risk-head"><span>AUDIT RISK</span><span class="risk-pill high">ELEVATED</span></div>
+        <div class="risk-bar"><div class="risk-marker" style="left:74%"></div></div>
+        <div class="risk-note">Keep coverage above <b>85%</b> or retain a tax lawyer to contest penalties.</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="nbtn ghost">Hire Lawyer</button>
+        <button class="nbtn red">Pay $2,192</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= YEARLY REFUND ================= -->
+<div class="phone">
+  <div class="label">Option B · Year-End Filing (Refund)</div>
+  <div class="modal">
+    <div class="modal-glow" style="background:radial-gradient(ellipse, rgba(74,222,128,0.4), transparent 70%)"></div>
+    <div class="head">
+      <div class="head-left">
+        <div class="head-ico" style="background:linear-gradient(135deg,#14532d,#052e16); box-shadow:0 0 18px rgba(74,222,128,0.5)">🏛️</div>
+        <div>
+          <h3>2026 TAX RETURN</h3>
+          <p>WEEK 52 · FINAL FILING</p>
+        </div>
+      </div>
+      <div class="live-badge"><div class="live-dot"></div>FILED</div>
+    </div>
+
+    <div class="body">
+      <div class="result-hero">
+        <div class="confetti" style="left:20%; background:#4ade80; animation-delay:0s"></div>
+        <div class="confetti" style="left:45%; background:#fbbf24; animation-delay:0.5s"></div>
+        <div class="confetti" style="left:70%; background:#4ade80; animation-delay:1s"></div>
+        <div class="confetti" style="left:85%; background:#60a5fa; animation-delay:1.4s"></div>
+        <div class="cap">REFUND INCOMING</div>
+        <div class="result-amt refund">+$78,600</div>
+        <div class="result-sub">You over-withheld this year. Money is on its way to your account. 🎉</div>
+      </div>
+
+      <div class="ledger">
+        <div class="ledger-row"><span>Total income 2026</span><b>$6,240,800</b></div>
+        <div class="ledger-row"><span>Deductions applied</span><b>−$712,400</b></div>
+        <div class="ledger-row"><span>Taxable income</span><b>$5,528,400</b></div>
+        <div class="ledger-row"><span>Tax liability</span><b>$1,863,500</b></div>
+        <div class="ledger-row"><span>Withheld all year</span><b>$1,942,100</b></div>
+        <div class="ledger-row hl"><span>Audit check</span><b>✔ CLEARED — NO AUDIT</b></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="nbtn ghost">Full Report</button>
+        <button class="nbtn green">Deposit Refund</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= YEARLY DUE ================= -->
+<div class="phone">
+  <div class="label">Option B · Year-End Filing (Balance Due + Audit)</div>
+  <div class="modal">
+    <div class="head">
+      <div class="head-left">
+        <div class="head-ico" style="background:linear-gradient(135deg,#7f1d1d,#450a0a); box-shadow:0 0 18px rgba(248,113,113,0.45)">🚨</div>
+        <div>
+          <h3>2026 TAX RETURN</h3>
+          <p>WEEK 52 · AUDIT SELECTED</p>
+        </div>
+      </div>
+      <div class="live-badge" style="color:#f87171; border-color:rgba(248,113,113,0.4); background:rgba(248,113,113,0.1)"><div class="live-dot" style="background:#f87171"></div>AUDITED</div>
+    </div>
+
+    <div class="body">
+      <div class="result-hero">
+        <div class="cap">BALANCE DUE</div>
+        <div class="result-amt due">−$460,600</div>
+        <div class="result-sub">Withholding gap of 24.7% triggered a compliance audit.</div>
+      </div>
+
+      <div class="audit-strip">
+        <div class="ico">⚖️</div>
+        <p><b>YEAR-END AUDIT PENALTY +$46,060</b> (10% of gap). Total charged: <b>$506,660</b>. A CPA or lawyer before filing cuts this risk sharply.</p>
+      </div>
+
+      <div class="ledger">
+        <div class="ledger-row"><span>Total income 2026</span><b>$6,240,800</b></div>
+        <div class="ledger-row"><span>Tax liability</span><b>$1,863,500</b></div>
+        <div class="ledger-row"><span>Withheld all year</span><b>$1,402,900</b></div>
+        <div class="ledger-row"><span>Compliance sweep</span><b style="color:#f87171">SELECTED</b></div>
+        <div class="ledger-row hl"><span>Total due (with penalty)</span><b style="color:#f87171">$506,660</b></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="nbtn ghost">Contest</button>
+        <button class="nbtn red">Pay $506,660</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
