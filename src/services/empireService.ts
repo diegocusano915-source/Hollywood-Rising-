@@ -5,6 +5,7 @@
 
 import { Player } from '../types/game';
 import { FAME_XP_MULTIPLIER } from './fameService';
+import { processRivalriesWeek } from './rivalryService';
 import {
   EmpireFullState,
   Executive,
@@ -800,7 +801,7 @@ export class EmpireService {
   }
 
   // CENTRAL END WEEK TICK ENGINE FOR EMPIRE SCENE
-  public static processEndWeek(player: Player, currentState?: EmpireFullState): { updatedState: EmpireFullState; weeklyCashYield: number; logMessages: string[]; achievementsCash: number; achievementsXp: number } {
+  public static processEndWeek(player: Player, currentState?: EmpireFullState, opts?: { bestBoxOfficeGross?: number }): { updatedState: EmpireFullState; weeklyCashYield: number; logMessages: string[]; achievementsCash: number; achievementsXp: number } {
     const loadedState = currentState || EmpireService.loadState(player);
     let state: EmpireFullState = JSON.parse(JSON.stringify(loadedState));
     const logMessages: string[] = [];
@@ -1167,57 +1168,17 @@ export class EmpireService {
       state.legacy.hallOfFameRank = 'Rising Multi-Millionaire';
     }
 
-    // 8. RIVALRY GAMEPLAY TICK (Spawns rivals naturally if condition met)
-    if (fameXP > 300 && Math.random() < 0.12 && (state.rivalries || []).length < 25) {
-      const rivalPool = [
-        { name: 'Alexander Vance', role: 'Actor' as const, avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', career: 'Oscar Nominee', cause: 'Losing lead role in major tentpole film' },
-        { name: 'Sophia Sterling', role: 'Director' as const, avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150', career: 'Cannes Palme d’Or Winner', cause: 'Controversial festival interview criticism' },
-        { name: 'Damon Kincaid', role: 'Studio Executive' as const, avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', career: 'Paramount Senior VP', cause: 'Hostile contract negotiations & box office clash' },
-        { name: 'Chloe Laurent', role: 'Pop Star' as const, avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150', career: 'Grammy Winning Artist', cause: 'Social media feud over red carpet endorsement' },
-        { name: 'Marcus Thorne', role: 'Tech Billionaire' as const, avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', career: 'Streaming Platform CEO', cause: 'Bidding war for studio production lot' },
-      ];
-      const unadded = rivalPool.filter((r) => !(state.rivalries || []).some((existing) => existing?.name === r.name));
-      if (unadded.length > 0) {
-        const selected = unadded[Math.floor(Math.random() * unadded.length)];
-        const newRival: RivalryNPC = {
-          id: `rival_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          name: selected.name,
-          role: selected.role,
-          avatarUrl: selected.avatarUrl,
-          relationshipLevel: 'Tension',
-          heatLevel: 'Tension',
-          rivalryScore: 35,
-          cause: selected.cause,
-          weekStarted: week,
-          yearStarted: year,
-          career: selected.career,
-          moviesTogether: [],
-          awardsCompared: { playerWon: 0, rivalWon: 0 },
-          socialMediaActivity: {
-            followersCount: Math.floor(Math.random() * 5000000) + 500000,
-            sentiment: 'Passive-Aggressive',
-            trendingHashtag: `#${selected.name.replace(/\s+/g, '')}Vs${player.lastName || 'Player'}`,
-          },
-          timeline: [
-            {
-              id: `tl_start_${Date.now()}`,
-              week,
-              year,
-              eventText: `Rivalry sparked: ${selected.cause}`,
-              category: 'General',
-            },
-          ],
-          fansCount: Math.floor(Math.random() * 2000000) + 100000,
-          legalHistory: [],
-          businessHistory: [],
-          lastEventDescription: `${selected.name} made subtle jabs during a podcast interview regarding your recent Hollywood projects.`,
-          mediaHeadlines: [`Hollywood Reporter: Tension brewing between ${selected.name} and ${player.firstName} ${player.lastName}!`],
-          directorSupport: 'Divided studio executives',
-          studioReaction: 'Monitoring public sentiment',
-        };
-        state.rivalries.push(newRival);
-        logMessages.push(`⚔️ NEW HOLLYWOOD RIVALRY: ${selected.name} sparked a rivalry (${selected.cause})!`);
-      }
+    // 8. RIVALRY WAR ROOM WEEKLY TICK (strikes, decay, resolutions, natural spawn)
+    // All outcomes resolve against the player's real career stats; effects are
+    // applied straight to the live player object the same tick.
+    try {
+      const rivalTick = processRivalriesWeek(state, player, opts?.bestBoxOfficeGross || 0, week, year);
+      for (const m of rivalTick.logMessages) logMessages.push(m);
+      if (rivalTick.fansDelta !== 0) player.fans = Math.max(0, (player.fans || 0) + rivalTick.fansDelta);
+      if (rivalTick.fameXpDelta !== 0) player.fameXp = Math.max(0, (player.fameXp || 0) + rivalTick.fameXpDelta);
+      if (rivalTick.repDelta !== 0) player.publicReputation = Math.min(100, Math.max(0, (player.publicReputation ?? 50) + rivalTick.repDelta));
+    } catch (e) {
+      console.warn('Rivalry weekly tick error:', e);
     }
 
     EmpireService.saveState(state);

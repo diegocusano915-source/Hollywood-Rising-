@@ -1288,7 +1288,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     NetworkService.saveState(networkState);
 
     // Process Services (Empire, Representation, Socials, Living World)
-    const empireResult = EmpireService.processEndWeek(p);
+    // bestBoxOfficeGross feeds the rivalry War Room: showdown odds compare
+    // against the player's best REAL worldwide gross, never a fake number.
+    const bestGrossSoFar = saveData.releasedMovies.reduce((mx, m) => Math.max(mx, m.worldwideGross || 0), 0);
+    const empireResult = EmpireService.processEndWeek(p, undefined, { bestBoxOfficeGross: bestGrossSoFar });
 
     // BLACK CARD SOCIETY weekly tick — annual dues + co-investment payouts.
     // All amounts are real and hit the wallet immediately.

@@ -429,7 +429,12 @@ export const RoadmapModal: React.FC = () => (
     <div className="space-y-4">
       <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-center">
         <h3 className="text-xs font-black text-amber-300 uppercase tracking-widest">HOLLYWOOD RISING DEVELOPMENT ROADMAP</h3>
-        <p className="text-[11px] text-gray-300">Five official phases guiding the future of film industry simulation.</p>
+        <p className="text-[11px] text-gray-300">Eight official phases — from first audition to global media dynasty.</p>
+        <div className="flex items-center justify-center gap-2 mt-2 text-[9px] font-black">
+          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">4 COMPLETE</span>
+          <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40">1 IN PROGRESS</span>
+          <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">3 PLANNED</span>
+        </div>
       </div>
 
       {/* PHASE 1 */}
@@ -439,16 +444,18 @@ export const RoadmapModal: React.FC = () => (
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 1: FOUNDATION</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">
-            Completed
-          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">Completed</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-emerald-200">
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Career</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Production</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Relationships</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Empire</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Economy</div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">The core acting career: create your actor, audition, book roles, film, release, and climb the fame ladder. Talents, acting school, union membership, and the first economy.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-emerald-200">
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Character Creation</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Auditions & Casting</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Production Pipeline</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Talent School</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Fame Ladder</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">SAG-AFTRA Union</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Core Economy</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Weekly Cycle</div>
         </div>
       </div>
 
@@ -459,77 +466,150 @@ export const RoadmapModal: React.FC = () => (
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 2: HOLLYWOOD EXPANSION</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">
-            Completed
-          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">Completed</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-emerald-200">
+        <p className="text-[10px] text-gray-400 leading-relaxed">The industry around the actor: social media, awards season, box office simulation, NPC rival careers, representation, and the empire builder.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-emerald-200">
           <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Social Media</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Awards</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Box Office</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">NPC Careers</div>
-          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Studios</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Awards Season</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Box Office Engine</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">NPC Rivals</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Representation</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Empire Builder</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Relationships</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Scandals & PR</div>
         </div>
       </div>
 
       {/* PHASE 3 */}
-      <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-400/50 space-y-2 shadow-lg">
+      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-            <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider">PHASE 3: FINAL POLISH</h4>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 3: LIVING MARKETS</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-black uppercase shadow">
-            Currently In Progress
-          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">Completed</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-amber-200">
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">AAA UI</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Animations</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Performance</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Audio</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Settings</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Credits</div>
-          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center col-span-2">Roadmap</div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">Wall Street West studio stocks with real production slates feeding the Callboard, the living Star Exchange crypto market, the Forbes wealth leaderboard, the real tax system, and the Black Card Society.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-emerald-200">
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Studio Stocks</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Crypto Exchange</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Forbes List</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Tax Engine</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Elite Society</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Bankroll Deals</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Hollywood Insider</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Creator Banks</div>
         </div>
       </div>
 
       {/* PHASE 4 */}
-      <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 4: LIVE OPERATIONS</h4>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 4: THE AUDITION ARENA ECONOMY</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 uppercase border border-purple-500/40">
-            Future Expansion
-          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase border border-emerald-500/40">Completed</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-purple-200">
-          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Community Events</div>
-          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Seasonal Updates</div>
-          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Holiday Events</div>
-          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Limited Time Content</div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">The slow-burn rebuild: talent-gated auditions with competitive odds, creator HQs with real follower engines, the Trade Paper news desk, and the Star Match relationship system with pregnancy and family.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-emerald-200">
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Audition Arena</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Creator HQs</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Monthly Payouts</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Trade Paper</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Star Match</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Pregnancy & Family</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Whale Copy-Trade</div>
+          <div className="p-1.5 rounded bg-black/40 border border-emerald-500/20 text-center">Slow-Burn Fame</div>
         </div>
       </div>
 
       {/* PHASE 5 */}
+      <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-400/50 space-y-2 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+            <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider">PHASE 5: FINAL POLISH</h4>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-black uppercase shadow">In Progress</span>
+        </div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">AAA interface polish, richer rivalries, performance optimization, expanded audio, and deeper quality-of-life across every screen.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-amber-200">
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">AAA UI Polish</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Rivalries Rebuild</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Performance</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Audio Expansion</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Settings</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Credits</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">Bug Fixes</div>
+          <div className="p-1.5 rounded bg-black/40 border border-amber-500/30 text-center">QoL Pass</div>
+        </div>
+      </div>
+
+      {/* PHASE 6 */}
+      <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 6: LIVE OPERATIONS</h4>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 uppercase border border-purple-500/40">Planned</span>
+        </div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">Seasonal events, holiday premieres, limited-time awards galas, community challenges, and rotating industry trends that reshuffle the meta.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-purple-200">
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Seasonal Events</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Holiday Premieres</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Limited Galas</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Community Goals</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Industry Trends</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Rotating Meta</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Special Cameos</div>
+          <div className="p-1.5 rounded bg-black/40 border border-purple-500/20 text-center">Event Rewards</div>
+        </div>
+      </div>
+
+      {/* PHASE 7 */}
       <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/30 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-sky-400" />
-            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 5: GLOBAL EXPANSION</h4>
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 7: NEW CAREERS</h4>
           </div>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 uppercase border border-sky-500/40">
-            Future DLC
-          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 uppercase border border-sky-500/40">Planned</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10px] font-bold text-sky-200">
+        <p className="text-[10px] text-gray-400 leading-relaxed">Play the other side of Hollywood: direct features, produce franchise slates, run your own studio empire, or cross over into music.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-sky-200">
           <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Director Career</div>
           <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Producer Career</div>
-          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Studio Owner</div>
-          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Online Features</div>
-          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Future DLC</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Studio Owner Mode</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Screenwriter Path</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Music Crossover</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Stunt Career</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Critic Path</div>
+          <div className="p-1.5 rounded bg-black/40 border border-sky-500/20 text-center">Talent Agent</div>
+        </div>
+      </div>
+
+      {/* PHASE 8 */}
+      <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-rose-400" />
+            <h4 className="text-xs font-black text-white uppercase tracking-wider">PHASE 8: GLOBAL EXPANSION</h4>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 uppercase border border-rose-500/40">Planned</span>
+        </div>
+        <p className="text-[10px] text-gray-400 leading-relaxed">International markets, online features, and the endgame dynasty: multi-generational media empire with heirs, legacy awards, and a hall-of-fame career retrospective.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] font-bold text-rose-200">
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">International Markets</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Bollywood & Nollywood</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Dynasty & Heirs</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Hall of Fame</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Online Features</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Cloud Saves</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Leaderboards</div>
+          <div className="p-1.5 rounded bg-black/40 border border-rose-500/20 text-center">Legacy Retrospective</div>
         </div>
       </div>
     </div>

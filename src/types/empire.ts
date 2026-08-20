@@ -332,6 +332,19 @@ export interface RivalryTimelineEvent {
   category?: 'Award' | 'Audition' | 'Social Media' | 'Legal' | 'Business' | 'Interview' | 'Peace' | 'General';
 }
 
+/**
+ * Rival power block — every number is generated RELATIVE to the player's real
+ * career stats at spawn time (fame XP, fans, social followers, best box office,
+ * awards won) so head-to-head comparisons always reflect the actual save file.
+ */
+export interface RivalPower {
+  fame: number; // comparable to player.fameXp
+  fans: number; // comparable to player.fans
+  followers: number; // comparable to the player's real total social followers
+  boxOffice: number; // comparable to the player's best real worldwide gross
+  awards: number; // comparable to player.awardsWon
+}
+
 export interface RivalryNPC {
   id: string;
   name: string;
@@ -361,6 +374,16 @@ export interface RivalryNPC {
   studioReaction: string;
   peaceProposed?: boolean;
   isBlocked?: boolean;
+  // --- War Room engine fields (all optional: old saves migrate lazily) ---
+  power?: RivalPower; // fixed at spawn, never re-rolled per render
+  playerWins?: number; // head-to-head record
+  rivalWins?: number;
+  draws?: number;
+  cooldownUntilWeek?: number; // one strategic action per rival per cooldown window
+  nextStrikeWeek?: number; // when the rival strikes back next (real weeks only)
+  lastEventWeek?: number; // for heat decay when a feud goes quiet
+  resolved?: boolean; // feud finished (peace or burnout)
+  resolution?: string; // how it ended
 }
 
 export type EliteCategory =
