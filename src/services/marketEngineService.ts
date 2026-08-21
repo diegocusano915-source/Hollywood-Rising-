@@ -1784,7 +1784,7 @@ export class MarketEngineService {
       s.nextStudioLaunchWeek = playerYear * 52 + playerWeek + 10 + Math.floor(Math.random() * 3);
     }
     if (playerYear * 52 + playerWeek >= s.nextStudioLaunchWeek) {
-      const fresh = generateEndlessStudio() as StockCompany;
+      const fresh = generateEndlessStudio(new Set(s.stocks.map((x) => x.ticker))) as StockCompany;
       // normalize to the full StockCompany shape: generator returns a
       // single news string + omits player position fields (crash source)
       fresh.news = Array.isArray(fresh.news) ? fresh.news : [String(fresh.news)];
@@ -2116,7 +2116,11 @@ export class MarketEngineService {
             newStock.slateHealth = 55 + Math.floor(Math.random() * 20);
           }
 
-          s.stocks.unshift(newStock);
+          // ANTI-REPEAT guard: if this ticker somehow already trades, complete
+          // the IPO without inserting a duplicate listing (no repeat inbox)
+          if (!s.stocks.some((st) => st.ticker === newStock.ticker)) {
+            s.stocks.unshift(newStock);
+          }
 
           const launchNews = `WALL STREET IPO: ${ipo.companyName} (${ipo.ticker}) goes public at $${launchPrice}/share with $${(launchMarketCap / 1000000).toFixed(1)}M market cap!`;
           headlineNews.push(launchNews);
@@ -2129,6 +2133,10 @@ export class MarketEngineService {
     });
 
     // 5. PERIODICALLY GENERATE NEW IPOS (Every 4 weeks)
+    // ANTI-REPEAT: a company may only ever IPO once — candidates are filtered
+    // against every ticker that already exists as a stock, an upcoming IPO or
+    // a completed IPO. When the curated pool is exhausted, endless procedural
+    // companies file instead (no duplicate listings, ever).
     if (playerWeek % 4 === 0 && s.ipos.filter((i) => i.status === 'Upcoming').length < 3) {
       const newIpoNames = [
         { name: 'Vanguard AI VFX', ticker: 'VVFX', ind: 'Artificial Intelligence & Visual Tech', price: 24.0, rev: 120000000, profit: 18000000, debt: 20000000, desc: 'Next-gen cloud rendering pipeline for streaming platforms.' },
@@ -2137,7 +2145,35 @@ export class MarketEngineService {
         { name: 'Starlight Live Streaming', ticker: 'STRT', ind: 'Media & Interactive', price: 12.0, rev: 68000000, profit: 5000000, debt: 12000000, desc: 'Interactive live red carpet streaming and fan monetization app.' },
       ];
 
-      const pick = newIpoNames[Math.floor(Math.random() * newIpoNames.length)];
+      // Everything already traded / filed is off the table
+      const usedTickers = new Set<string>([
+        ...s.stocks.map((st) => st.ticker),
+        ...s.ipos.map((i) => i.ticker),
+      ]);
+      let candidates = newIpoNames.filter((n) => !usedTickers.has(n.ticker));
+
+      // Endless fallback: procedural companies so new IPO filings never repeat
+      if (candidates.length === 0) {
+        const p1 = ['Helios', 'Kestrel', 'Northgate', 'Lumen', 'Ironwood', 'Cobalt', 'Marlowe', 'Verity', 'Halcyon', 'Sable', 'Onyx', 'Crestline', 'Vesper', 'Ardent', 'Solstice'];
+        const p2 = ['Dynamics', 'Media Group', 'Interactive', 'Pictures Holdings', 'Technologies', 'Studios Trust', 'Networks', 'Labs', 'Capital Entertainment', 'Systems'];
+        const inds = ['Media & Interactive', 'Entertainment & Gaming', 'Artificial Intelligence & Visual Tech', 'Real Estate & Studios', 'Consumer & Lifestyle'];
+        const nm = `${p1[Math.floor(Math.random() * p1.length)]} ${p2[Math.floor(Math.random() * p2.length)]}`;
+        let tk = nm.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 4);
+        while (usedTickers.has(tk)) tk = tk.slice(0, 3) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+        const rv = Math.floor(30000000 + Math.random() * 220000000);
+        candidates = [{
+          name: nm,
+          ticker: tk,
+          ind: inds[Math.floor(Math.random() * inds.length)],
+          price: Math.round((8 + Math.random() * 32) * 10) / 10,
+          rev: rv,
+          profit: Math.floor(rv * (0.05 + Math.random() * 0.2)),
+          debt: Math.floor(rv * Math.random() * 0.5),
+          desc: 'Freshly filed venture with a growing content pipeline and institutional backing.',
+        }];
+      }
+
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
       const freshIpo: IpoCompany = {
         id: `ipo_gen_${Date.now()}`,
         companyName: pick.name,
@@ -2595,10 +2631,18 @@ const STUDIO_PREFIX = ['Apex', 'Stellar', 'Meridian', 'Cascade', 'Ironclad', 'Su
 const STUDIO_SUFFIX = ['Studios', 'Pictures', 'Entertainment', 'Films', 'Productions', 'Media', 'Pictures Group', 'Works', 'Cinema', 'Motion Co.', 'Pictures Co.', 'Entertainment Group', 'Films Co.', 'Studios Group'];
 
 // ENDLESS STUDIO GENERATOR
-export function generateEndlessStudio(): Omit<StockCompany, 'playerSharesOwned' | 'playerAvgBuyPrice' | 'playerBoardMember'> {
+export function generateEndlessStudio(existingTickers?: Set<string>): Omit<StockCompany, 'playerSharesOwned' | 'playerAvgBuyPrice' | 'playerBoardMember'> {
   const prefix = rand(STUDIO_PREFIX);
   const suffix = rand(STUDIO_SUFFIX);
-  const ticker = (prefix.slice(0, 2) + suffix.slice(0, 1)).toUpperCase();
+  // ANTI-REPEAT: re-roll until the ticker is unique on the exchange
+  let ticker = (prefix.slice(0, 2) + suffix.slice(0, 1)).toUpperCase();
+  if (existingTickers) {
+    let attempts = 0;
+    while (existingTickers.has(ticker) && attempts < 40) {
+      ticker = (prefix.slice(0, 2) + suffix.slice(0, 1)).toUpperCase() + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      attempts++;
+    }
+  }
   const price = Math.round((5 + Math.random() * 60) * 100) / 100;
   const shares = Math.floor(10000000 + Math.random() * 90000000);
   const revenue = Math.floor(20000000 + Math.random() * 900000000);
@@ -2686,7 +2730,7 @@ export function processEndlessMarket(s: any, playerWeek: number, playerYear: num
   if (playerWeek % 4 === 0) {
     const publicCount = (s.stocks || []).filter((x: any) => x.status === 'Public').length;
     if (publicCount < 12) {
-      const newStudio = generateEndlessStudio() as StockCompany;
+      const newStudio = generateEndlessStudio(new Set(s.stocks.map((x) => x.ticker))) as StockCompany;
       // normalize to the full StockCompany shape (news array + player fields)
       newStudio.news = Array.isArray(newStudio.news) ? newStudio.news : [String(newStudio.news)];
       newStudio.playerSharesOwned = 0;

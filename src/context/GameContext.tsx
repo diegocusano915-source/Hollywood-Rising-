@@ -47,9 +47,9 @@ import { getAgentById, getManagerById } from '../database/representationDatabase
 import { scheduleTvInterview, processTvOffersWeekly, scheduleRadioInterview, processRadioOffersWeekly } from '../services/tvInterviewEngine';
 import { ensureSocietyState, processSocietyWeek } from '../services/societyEngine';
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
-import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly } from '../services/streamingEngine';
+import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly, processNpcLicensingWeek, drainNpcSigningBonuses } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
-import { LivingWorldService } from '../services/livingWorldService';
+import { LivingWorldService, processFilmingLocationsWeek } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
 import { ToastMessage, ToastCategory } from '../components/common/ToastContainer';
 import { MarketEngineService } from '../services/marketEngineService';
@@ -1322,7 +1322,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Error processing social hub week:', e);
     }
-    const livingWorldResult = LivingWorldService.advanceWorldWeek(newWeek, newYear, p);
+    // LIVING WORLD: studios fight for market share weekly, relationships move
+    // on your REAL credits (studios you actually work with), and the filming
+    // locations catalogue drifts + rotates destinations in and out.
+    const playerStudioNames = Array.from(new Set([
+      ...(saveData.bookedProjects || []).map((b) => b.studio).filter(Boolean),
+      ...(saveData.releasedMovies || []).map((m) => m.studio).filter(Boolean),
+    ])) as string[];
+    const livingWorldResult = LivingWorldService.advanceWorldWeek(newWeek, newYear, p, playerStudioNames);
+    try {
+      const locationNews = processFilmingLocationsWeek(newWeek, newYear);
+      if (locationNews.length > 0) worldNews.push(...locationNews);
+    } catch (e) {
+      console.warn('Filming locations weekly tick error:', e);
+    }
 
     if (socialsResult.socialPosts) socialPosts.push(...socialsResult.socialPosts);
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
@@ -2648,6 +2661,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (royaltyResult.moneyDelta > 0) {
         streamingIncomeThisWeek += royaltyResult.moneyDelta; // lands via weekly reconciliation (real)
         socialReputation.push(...royaltyResult.messages);
+      }
+      // NPC LICENSING: for movies the player starred in, the studio and the
+      // platforms negotiate streaming rights themselves — the player gets an
+      // inbox report with their exact backend percentage + a real signing bonus.
+      const npcLicensing = processNpcLicensingWeek(streamState, p, saveData.releasedMovies || [], newWeek, newYear);
+      npcLicensing.messages.forEach((m) => {
+        newInboxMessages.unshift({
+          ...m,
+          id: `msg_npc_stream_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          category: 'MEDIA',
+          sender: 'Streaming Rights Desk',
+          senderRole: 'Studio Licensing Coordinator',
+          senderAvatar: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100',
+          dateWeek: newWeek,
+          dateYear: newYear,
+        });
+      });
+      const npcBonus = drainNpcSigningBonuses();
+      if (npcBonus > 0) {
+        p.money += npcBonus;
+        streamingIncomeThisWeek += npcBonus;
       }
       // Real offer windows: platforms hold bids 3 weeks, then withdraw them
       const bidResult = processBidsWeekly(streamState, newWeek, newYear);

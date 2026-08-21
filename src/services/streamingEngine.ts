@@ -24,6 +24,8 @@ export interface PlatformState {
     weeksLeft: number; // real offer window: 3 weeks to answer
     status: 'PENDING' | 'ACCEPTED' | 'COUNTERED' | 'REJECTED' | 'EXPIRED';
   }[];
+  /** Movies already licensed in an NPC studio↔platform deal (no re-licensing) */
+  licensedMovieIds?: string[];
 }
 
 function defaultState(): PlatformState {
@@ -231,7 +233,12 @@ export function processStreamingRoyaltiesWeek(
         ((player?.fameXp || 0) * 500 + (platform.subscriberBase || 100000000) * 0.002) *
         (0.8 + Math.random() * 0.4)
       );
-      const weekly = Math.floor(views * (deal.royaltyRate / 100) * 0.5);
+      const fullWeekly = Math.floor(views * (deal.royaltyRate / 100) * 0.5);
+      // NPC studio deals: the player only receives their backend percentage —
+      // the studio keeps the rest of the royalty pool
+      const weekly = deal.npcDeal && deal.playerCutPct
+        ? Math.floor((fullWeekly * deal.playerCutPct) / 100)
+        : fullWeekly;
       deal.weeklyRoyalty = weekly;
       moneyDelta += weekly;
       if (studioFinancials) {
@@ -239,7 +246,7 @@ export function processStreamingRoyaltiesWeek(
           id: `fin_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           projectTitle: deal.projectTitle,
           type: 'INCOME',
-          category: 'Streaming',
+          category: deal.npcDeal ? 'Streaming (backend)' : 'Streaming',
           amount: weekly,
           week,
           year,
@@ -250,4 +257,117 @@ export function processStreamingRoyaltiesWeek(
   if (moneyDelta > 0) messages.push(`📺 Streaming royalties this week: +$${moneyDelta.toLocaleString()}`);
   saveStreamingState(state);
   return { moneyDelta, messages };
+}
+
+// ---------------------------------------------------------------------------
+// NPC LICENSING — when a movie the player STARRED IN (but doesn't own) ends
+// its theatrical run, the studio and the platforms negotiate streaming rights
+// themselves. The player never pitches; they just receive their contractual
+// backend percentage, reported to the inbox with the exact numbers.
+// ---------------------------------------------------------------------------
+
+export interface NpcLicensingResult {
+  messages: { subject: string; body: string; date: string; read: boolean }[];
+}
+
+/** Backend points by role — the real-world shape of star residuals. */
+function backendPctFor(roleType: string, fameXp: number): number {
+  const base = roleType === 'Lead' ? 3.5 : roleType === 'Principal' ? 2.25 : 1.5;
+  const fameBonus = Math.min(1.5, fameXp / 20000); // legends negotiate better clauses
+  return Math.round(Math.min(6, base + fameBonus) * 100) / 100;
+}
+
+export function processNpcLicensingWeek(
+  state: PlatformState,
+  player: any,
+  releasedMovies: any[],
+  week: number,
+  year: number
+): NpcLicensingResult {
+  const messages: NpcLicensingResult['messages'] = [];
+  if (!Array.isArray(releasedMovies)) return { messages };
+
+  const licensed = new Set<string>([
+    ...(state.licensedMovieIds || []),
+    // deals the player signed themselves also lock the title
+    ...state.platforms.flatMap((p) => (p.activeDeals || []).map((d) => d.movieRefId).filter(Boolean) as string[]),
+  ]);
+
+  for (const movie of releasedMovies) {
+    // Eligible: theatrical run concluded, real rating exists, not yet licensed,
+    // and the studio (not the player) controls the rights — i.e. any film the
+    // player acted in. One negotiation chance per movie per week (30%).
+    const runEnded = movie.inCinemas === false && (movie.weeksInCinemas || 0) >= 8;
+    if (!runEnded || licensed.has(movie.id) || Math.random() > 0.3) continue;
+
+    // The studio picks a platform — bigger subscriber bases attract bigger deals
+    const weighted = [...state.platforms].sort(
+      (a, b) => (b.subscriberBase || 0) * Math.random() - (a.subscriberBase || 0) * Math.random()
+    );
+    const platform = weighted[0];
+    if (!platform) continue;
+
+    const exclusive = Math.random() < 0.7;
+    const overall = Math.round(((movie.audienceRating || 60) + (movie.criticRating || 60)) / 2);
+    const budget = movie.budget || Math.max(1000000, Math.floor((movie.worldwideGross || 0) / 3));
+    const bid = generateBid(platform, movie.movieTitle, movie.isTvSeries ? 'Series' : 'Movie', overall, budget, movie.worldwideGross || 0, exclusive, movie.id);
+    // Studio-to-platform license fees run well above single-actor pitches
+    const licenseFee = Math.floor(bid.upfront * (2 + Math.random()));
+    const playerPct = backendPctFor(movie.roleType || 'Supporting', player?.fameXp || 0);
+    const signingBonus = Math.floor((licenseFee * playerPct) / 100);
+
+    const deal: StreamingDeal = {
+      id: `deal_npc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      projectTitle: movie.movieTitle,
+      projectType: movie.isTvSeries ? 'Series' : 'Movie',
+      platformId: platform.id,
+      exclusive,
+      upfront: licenseFee,
+      royaltyRate: bid.royaltyRate,
+      weeklyRoyalty: 0,
+      startWeek: week,
+      startYear: year,
+      weeksRemaining: exclusive ? 52 : 26,
+      totalWeeks: exclusive ? 52 : 26,
+      movieRefId: movie.id,
+      npcDeal: true,
+      playerCutPct: playerPct,
+      studioName: movie.studio || 'The Studio',
+    };
+    platform.activeDeals = platform.activeDeals || [];
+    platform.activeDeals.unshift(deal);
+    platform.moviesLicensed += deal.projectType === 'Movie' ? 1 : 0;
+    platform.seriesLicensed += deal.projectType === 'Series' ? 1 : 0;
+    platform.moneyEarned += licenseFee;
+    platform.status = exclusive ? 'Exclusive' : 'Partner';
+    licensed.add(movie.id);
+
+    messages.push({
+      subject: `📺 ${platform.name} x ${deal.studioName}: "${movie.movieTitle}" streaming deal closed — your cut ${playerPct}%`,
+      body:
+        `${deal.studioName} and ${platform.name} negotiated the streaming rights for "${movie.movieTitle}" (your role: ${movie.roleType}) without you lifting a finger.\n\n` +
+        `• License fee: $${licenseFee.toLocaleString()} (${exclusive ? 'EXCLUSIVE' : 'non-exclusive'}, ${deal.weeksRemaining} week window)\n` +
+        `• Your backend: ${playerPct}% as ${movie.roleType}\n` +
+        `• Signing bonus deposited: $${signingBonus.toLocaleString()}\n` +
+        `• Weekly residuals: ${playerPct}% of the deal's royalty pool, paid every week the title stays live\n\n` +
+        `The studio keeps the rest — that's the business. Your residuals flow automatically into your weekly income.`,
+      date: `Week ${week}, ${year}`,
+      read: false,
+    });
+
+    // The signing bonus is real money — drained by the caller this same week
+    pendingNpcBonuses += signingBonus;
+  }
+
+  state.licensedMovieIds = Array.from(licensed).slice(-200);
+  saveStreamingState(state);
+  return { messages };
+}
+
+/** Real signing bonuses earned by NPC deals this week (drained on read). */
+let pendingNpcBonuses = 0;
+export function drainNpcSigningBonuses(): number {
+  const v = pendingNpcBonuses;
+  pendingNpcBonuses = 0;
+  return v;
 }

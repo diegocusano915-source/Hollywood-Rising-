@@ -117,6 +117,11 @@ export interface StreamingDeal {
   weeksRemaining: number;
   totalWeeks: number;
   movieRefId?: string;
+  /** NPC deal: studio & platform negotiated this themselves — the player
+   *  (who starred in the film) receives playerCutPct% of the royalties */
+  npcDeal?: boolean;
+  playerCutPct?: number;
+  studioName?: string;
 }
 
 export interface StreamingPlatform {

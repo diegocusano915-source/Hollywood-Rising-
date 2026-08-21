@@ -7,10 +7,10 @@
  * - Studio Acquisitions (Player buyout of NPC studios)
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { LivingWorldService, StudioInfo } from '../../services/livingWorldService';
-import { Building2, ArrowLeft, CheckCircle2, DollarSign, TrendingUp, Sparkles, ShoppingCart, Award } from 'lucide-react';
+import { Building2, ArrowLeft, CheckCircle2, DollarSign, TrendingUp, TrendingDown, Minus, Sparkles, ShoppingCart, Award } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 
 interface StudioRelationshipsViewProps {
@@ -23,6 +23,14 @@ export const StudioRelationshipsView: React.FC<StudioRelationshipsViewProps> = (
 
   const [worldState, setWorldState] = useState(() => LivingWorldService.getState());
   const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
+
+  // Living market: re-read every game week - shares, valuations and your
+  // relationships with each studio all move in the weekly tick.
+  useEffect(() => {
+    setWorldState({ ...LivingWorldService.getState() });
+  }, [player.dateWeek, player.dateYear]);
+
+  const rankedStudios = [...worldState.studios].sort((a, b) => (b.marketSharePct || 0) - (a.marketSharePct || 0));
 
   const handleBuyStudio = (studio: StudioInfo) => {
     const res = LivingWorldService.buyStudio(studio.id, player.money);
@@ -104,7 +112,7 @@ export const StudioRelationshipsView: React.FC<StudioRelationshipsViewProps> = (
 
       {/* Studios Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {worldState.studios.map((std) => {
+        {rankedStudios.map((std, rankIdx) => {
           const buyPrice = std.purchasePrice || Math.round(std.valuation * 0.35);
           const canAfford = player.money >= buyPrice;
 
@@ -152,9 +160,39 @@ export const StudioRelationshipsView: React.FC<StudioRelationshipsViewProps> = (
                     <span className="text-xs font-bold text-emerald-400">${std.cashReserve.toLocaleString()}</span>
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-white/5">
-                    <span className="text-[9px] text-gray-400 uppercase font-bold block">Market Share</span>
-                    <span className="text-xs font-bold text-amber-300">{std.marketSharePct}%</span>
+                    <span className="text-[9px] text-gray-400 uppercase font-bold block">Market Share (#{rankIdx + 1})</span>
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                      {std.marketSharePct}%
+                      {(() => {
+                        const delta = Math.round(((std.marketSharePct || 0) - (std.prevMarketSharePct ?? (std.marketSharePct || 0))) * 10) / 10;
+                        if (delta > 0.05) return <span className="text-emerald-400 flex items-center gap-0.5"><TrendingUp className="w-3 h-3" />+{delta.toFixed(1)}</span>;
+                        if (delta < -0.05) return <span className="text-red-400 flex items-center gap-0.5"><TrendingDown className="w-3 h-3" />{delta.toFixed(1)}</span>;
+                        return <span className="text-gray-500 flex items-center gap-0.5"><Minus className="w-3 h-3" />0.0</span>;
+                      })()}
+                    </span>
                   </div>
+                </div>
+
+                {/* Player relationship - moves on real credits, drifts when idle */}
+                <div className="space-y-1 pt-1">
+                  {(() => {
+                    const rel = Math.round(std.relationshipPct ?? 50);
+                    const label = rel >= 75 ? 'ALLIED' : rel >= 55 ? 'WARM' : rel >= 35 ? 'NEUTRAL' : 'COLD';
+                    const tone = rel >= 75 ? 'bg-emerald-500' : rel >= 55 ? 'bg-lime-500' : rel >= 35 ? 'bg-amber-500' : 'bg-red-500';
+                    const toneText = rel >= 75 ? 'text-emerald-300' : rel >= 55 ? 'text-lime-300' : rel >= 35 ? 'text-amber-300' : 'text-red-300';
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[9px] font-black uppercase">
+                          <span className="text-gray-400">Your Relationship</span>
+                          <span className={toneText}>{label} · {rel}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                          <div className={`h-full rounded-full ${tone}`} style={{ width: `${rel}%` }} />
+                        </div>
+                        <p className="text-[9px] text-gray-500 italic">{std.relationshipNote || 'No recent work together'}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

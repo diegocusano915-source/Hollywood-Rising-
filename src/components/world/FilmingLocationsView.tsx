@@ -1,20 +1,19 @@
 /**
  * HOLLYWOOD RISING - Filming Locations View (World Ecosystem)
- * Global Filming Destinations, Tax Rebates & Permits.
+ * LIVING catalogue: incentives drift weekly, weather shifts, and destinations
+ * rotate in and out of the roster every few weeks (no static list).
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { FilmingLocation } from '../../types/world';
-import { INITIAL_FILMING_LOCATIONS } from '../../database/worldDatabase';
+import { getFilmingLocations } from '../../services/livingWorldService';
 import {
   Globe,
   MapPin,
   ArrowLeft,
-  Sparkles,
-  DollarSign,
   Sun,
-  ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 
@@ -23,10 +22,21 @@ interface FilmingLocationsViewProps {
 }
 
 export const FilmingLocationsView: React.FC<FilmingLocationsViewProps> = ({ onBack }) => {
-  const { settings } = useGame();
+  const { settings, player } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
-  const [locations] = useState<FilmingLocation[]>(INITIAL_FILMING_LOCATIONS);
+  const [locations, setLocations] = useState<FilmingLocation[]>(() => getFilmingLocations());
+
+  // Re-read the living roster every game week — drift + rotation happen in
+  // the weekly tick, so the catalogue moves with the world.
+  useEffect(() => {
+    setLocations(getFilmingLocations());
+  }, [player.dateWeek, player.dateYear]);
+
+  const currentAbsolute = player.dateYear * 52 + player.dateWeek;
+  const freshCount = locations.filter(
+    (l) => (l as any).addedAbsoluteWeek && currentAbsolute - (l as any).addedAbsoluteWeek <= 6
+  ).length;
 
   return (
     <div
@@ -57,54 +67,81 @@ export const FilmingLocationsView: React.FC<FilmingLocationsViewProps> = ({ onBa
           borderColor: theme.borderDark,
         }}
       >
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/40">
-            <Globe className="w-8 h-8 text-amber-400" />
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/40">
+              <Globe className="w-8 h-8 text-amber-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-white">GLOBAL FILMING DESTINATIONS & TAX INCENTIVES</h1>
+              <p className="text-xs text-amber-300 font-medium">
+                Living catalogue — incentives drift weekly and destinations rotate in and out as rebate programs open and close.
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-white">GLOBAL FILMING DESTINATIONS & TAX INCENTIVES</h1>
-            <p className="text-xs text-amber-300 font-medium">
-              Explore 50 production destinations worldwide. Save on budget with tax rebates up to 40%!
-            </p>
+          <div className="flex items-center gap-2">
+            {freshCount > 0 && (
+              <span className="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3" /> {freshCount} NEW THIS SEASON
+              </span>
+            )}
+            <span className="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5">
+              <MapPin className="w-3 h-3" /> {locations.length} ACTIVE HUBS
+            </span>
           </div>
         </div>
       </div>
 
       {/* Locations Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {locations.map((loc) => (
-          <div
-            key={loc.id}
-            className="p-5 rounded-3xl border border-white/10 bg-black/40 backdrop-blur-md space-y-3 shadow-xl flex flex-col justify-between"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">{loc.flagUrl}</span>
-                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  +{loc.taxIncentivePct}% TAX REBATE
-                </span>
-              </div>
-
-              <h2 className="text-lg font-black text-white">{loc.city}</h2>
-              <p className="text-xs text-amber-300 font-bold">{loc.country}</p>
-
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-black/60 border border-white/5 text-[10px]">
-                <div>
-                  <span className="text-gray-400 block font-bold">Permit Cost</span>
-                  <span className="font-black text-amber-300">${loc.permitCost.toLocaleString()}</span>
+        {locations.map((loc) => {
+          const addedWeek = (loc as any).addedAbsoluteWeek as number | undefined;
+          const isNew = !!addedWeek && currentAbsolute - addedWeek <= 6 && addedWeek > 0;
+          return (
+            <div
+              key={loc.id}
+              className={`p-5 rounded-3xl border backdrop-blur-md space-y-3 shadow-xl flex flex-col justify-between transition-all ${
+                isNew ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-white/10 bg-black/40'
+              }`}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl">{loc.flagUrl}</span>
+                  <div className="flex items-center gap-1.5">
+                    {isNew && (
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        NEW HUB
+                      </span>
+                    )}
+                    <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      +{loc.taxIncentivePct}% TAX REBATE
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-400 block font-bold">Weather Rating</span>
-                  <span className="font-black text-sky-300">{loc.weatherRating}/100</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block font-bold">Travel Cost</span>
-                  <span className="font-black text-purple-300">${loc.travelCost.toLocaleString()}</span>
+
+                <h2 className="text-lg font-black text-white">{loc.city}</h2>
+                <p className="text-xs text-amber-300 font-bold">{loc.country}</p>
+
+                <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-black/60 border border-white/5 text-[10px]">
+                  <div>
+                    <span className="text-gray-400 block font-bold">Permit Cost</span>
+                    <span className="font-black text-amber-300">${loc.permitCost.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block font-bold">Weather Rating</span>
+                    <span className="font-black text-sky-300 flex items-center gap-1">
+                      <Sun className="w-3 h-3" /> {loc.weatherRating}/100
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block font-bold">Travel Cost</span>
+                    <span className="font-black text-purple-300">${loc.travelCost.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
