@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { SocialBankPanel } from './SocialBankPanel';
 import {
   SocialsService,
   SocialsState,
@@ -394,6 +395,7 @@ export const InstagramView: React.FC<{ onBack: () => void }> = () => {
                 <b className="text-[11px] font-mono text-gray-100">{v}</b>
               </div>
             ))}
+          <SocialBankPanel platform="instagram" accent="emerald" />
           </div>
           <p className="text-[8px] text-gray-500 leading-relaxed px-1">
             The climb: Tier 2 ≈ 3 months of consistent posting. Follower growth comes ONLY from real reach conversion (0.6-1.2% per post) — nothing is faked, ever. Skipped weeks bleed authority (−4 XP). Bonuses and the bank unlock at 10,000 real followers.

@@ -60,7 +60,27 @@ export const CorporateBoardView: React.FC<Props> = ({ empireState, onUpdateState
     setNotification(`👔 BOARD APPOINTMENT: Elected to the Board of Directors of ${seat.companyName}! Retainer: $${seat.annualCompensation.toLocaleString()}/yr.`);
   };
 
+  // HARD ESTABLISHMENT GATES — no board on the planet lets an unproven actor
+  // buy a company. All five must pass before any buyout can even be submitted.
+  const gates: Array<{ label: string; have: number; need: number }> = [
+    { label: 'Movies completed', have: player.moviesCompleted || 0, need: 8 },
+    { label: 'Fame XP', have: player.fameXp || 0, need: 2000 },
+    { label: 'Awards won', have: player.awardsWon || 0, need: 1 },
+    { label: 'Industry respect', have: player.industryRespect || 0, need: 55 },
+    { label: 'Liquid capital ($M)', have: Math.floor((player.money || 0) / 1000000), need: 10 },
+  ];
+  const gatesPassed = gates.every((g) => g.have >= g.need);
+
   const handleAcquireTarget = (target: AcquisitionTargetCompany) => {
+    if (!gatesPassed) {
+      const missing = gates.filter((g) => g.have < g.need).map((g) => `${g.label} ${g.have}/${g.need}`).join(' · ');
+      alert(`M&A DESKS TURN YOU AWAY:
+
+You are not yet an established player. Boards will not even review a buyout from an unproven buyer.
+
+Still needed: ${missing}`);
+      return;
+    }
     const reqs = target.requirements;
 
     // 1. Check Cash
@@ -185,6 +205,32 @@ export const CorporateBoardView: React.FC<Props> = ({ empireState, onUpdateState
         </div>
       )}
 
+      {/* M&A READINESS — hard establishment gates, real stats */}
+      <div className={`p-4 rounded-3xl border space-y-3 ${gatesPassed ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-amber-500/40 bg-black/60'}`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs font-black uppercase tracking-wider flex items-center gap-2">
+            <ShieldCheck className={`w-4 h-4 ${gatesPassed ? 'text-emerald-400' : 'text-amber-400'}`} />
+            <span className={gatesPassed ? 'text-emerald-300' : 'text-amber-300'}>
+              {gatesPassed ? 'M&A DESK STATUS: ESTABLISHED BUYER — BUYOUTS UNLOCKED' : 'M&A DESK STATUS: UNPROVEN — BOARDS WILL NOT REVIEW YOUR OFFERS'}
+            </span>
+          </span>
+          <span className="text-[9px] text-gray-500 font-mono uppercase">No board sells to an unproven buyer</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {gates.map((g) => {
+            const ok = g.have >= g.need;
+            return (
+              <div key={g.label} className={`p-2.5 rounded-2xl border ${ok ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-black/50 border-white/10'}`}>
+                <span className="text-[8px] text-gray-500 uppercase font-black block">{g.label}</span>
+                <span className={`text-xs font-black font-mono ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {ok ? '✓' : '✗'} {g.have.toLocaleString()}/{g.need.toLocaleString()}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Active Board Seats: 3 Cards Per Row Grid */}
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
@@ -286,9 +332,14 @@ export const CorporateBoardView: React.FC<Props> = ({ empireState, onUpdateState
                 {!isAcquired ? (
                   <button
                     onClick={() => handleAcquireTarget(target)}
-                    className="w-full py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all cursor-pointer shadow-lg"
+                    disabled={!gatesPassed}
+                    className={`w-full py-2.5 rounded-2xl font-black text-xs transition-all shadow-lg ${
+                      gatesPassed
+                        ? 'bg-amber-400 hover:bg-amber-300 text-black cursor-pointer'
+                        : 'bg-white/5 text-gray-500 border border-white/10 cursor-not-allowed'
+                    }`}
                   >
-                    SUBMIT TO BOARD FOR BUYOUT
+                    {gatesPassed ? 'SUBMIT TO BOARD FOR BUYOUT' : '🔒 LOCKED — ESTABLISH YOURSELF FIRST'}
                   </button>
                 ) : (
                   <div className="p-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black text-xs text-center">

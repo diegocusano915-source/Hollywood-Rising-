@@ -165,6 +165,10 @@ export const YT_SLOTS = [
 ] as const;
 
 export const YT_PAYOUT_TAX_PCT = 0.2; // 20% withheld at transfer request
+/** Creator-income tax now applies to EVERY social bank (YT, IG, X). */
+export const SOCIAL_BANK_TAX_PCT = 0.2;
+/** Minimum bank balance that can be transferred out (real payout threshold). */
+export const SOCIAL_BANK_MIN_TRANSFER = 20;
 
 // ============================================================
 // GRAM CREATOR HQ — Instagram reach-tier system. NO fake
@@ -652,6 +656,8 @@ export interface SocialsState {
   twitterTrackedFeedCount?: number;
   /** Global monthly social earnings tracker — hard cap $25K, floor $5K when active */
   socialMonthlyEarnings?: { year: number; month: string; accrued: number; postsCounted: number };
+  /** Real revenue accrued THIS week per bank — powers every social bank panel */
+  socialWeeklyAccrued?: { youtube: number; instagram: number; twitter: number; week: number; year: number };
 }
 
 /** Monthly social-earnings envelope: real-engine range $5,000-$25,000 */
@@ -2166,6 +2172,7 @@ export class SocialsService {
         state.followers.Twitter = Math.min(500000000000, twFollowersNow + twNewFollowers);
         fanGrowth += twNewFollowers;
       }
+      (state as any).__twAccrued = twAccrued;
       if (twAccrued > 0) {
         state.twitterBalance = (state.twitterBalance || 0) + twAccrued;
         socialPosts.push(`𝕏 Ad revenue +$${twAccrued.toLocaleString()} → X Bank (balance $${(state.twitterBalance || 0).toLocaleString()}).`);
@@ -2235,15 +2242,17 @@ export class SocialsService {
       }
       const igBal = state.instagramBalance || 0;
       if (igBal > 0) {
-        state.instagramPendingPayouts = startPending(state.instagramPendingPayouts, igBal, 0, 'Instagram');
+        const igTax = Math.round(igBal * SOCIAL_BANK_TAX_PCT);
+        state.instagramPendingPayouts = startPending(state.instagramPendingPayouts, igBal, igTax, 'Instagram');
         state.instagramBalance = 0;
-        socialPosts.push(`🏦 MONTH-END PAYOUT: Instagram $${igBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
+        socialPosts.push(`🏦 MONTH-END PAYOUT: Instagram $${igBal.toLocaleString()} — $${igTax.toLocaleString()} creator tax withheld (20%). Clears in 1-5 weeks.`);
       }
       const twBal = state.twitterBalance || 0;
       if (twBal > 0) {
-        state.twitterPendingPayouts = startPending(state.twitterPendingPayouts, twBal, 0, 'Twitter');
+        const twTax = Math.round(twBal * SOCIAL_BANK_TAX_PCT);
+        state.twitterPendingPayouts = startPending(state.twitterPendingPayouts, twBal, twTax, 'Twitter');
         state.twitterBalance = 0;
-        socialPosts.push(`🏦 MONTH-END PAYOUT: X $${twBal.toLocaleString()} — no tax (Premium benefit). Clears in 1-5 weeks.`);
+        socialPosts.push(`🏦 MONTH-END PAYOUT: X $${twBal.toLocaleString()} — $${twTax.toLocaleString()} creator tax withheld (20%). Clears in 1-5 weeks.`);
       }
       if (ytBal === 0 && igBal === 0 && twBal === 0 && !eligibleForFloor) {
         socialPosts.push(`🏦 MONTH-END: no social payout — banks are empty. Posts only earn revenue with Premium (or YouTube monetization).`);
@@ -2270,12 +2279,22 @@ export class SocialsService {
       state.analyticsHistory = state.analyticsHistory.slice(0, 20);
     }
 
+    // Weekly accrual snapshot for every bank panel (real revenue this week)
+    state.socialWeeklyAccrued = {
+      youtube: (state as any).__ytAccrued || 0,
+      instagram: (state as any).__igAccrued || 0,
+      twitter: (state as any).__twAccrued || 0,
+      week: player.dateWeek || 1,
+      year: player.dateYear || 2026,
+    };
+
     this.saveState(state);
 
     const accruedThisWeek = (state.creatorStudio && (state as any).__ytAccrued) || 0;
     const igAccrued = ((state as any).__igAccrued) || 0;
     delete (state as any).__ytAccrued;
     delete (state as any).__igAccrued;
+    delete (state as any).__twAccrued;
 
     return {
       socialPosts,
@@ -2291,6 +2310,48 @@ export class SocialsService {
       youtubeAccruedToBank: accruedThisWeek,
       instagramAccruedToBank: igAccrued,
       expiredWriters,
+    };
+  }
+
+  /**
+   * UNIVERSAL SOCIAL BANK TRANSFER — move a bank balance toward the player's
+   * account. Minimum $20, 20% creator tax withheld on every platform, funds
+   * clear in 1-5 weeks through the same real payout pipeline as month-end.
+   */
+  public static transferSocialBankToAccount(
+    platform: 'youtube' | 'instagram' | 'twitter',
+    player: { dateWeek?: number; dateYear?: number }
+  ): { success: boolean; message: string; net?: number; tax?: number } {
+    const state = this.getState();
+    const balField = platform === 'youtube' ? 'youtubeBalance' : platform === 'instagram' ? 'instagramBalance' : 'twitterBalance';
+    const queueField = platform === 'youtube' ? 'youtubePendingPayouts' : platform === 'instagram' ? 'instagramPendingPayouts' : 'twitterPendingPayouts';
+    const label = platform === 'youtube' ? 'YouTube Creator Bank' : platform === 'instagram' ? 'Gram Bank' : 'X Bank';
+    const balance = (state as any)[balField] || 0;
+    if (balance < SOCIAL_BANK_MIN_TRANSFER) {
+      return { success: false, message: `${label} holds $${balance.toLocaleString()} — transfers need at least $${SOCIAL_BANK_MIN_TRANSFER.toLocaleString()} accrued.` };
+    }
+    const tax = Math.round(balance * SOCIAL_BANK_TAX_PCT);
+    const net = balance - tax;
+    const weeks = 1 + Math.floor(Math.random() * 5);
+    (state as any)[balField] = 0;
+    const queue = (state as any)[queueField] || [];
+    queue.push({
+      id: `xfer_${platform}_${Date.now()}`,
+      gross: balance,
+      taxWithheld: tax,
+      net,
+      weeksRemaining: weeks,
+      totalWeeks: weeks,
+      requestedWeek: player?.dateWeek || state.lastProcessedWeek || 1,
+      requestedYear: player?.dateYear || state.lastProcessedYear || 2026,
+    });
+    (state as any)[queueField] = queue;
+    this.saveState(state);
+    return {
+      success: true,
+      net,
+      tax,
+      message: `${label}: $${balance.toLocaleString()} transfer requested — $${tax.toLocaleString()} creator tax (20%) withheld, $${net.toLocaleString()} net clears to your account in ${weeks} week${weeks === 1 ? '' : 's'}.`,
     };
   }
 

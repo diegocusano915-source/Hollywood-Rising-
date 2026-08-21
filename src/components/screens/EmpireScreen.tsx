@@ -22,7 +22,6 @@ import { CorporateBoardView } from '../empire/CorporateBoardView';
 import { GlobalExpansionView } from '../empire/GlobalExpansionView';
 import { FoundationView } from '../empire/FoundationView';
 import { EmpireDashboardView } from '../empire/EmpireDashboardView';
-import { InvestmentsView } from '../empire/InvestmentsView';
 import { ReportsView } from '../empire/ReportsView';
 
 import {
@@ -39,7 +38,6 @@ import {
   Globe,
   Heart,
   LayoutDashboard,
-  TrendingUp,
   Shield,
   FileText,
 } from 'lucide-react';
@@ -78,13 +76,6 @@ const EMPIRE_FEATURE_CARDS: FeatureCardConfig[] = [
   },
 
   // Row 2
-  {
-    id: 'INVESTMENTS',
-    title: 'Investments & Equity',
-    subtitle: 'Stock Portfolio & Venture Funds',
-    icon: TrendingUp,
-    color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-400',
-  },
   {
     id: 'CORPORATE_BOARD',
     title: 'Corporate Board',
@@ -213,14 +204,6 @@ export const EmpireScreen: React.FC = () => {
             onBack={() => setActiveFeature(null)}
           />
         );
-      case 'INVESTMENTS':
-        return (
-          <InvestmentsView
-            empireState={empireState}
-            onUpdateState={handleUpdateState}
-            onBack={() => setActiveFeature(null)}
-          />
-        );
       case 'RIVALRIES':
         return (
           <RivalriesView
@@ -325,10 +308,6 @@ export const EmpireScreen: React.FC = () => {
         return `Businesses: ${businessesList.length}`;
       case 'REAL_ESTATE':
         return `Properties: ${realEstateList.length}`;
-      case 'INVESTMENTS':
-        return empireState?.investments && (empireState.investments.portfolio || []).length > 0
-          ? `${empireState.investments.portfolio.length} Holdings`
-          : 'No Holdings';
       case 'ELITE_CLUB':
         return empireState?.eliteClub?.isMember ? 'Active Member' : 'Locked';
       case 'RIVALRIES':

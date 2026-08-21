@@ -7,6 +7,8 @@ import { Player } from '../types/game';
 import { FAME_XP_MULTIPLIER } from './fameService';
 import { processRivalriesWeek } from './rivalryService';
 import {
+  RealEstatePhase,
+  RealEstateType,
   EmpireFullState,
   Executive,
   HoldingCompany,
@@ -801,6 +803,68 @@ export class EmpireService {
   }
 
   // CENTRAL END WEEK TICK ENGINE FOR EMPIRE SCENE
+  // ---- REAL ESTATE ACTIONS (rent out, stop renting, upgrade/renovate) ----
+
+  /** Lease a property to commercial tenants: occupancy starts realistic,
+   *  rent is priced off live valuation by the weekly tick. */
+  public static rentOutProperty(state: EmpireFullState, propertyId: string): { ok: boolean; message: string; state: EmpireFullState } {
+    const prop = state.realEstate.find((r) => r.id === propertyId);
+    if (!prop) return { ok: false, message: 'Property not found.', state };
+    if (prop.isLeased) return { ok: false, message: `${prop.name} is already rented out.`, state };
+    const next: EmpireFullState = {
+      ...state,
+      realEstate: state.realEstate.map((r) =>
+        r.id === propertyId ? { ...r, isLeased: true, occupancyRate: 78 + Math.floor(Math.random() * 15), occupancyStatus: 'Rented' as const } : r
+      ),
+    };
+    this.saveState(next);
+    return { ok: true, message: `${prop.name} leased to commercial tenants — rent starts next weekly tick.`, state: next };
+  }
+
+  /** Move back in / leave vacant: rent stops immediately. */
+  public static stopRentingProperty(state: EmpireFullState, propertyId: string): { ok: boolean; message: string; state: EmpireFullState } {
+    const prop = state.realEstate.find((r) => r.id === propertyId);
+    if (!prop) return { ok: false, message: 'Property not found.', state };
+    const next: EmpireFullState = {
+      ...state,
+      realEstate: state.realEstate.map((r) =>
+        r.id === propertyId ? { ...r, isLeased: false, weeklyRentalIncome: 0, occupancyRate: 0, occupancyStatus: 'Vacant' as const } : r
+      ),
+    };
+    this.saveState(next);
+    return { ok: true, message: `${prop.name} vacated — rental income stopped.`, state: next };
+  }
+
+  /** Renovate: cost 25% of CURRENT valuation, +30% valuation, tier +1 (max 5),
+   *  stronger rental yield. Old saves cap at tier 5 too. */
+  public static upgradeRealEstate(
+    state: EmpireFullState,
+    propertyId: string,
+    playerMoney: number
+  ): { ok: boolean; message: string; state: EmpireFullState; cost: number } {
+    const prop = state.realEstate.find((r) => r.id === propertyId);
+    if (!prop) return { ok: false, message: 'Property not found.', state, cost: 0 };
+    if (prop.tierLevel >= 5) return { ok: false, message: `${prop.name} is already Tier 5 — fully renovated.`, state, cost: 0 };
+    const cost = Math.floor(prop.currentValuation * 0.25);
+    if (playerMoney < cost) return { ok: false, message: `Renovation needs $${cost.toLocaleString()} (you have $${playerMoney.toLocaleString()}).`, state, cost };
+    const next: EmpireFullState = {
+      ...state,
+      realEstate: state.realEstate.map((r) =>
+        r.id === propertyId
+          ? {
+              ...r,
+              tierLevel: r.tierLevel + 1,
+              upgradesDone: (r.upgradesDone || 0) + 1,
+              currentValuation: Math.floor(r.currentValuation * 1.3),
+              valuationHistory: [...(r.valuationHistory || []), Math.floor(r.currentValuation * 1.3)].slice(-26),
+            }
+          : r
+      ),
+    };
+    this.saveState(next);
+    return { ok: true, message: `${prop.name} renovated to Tier ${prop.tierLevel + 1} — valuation +30%.`, state: next, cost };
+  }
+
   public static processEndWeek(player: Player, currentState?: EmpireFullState, opts?: { bestBoxOfficeGross?: number }): { updatedState: EmpireFullState; weeklyCashYield: number; logMessages: string[]; achievementsCash: number; achievementsXp: number } {
     const loadedState = currentState || EmpireService.loadState(player);
     let state: EmpireFullState = JSON.parse(JSON.stringify(loadedState));
@@ -889,10 +953,26 @@ export class EmpireService {
         comp.recentAction = act;
       }
 
+      // LIVE TREND from real revenue history (last 4 weeks vs prior 4)
+      const revHist = [...(biz.revenueHistory || []), totalWeeklyRev].slice(-26);
+      let liveTrend: BusinessVenture['performanceTrend'] = biz.performanceTrend || 'Stable';
+      if (revHist.length >= 8) {
+        const recent = revHist.slice(-4).reduce((a: number, b: number) => a + b, 0);
+        const prior = revHist.slice(-8, -4).reduce((a: number, b: number) => a + b, 0);
+        const pct = prior > 0 ? (recent - prior) / prior : 0;
+        if (newStatus === 'Distressed') liveTrend = 'Recovering';
+        else if (biz.marketShare >= 20) liveTrend = 'Industry Leader';
+        else if (pct > 0.12) liveTrend = 'Growing';
+        else if (pct < -0.12) liveTrend = 'Losing Market Share';
+        else liveTrend = 'Stable';
+      }
+
       return {
         ...biz,
         cashPool: newCashPool,
         weeklyRevenue: totalWeeklyRev,
+        revenueHistory: revHist,
+        performanceTrend: liveTrend,
         weeklyExpenses: totalWeeklyExpenses,
         netProfit: profit,
         totalValuation: computedValuation,
@@ -900,21 +980,68 @@ export class EmpireService {
       };
     });
 
-    // 2. COMMERCIAL REAL ESTATE SIMULATION
+    // 2. COMMERCIAL REAL ESTATE \u2014 LIVING MARKET (phase shifts every 3-4
+    //    weeks; prices rise AND fall like the real market)
     let totalRentalIncome = 0;
     let totalPropertyMaintenance = 0;
 
+    if (!state.realEstateMarket) state.realEstateMarket = { phase: 'Stable', weeksUntilShift: 4 };
+    const reMarket = state.realEstateMarket;
+    reMarket.weeksUntilShift -= 1;
+    if (reMarket.weeksUntilShift <= 0) {
+      const phases: RealEstatePhase[] = ['Hot', 'Stable', 'Cooling', 'Slump'];
+      reMarket.phase = phases[Math.floor(Math.random() * phases.length)];
+      reMarket.weeksUntilShift = 3 + Math.floor(Math.random() * 2); // 3-4 weeks
+      const phaseNews: Record<RealEstatePhase, string> = {
+        Hot: '\u{1F525} PROPERTY MARKET: rate cuts + tech relocations \u2014 commercial real estate is HOT. Values climbing fast.',
+        Stable: '\u{1F3E0} PROPERTY MARKET: steady hands \u2014 valuations holding a stable drift.',
+        Cooling: '\u{1F327}\uFE0F PROPERTY MARKET: higher financing costs \u2014 commercial values are COOLING.',
+        Slump: '\u{1F4C9} PROPERTY MARKET: credit squeeze \u2014 a Slump is on. Values sliding week over week.',
+      };
+      logMessages.push(phaseNews[reMarket.phase]);
+    }
+    const driftByPhase: Record<RealEstatePhase, [number, number]> = {
+      Hot: [0.008, 0.016],
+      Stable: [0.0005, 0.003],
+      Cooling: [-0.005, -0.002],
+      Slump: [-0.012, -0.006],
+    };
+    const [driftLo, driftHi] = driftByPhase[reMarket.phase];
+    const yieldByType: Record<RealEstateType, number> = {
+      Hotel: 0.0016, 'Office Tower': 0.0014, 'Shopping Mall': 0.0013, 'Film Lot': 0.0019,
+      'Apartment Complex': 0.0012, Resort: 0.0015, 'Industrial Building': 0.0010, Warehouse: 0.0009,
+    };
+
     state.realEstate = state.realEstate.map((prop) => {
-      const netRent = prop.weeklyRentalIncome - prop.weeklyMaintenanceCost;
-      totalRentalIncome += prop.weeklyRentalIncome;
+      // Valuation drifts with the market phase + small property noise
+      const drift = driftLo + Math.random() * (driftHi - driftLo);
+      const noise = (Math.random() - 0.5) * 0.002;
+      const updatedValuation = Math.max(100000, Math.floor(prop.currentValuation * (1 + drift + noise)));
+
+      // Occupancy breathes weekly for leased properties (real vacancy risk)
+      let occupancy = prop.occupancyRate;
+      if (prop.isLeased) {
+        occupancy = Math.min(100, Math.max(55, Math.round(occupancy + (Math.random() - 0.45) * 6)));
+      } else {
+        occupancy = 0;
+      }
+
+      // Rent is earned ONLY when leased out, priced off live valuation
+      const weeklyRent = prop.isLeased
+        ? Math.max(1, Math.floor(updatedValuation * (yieldByType[prop.type] || 0.0012) * (occupancy / 100) * (1 + (prop.tierLevel - 1) * 0.1)))
+        : 0;
+      totalRentalIncome += weeklyRent;
       totalPropertyMaintenance += prop.weeklyMaintenanceCost;
 
-      // Real estate value appreciates ~0.1% per week
-      const updatedValuation = Math.floor(prop.currentValuation * (1 + 0.001 * (0.8 + Math.random() * 0.4)));
+      const history = [...(prop.valuationHistory || [prop.purchasePrice]), updatedValuation].slice(-26);
 
       return {
         ...prop,
         currentValuation: updatedValuation,
+        weeklyRentalIncome: weeklyRent,
+        occupancyRate: occupancy,
+        occupancyStatus: prop.isLeased ? 'Rented' : 'Vacant',
+        valuationHistory: history,
       };
     });
 
@@ -981,11 +1108,31 @@ export class EmpireService {
     // withholding, real deductions, year-end filing. No fake numbers here.
     // (taxState.accountantTier is set by the Tax view and read by the engine.)
 
-    // 5. HOLDING COMPANY VALUATION UPDATE
+    // 5. HOLDING COMPANY VALUATION UPDATE (+ weekly history snapshot)
     if (state.holdingCompany.isFormed) {
       const bizValSum = state.businesses.reduce((acc, b) => acc + (b.status !== 'Bankrupt' ? b.totalValuation : 0), 0);
       const reValSum = state.realEstate.reduce((acc, r) => acc + r.currentValuation, 0);
       state.holdingCompany.totalValuation = Math.floor(bizValSum + reValSum);
+      state.holdingCompany.valuationHistory = [
+        ...(state.holdingCompany.valuationHistory || []),
+        state.holdingCompany.totalValuation,
+      ].slice(-26);
+    }
+
+    // 5b. INVESTMENTS RETIRED \u2014 the module duplicated Star Stocks / Wall Street
+    //     West. Existing portfolios liquidate once at 95% (exit fee) into real
+    //     cash via the weekly yield; the Empire tile is gone for good.
+    if (state.investments && (state.investments.portfolio || []).length > 0) {
+      const liquidation = state.investments.portfolio.reduce(
+        (acc, item) => acc + Math.floor((item.currentValue || 0) * 0.95),
+        0
+      );
+      state.investments.portfolio = [];
+      state.investments.weeklyDividendYield = 0;
+      if (liquidation > 0) {
+        netWeeklyCashYield += liquidation;
+        logMessages.push('\u{1F4E2} INVESTMENTS & EQUITY CLOSED: Wall Street West now runs all public markets. Your portfolio liquidated at 95% \u2014 $' + liquidation.toLocaleString() + ' credited this week.');
+      }
     }
 
     // 6. ACHIEVEMENTS CHECKER (70 ACHIEVEMENTS) — REAL STATS ONLY (fixed sources)

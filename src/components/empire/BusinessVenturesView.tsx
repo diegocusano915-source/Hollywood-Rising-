@@ -68,6 +68,22 @@ const INDUSTRIES_CATALOG = [
   { name: 'Private Executive Security', cost: 300000, logo: 'Lock' },
 ];
 
+function RevSpark({ history }: { history: number[] }) {
+  if (!history || history.length < 2) {
+    return <div className="h-8 rounded-lg bg-white/5 flex items-center justify-center text-[8px] text-gray-600 font-mono">COLLECTING SALES DATA…</div>;
+  }
+  const min = Math.min(...history);
+  const max = Math.max(...history);
+  const range = Math.max(1, max - min);
+  const pts = history.map((v, i) => `${(i / (history.length - 1)) * 100},${28 - ((v - min) / range) * 24 - 2}`).join(' ');
+  const up = history[history.length - 1] >= history[0];
+  return (
+    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-8">
+      <polyline points={pts} fill="none" stroke={up ? '#34d399' : '#f87171'} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateState, onBack }) => {
   const { player , persistNow } = useGame();
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -303,6 +319,31 @@ export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateSta
         </button>
       </div>
 
+      {/* PORTFOLIO KPIs — all real, all moving weekly */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {(() => {
+          const active = empireState.businesses.filter((b) => b.status === 'Active' || b.status === 'Distressed');
+          const rev = active.reduce((a, b) => a + b.weeklyRevenue, 0);
+          const exp = active.reduce((a, b) => a + b.weeklyExpenses, 0);
+          const net = active.reduce((a, b) => a + b.netProfit, 0);
+          const val = active.reduce((a, b) => a + b.totalValuation, 0);
+          const staff = active.reduce((a, b) => a + (b.staff || []).reduce((x, g) => x + g.count, 0), 0);
+          const cells: Array<[string, string, string]> = [
+            ['Portfolio Value', `$${(val / 1_000_000).toFixed(2)}M`, 'text-white'],
+            ['Weekly Revenue', `+$${Math.round(rev / 1000)}K`, 'text-emerald-300'],
+            ['Weekly Expenses', `−$${Math.round(exp / 1000)}K`, 'text-red-300'],
+            ['Weekly Net', `${net >= 0 ? '+' : '−'}$${Math.abs(Math.round(net / 1000))}K`, net >= 0 ? 'text-emerald-300' : 'text-red-300'],
+            ['Employees', `${staff}`, 'text-sky-300'],
+          ];
+          return cells.map(([label, v, tone]) => (
+            <div key={label} className="p-2.5 rounded-2xl bg-black/60 border border-white/10">
+              <span className="text-[8px] text-gray-500 uppercase font-black block">{label}</span>
+              <span className={`text-sm font-black font-mono ${tone}`}>{v}</span>
+            </div>
+          ));
+        })()}
+      </div>
+
       {notification && (
         <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-between">
           <span>{notification}</span>
@@ -417,7 +458,18 @@ export const BusinessVenturesView: React.FC<Props> = ({ empireState, onUpdateSta
                       <h3 className="text-base font-black text-white">{biz.name}</h3>
                       <p className="text-xs text-gray-400 mt-0.5">
                         Valuation: <span className="text-amber-300 font-bold">${biz.totalValuation.toLocaleString()}</span>
+                        {(() => {
+                          const h = biz.revenueHistory || [];
+                          if (h.length < 2) return null;
+                          const d = h[h.length - 1] - h[h.length - 2];
+                          return (
+                            <span className={`ml-1.5 font-mono font-black ${d >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {d >= 0 ? '\u25B2' : '\u25BC'} ${Math.abs(d).toLocaleString()}/wk
+                            </span>
+                          );
+                        })()}
                       </p>
+                      <RevSpark history={biz.revenueHistory || [biz.weeklyRevenue]} />
                     </div>
                   </div>
 

@@ -62,6 +62,8 @@ export interface HoldingCompany {
   equitySharePercent: number;
   dividendPayoutRate: number; // Percent
   totalValuation: number;
+  /** Weekly total-valuation snapshots (newest last, 26 weeks) */
+  valuationHistory?: number[];
 }
 
 export interface BusinessProduct {
@@ -152,6 +154,8 @@ export interface BusinessVenture {
   fundingRaised: number;
   foundedWeek: number;
   foundedYear: number;
+  /** Weekly revenue snapshots (newest last, 26 weeks) for trend charts */
+  revenueHistory?: number[];
 }
 
 export type RealEstateType =
@@ -185,6 +189,18 @@ export interface CommercialRealEstate {
   tierLevel: number; // 1 - 5
   isLeased: boolean;
   imageUrl: string;
+  /** Weekly valuation snapshots (newest last, 26 weeks) for the sparkline */
+  valuationHistory?: number[];
+  /** Renovations applied over the property's life */
+  upgradesDone?: number;
+}
+
+export type RealEstatePhase = 'Hot' | 'Stable' | 'Cooling' | 'Slump';
+
+/** Living commercial property market — phase shifts every 3-4 weeks */
+export interface RealEstateMarketState {
+  phase: RealEstatePhase;
+  weeksUntilShift: number;
 }
 
 // SECURITY TYPES
@@ -682,6 +698,7 @@ export interface EmpireFullState {
   holdingCompany: HoldingCompany;
   businesses: BusinessVenture[];
   realEstate: CommercialRealEstate[];
+  realEstateMarket?: RealEstateMarketState;
   rivalries: RivalryNPC[];
   eliteClub: EliteClubState;
   actingAcademy: ActingAcademyState;

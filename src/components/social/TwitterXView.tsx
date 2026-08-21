@@ -5,6 +5,7 @@
  */
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { SocialBankPanel } from './SocialBankPanel';
 import {
   SocialsService,
   SocialsState,
@@ -284,6 +285,8 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         };
         return (
           <div className="space-y-3">
+          <SocialBankPanel platform="twitter" accent="sky" />
+          <div className="space-y-3">
             <div className="p-4 rounded-2xl bg-black/50 border border-emerald-400/30 space-y-1.5">
               <span className="text-[9px] font-black text-emerald-300 tracking-[2px]">X CREATOR BANK — ADS REVENUE</span>
               <b className="text-3xl font-mono text-emerald-300 block">${balance.toLocaleString()}</b>
@@ -347,6 +350,7 @@ export const TwitterXView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 ))}
               </div>
             )}
+          </div>
           </div>
         );
       })()}

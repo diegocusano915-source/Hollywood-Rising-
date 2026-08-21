@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
+import { SocialBankPanel } from './SocialBankPanel';
 import {
   SocialsService,
   SocialsState,
@@ -293,6 +294,9 @@ export const YouTubeView: React.FC<{ onBack: () => void }> = () => {
       {/* ================= BANK ================= */}
       {tab === 'BANK' && (
         <div className="px-3 space-y-3">
+          {/* universal social bank panel (transfer, tax, accrual) */}
+          <SocialBankPanel platform="youtube" accent="red" />
+
           {/* balance card */}
           <div className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
             <span className="text-[8px] font-black text-emerald-300 tracking-[2px]">CREATOR BANK — YT MINI-BANK</span>
