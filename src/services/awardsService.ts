@@ -502,9 +502,10 @@ export class AwardsService {
       playerNominations,
       newTrophies,
       newRecords,
-      // display value: what the player actually receives after the global
-      // slow burn (the raw fameGained below flows into the weekly pool)
-      fameGained: Math.floor(fameGained * FAME_XP_MULTIPLIER),
+      // ceremony display value: raw XP; GameContext's weekly pool applies the
+      // global slow-burn multiplier exactly ONCE (fixing the old double-scale
+      // where this was pre-multiplied here AND in the pool = x0.04 total)
+      fameGained,
       fanGained,
       viewersBase: Math.round(2000000 + (player.fameXp || 0) * 15000 + (player.fans || 0) * 3),
       inboxMessages: newInboxMessages,

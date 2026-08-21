@@ -4,9 +4,12 @@
  * Top Bar Controls & Full Interconnected Hollywood Business Ecosystem.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { WorldFeatureId } from '../../types/world';
+import { loadStreamingState } from '../../services/streamingEngine';
+import { MarketEngineService } from '../../services/marketEngineService';
+import { EmpireService } from '../../services/empireService';
 import {
   TrendingUp,
   Briefcase,
@@ -49,14 +52,112 @@ import { FilmingLocationsView } from '../world/FilmingLocationsView';
 import { EndorsementsView } from '../world/EndorsementsView';
 import { StudioRelationshipsView } from '../world/StudioRelationshipsView';
 
+// ---------------------------------------------------------------------------
+// INDUSTRY BULLETINS — derived from live game state only (no static filler).
+// Each bulletin references a real theatrical run, streaming bid, market move
+// or active feud. Refreshes naturally every week.
+// ---------------------------------------------------------------------------
+
+const BULLETINS_SEEN_KEY = 'HR_WORLD_BULLETINS_SEEN';
+
+interface WorldBulletin {
+  tone: 'emerald' | 'sky' | 'amber' | 'red';
+  label: string;
+  text: string;
+}
+
+const BULLETIN_TONES: Record<WorldBulletin['tone'], string> = {
+  emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200',
+  sky: 'bg-sky-500/10 border-sky-500/20 text-sky-200',
+  amber: 'bg-amber-500/10 border-amber-500/20 text-amber-200',
+  red: 'bg-red-500/10 border-red-500/20 text-red-200',
+};
+
+function buildWorldBulletins(player: any, saveData: any): WorldBulletin[] {
+  const out: WorldBulletin[] = [];
+  try {
+    const running = (saveData?.releasedMovies || []).filter((m: any) => m.inCinemas);
+    if (running.length > 0) {
+      const top = [...running].sort(
+        (a: any, b: any) => (b.worldwideGross || 0) - (a.worldwideGross || 0)
+      )[0];
+      out.push({
+        tone: 'emerald',
+        label: 'Box Office',
+        text: `"${top.movieTitle}" is still in theaters — $${((top.worldwideGross || 0) / 1000000).toFixed(1)}M worldwide after ${top.weeksInCinemas || 1} week${(top.weeksInCinemas || 1) === 1 ? '' : 's'}.`,
+      });
+    }
+  } catch {}
+  try {
+    const bids = loadStreamingState().pendingBids.filter((b: any) => b.status === 'PENDING');
+    if (bids.length > 0) {
+      out.push({
+        tone: 'sky',
+        label: 'Streaming',
+        text: `${bids.length} platform bid${bids.length === 1 ? '' : 's'} pending for "${bids[0].projectTitle}" — the first window closes in ${bids[0].weeksLeft ?? 3} week${(bids[0].weeksLeft ?? 3) === 1 ? '' : 's'}.`,
+      });
+    }
+  } catch {}
+  try {
+    const mk: any = MarketEngineService.getMarketState();
+    const hotCoin = [...(mk.cryptoCoins || [])].sort(
+      (a: any, b: any) => Math.abs(b.change24h || 0) - Math.abs(a.change24h || 0)
+    )[0];
+    const hotStock = [...(mk.stocks || [])].sort(
+      (a: any, b: any) => Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0)
+    )[0];
+    if (hotCoin && Math.abs(hotCoin.change24h || 0) >= 4) {
+      const dir = (hotCoin.change24h || 0) > 0 ? 'up' : 'down';
+      out.push({
+        tone: 'amber',
+        label: 'Markets',
+        text: `${hotCoin.name} (${hotCoin.symbol}) is ${dir} ${Math.abs(hotCoin.change24h).toFixed(1)}% this week${hotStock && Math.abs(hotStock.changePct || 0) >= 3 ? `; ${hotStock.ticker} ${((hotStock.changePct || 0) > 0 ? 'rallying' : 'sliding')} ${Math.abs(hotStock.changePct).toFixed(1)}%` : ''}.`,
+      });
+    }
+  } catch {}
+  try {
+    const feuds = (EmpireService.loadState(player).rivalries || []).filter(
+      (r: any) => !r.resolved && ['Feud', 'Arch Rival', 'Legendary Rival'].includes(r.heatLevel || '')
+    );
+    if (feuds.length > 0) {
+      out.push({
+        tone: 'red',
+        label: 'Rivalries',
+        text: `${feuds[0].name} feud at ${feuds[0].rivalryScore}/100 heat (${feuds[0].heatLevel}) — the War Room is watching.`,
+      });
+    }
+  } catch {}
+  return out.slice(0, 5);
+}
+
 export const WorldScreen: React.FC = () => {
-  const { player, settings } = useGame();
+  const { player, settings, saveData } = useGame();
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const [activeFeature, setActiveFeature] = useState<WorldFeatureId | 'MORE' | null>(null);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showSettingsToast, setShowSettingsToast] = useState(false);
+
+  // Real bulletins, rebuilt from live state whenever the modal opens or the
+  // week advances. Dismissing marks the CURRENT week as seen; the badge only
+  // returns when a new week brings fresh bulletins.
+  const bulletins = useMemo(
+    () => buildWorldBulletins(player, saveData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [player.dateWeek, player.dateYear, showNotificationsModal, saveData.releasedMovies]
+  );
+  const seenWeekKey = `${player.dateWeek}_${player.dateYear}`;
+  const [bulletinsSeenKey, setBulletinsSeenKey] = useState<string>(() => {
+    try { return localStorage.getItem(BULLETINS_SEEN_KEY) || ''; } catch { return ''; }
+  });
+  const hasUnseenBulletins = bulletinsSeenKey !== seenWeekKey && bulletins.length > 0;
+
+  const dismissBulletins = () => {
+    try { localStorage.setItem(BULLETINS_SEEN_KEY, seenWeekKey); } catch {}
+    setBulletinsSeenKey(seenWeekKey);
+    setShowNotificationsModal(false);
+  };
 
   // Card click trigger with animation: Scale Down -> Glow -> Scale Up -> Open
   const handleCardClick = (id: WorldFeatureId | 'MORE') => {
@@ -289,9 +390,11 @@ export const WorldScreen: React.FC = () => {
             title="Industry Bulletins"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-black text-[9px] font-black flex items-center justify-center">
-              3
-            </span>
+            {hasUnseenBulletins && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-black text-[9px] font-black flex items-center justify-center">
+                {bulletins.length}
+              </span>
+            )}
           </button>
 
           {/* Settings Shortcut */}
@@ -365,19 +468,23 @@ export const WorldScreen: React.FC = () => {
             </div>
 
             <div className="space-y-2.5 text-xs">
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
-                • <strong>Box Office Update:</strong> Theatrical attendance up 14% this weekend across major multiplexes.
-              </div>
-              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-200">
-                • <strong>Streaming Intelligence:</strong> Netstar and HBO Max competing for upcoming sci-fi streaming rights.
-              </div>
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200">
-                • <strong>Wall Street Alert:</strong> Entertainment equities show positive momentum ahead of Q3 earnings.
-              </div>
+              {bulletins.length > 0 ? (
+                bulletins.map((b, idx) => (
+                  <div key={idx} className={`p-3 rounded-2xl border ${BULLETIN_TONES[b.tone]}`}>
+                    • <strong>{b.label}:</strong> {b.text}
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-gray-400 text-center">
+                  No industry bulletins this week — advance a week and check back. Bulletins only
+                  appear when something real is happening: theatrical runs, streaming bids, market
+                  moves or active feuds.
+                </div>
+              )}
             </div>
 
             <button
-              onClick={() => setShowNotificationsModal(false)}
+              onClick={dismissBulletins}
               className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-102 cursor-pointer transition-all shadow-xl"
             >
               DISMISS BULLETINS

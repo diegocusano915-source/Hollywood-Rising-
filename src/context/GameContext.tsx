@@ -2139,7 +2139,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
           const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
 
-          const releaseFame = book.roleType === 'Lead' ? 45 : book.roleType === 'Principal' ? 32 : 20;
+          // RELEASE FAME HALVED (user request): raw pool value, still subject
+          // to the global slow-burn multiplier at the end of the week
+          const releaseFame = book.roleType === 'Lead' ? 22 : book.roleType === 'Principal' ? 16 : 10;
           fameGainedThisWeek += releaseFame;
 
           const currentPart = book.franchisePart || 1;
@@ -3494,8 +3496,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedReleased = [newReleasedMovie, ...(saveData.releasedMovies || [])];
 
     // Award Fame XP - unified base values with the weekly auto-release path
-    // (Lead 45 / Principal 32 / Supporting 20, then global slow-burn applies)
-    const releaseFame = proj.roleType === 'Lead' ? 45 : proj.roleType === 'Principal' ? 32 : 20;
+    // (Lead 22 / Principal 16 / Supporting 10, then global slow-burn applies)
+    const releaseFame = proj.roleType === 'Lead' ? 22 : proj.roleType === 'Principal' ? 16 : 10;
 
     // Timeline event & inbox message
     const dateInfo = formatCalendarDate(saveData.player.dateYear, saveData.player.dateWeek);
