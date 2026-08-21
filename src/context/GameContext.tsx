@@ -61,7 +61,7 @@ import { AwardCeremonyResult } from '../types/game';
 import { FameService, FAME_XP_MULTIPLIER } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
-import { collectNotificationItems, collectDigestItems } from '../services/notificationEngine';
+import { collectNotificationItems } from '../services/notificationEngine';
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
 import { RelationshipEngine } from '../services/relationshipService';
@@ -426,40 +426,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     notificationService.refreshContext(saveData);
   }, [saveData.settings.soundEnabled, saveData.settings.musicEnabled, saveData]);
 
-  // OFFLINE DIGEST: if the player was away 50+ minutes (matches the ~47-min
-  // phone ping cadence), build a "While you were away" digest from REAL pending
-  // items (offers, bids, deadlines). Runs once per return.
-  const digestInitRef = React.useRef(false);
-  useEffect(() => {
-    if (digestInitRef.current) return;
-    digestInitRef.current = true;
-    const bump = () => {
-      try { localStorage.setItem('HR_LAST_ACTIVE_TS', String(Date.now())); } catch {}
-    };
-    try {
-      const now = Date.now();
-      const lastActive = Number(localStorage.getItem('HR_LAST_ACTIVE_TS') || 0);
-      localStorage.setItem('HR_LAST_ACTIVE_TS', String(now));
-      if (lastActive > 0 && now - lastActive >= 50 * 60 * 1000) {
-        setSaveData((prev) => {
-          const digest = collectDigestItems(prev).slice(0, 6);
-          const nc = prev.notificationCenter || { digest: [], seenTags: [] };
-          const merged = [...digest, ...nc.digest.filter((d) => !digest.some((i) => i.tag === d.tag))].slice(0, 30);
-          const next = { ...prev, notificationCenter: { ...nc, digest: merged, lastDigestAt: now } };
-          StorageService.saveGameData(next, next.slotNumber || 1);
-          return next;
-        });
-      }
-    } catch {}
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') bump();
-    });
-    window.addEventListener('beforeunload', bump);
-    return () => {
-      document.removeEventListener('visibilitychange', bump);
-      window.removeEventListener('beforeunload', bump);
-    };
-  }, []);
+  // OFFLINE = PHONE ONLY. The in-game "while you were away" digest was
+  // removed by design: while the app is closed, alerts go exclusively to the
+  // phone (first ping 40-60 min after leaving, then hourly, all real events).
+  // In-app, the Notification Center only shows LIVE alerts while playing.
 
   // Open the Notification Center and mark everything as seen
   const openNotificationCenter = useCallback(() => {

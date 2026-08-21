@@ -11,6 +11,9 @@ import { loadStudioState } from './personalStudioEngine';
 import { INITIAL_TV_STATIONS, INITIAL_RADIO_STATIONS } from '../database/worldDatabase';
 import { RepresentationService } from './representationService';
 import { NetworkService } from './networkService';
+import { EmpireService } from './empireService';
+import { MarketEngineService } from './marketEngineService';
+import { SocialsService } from './socialsService';
 
 const fmt$ = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
 
@@ -446,10 +449,130 @@ export function buildRepeatSummary(save: SaveData): string {
 }
 
 /**
- * ROTATING OFFLINE BATCH (every 46-50 min while away).
- * Builds `count` DIFFERENT notifications from a pool of real-event messages,
- * rotating the starting point each time the player leaves so no two batches
- * look the same. Everything derives from the player's real state.
+ * EXPANDED REAL-EVENT POOL — cross-system phone notification content.
+ * Every entry is gated on live state: rivalries, box office milestones,
+ * market swings, pregnancies, hired writers, Forbes standing and society
+ * access. Nothing fires without a real fact behind it.
+ */
+export function collectRichPool(save: SaveData): { title: string; body: string }[] {
+  const pool: { title: string; body: string }[] = [];
+  const p = save.player;
+  const weekRef = `Week ${p?.dateWeek || 1}, ${p?.dateYear || 2026}`;
+
+  // A. Rivalry escalation (real unresolved feuds at Feud heat or higher)
+  try {
+    const rivals = (EmpireService.loadState(p).rivalries || []).filter(
+      (r) => !r.resolved && ['Feud', 'Arch Rival', 'Legendary Rival'].includes(r.heatLevel || '')
+    );
+    if (rivals.length > 0) {
+      const r = rivals[0];
+      pool.push({
+        title: `⚔️ ${r.name} is escalating your feud`,
+        body: `${r.heatLevel} heat ${r.rivalryScore}/100 — last move: ${r.lastEventDescription || r.cause}. Strike back in the War Room. ${weekRef}.`,
+      });
+      if (rivals.length > 1) {
+        pool.push({
+          title: `⚔️ ${rivals.length} feuds burning at once`,
+          body: `${rivals.slice(0, 3).map((x) => x.name).join(', ')} — all at Feud heat or higher. The War Room is loud right now. ${weekRef}.`,
+        });
+      }
+    }
+  } catch {}
+
+  // B. Box office milestones (real theatrical runs crossing $50M steps)
+  try {
+    const running = (save.releasedMovies || []).filter((m) => m.inCinemas && (m.worldwideGross || 0) >= 50_000_000);
+    if (running.length > 0) {
+      const m = running.sort((a, b) => (b.worldwideGross || 0) - (a.worldwideGross || 0))[0];
+      const stepM = Math.floor((m.worldwideGross || 0) / 50_000_000) * 50;
+      pool.push({
+        title: `🎥 "${m.movieTitle}" has crossed $${stepM}M`,
+        body: `Still in theaters — lifetime $${(m.worldwideGross || 0).toLocaleString()} worldwide after ${m.weeksInCinemas || 1} week${(m.weeksInCinemas || 1) === 1 ? '' : 's'}. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  // C. Market swings (real living market: crypto ±8%+, studio stocks ±5%+)
+  try {
+    const market = MarketEngineService.getMarketState();
+    const hotCoin = (market.cryptoCoins || [])
+      .filter((c) => Math.abs(c.change24h || 0) >= 8)
+      .sort((a, b) => Math.abs(b.change24h || 0) - Math.abs(a.change24h || 0))[0];
+    if (hotCoin) {
+      const dir = (hotCoin.change24h || 0) > 0 ? 'up' : 'down';
+      pool.push({
+        title: `🪙 ${hotCoin.symbol} is ${dir} ${Math.abs(hotCoin.change24h || 0).toFixed(1)}%`,
+        body: `${hotCoin.name} at $${(hotCoin.price || 0).toLocaleString()}${hotCoin.playerHoldings > 0 ? ` — you hold ${hotCoin.playerHoldings.toLocaleString()}` : ''}. Starcoin desks never sleep. ${weekRef}.`,
+      });
+    }
+    const hotStock = (market.stocks || [])
+      .filter((s) => Math.abs(s.changePct || 0) >= 5)
+      .sort((a, b) => Math.abs(b.changePct || 0) - Math.abs(a.changePct || 0))[0];
+    if (hotStock) {
+      const dir = (hotStock.changePct || 0) > 0 ? 'rallying' : 'sliding';
+      pool.push({
+        title: `📈 ${hotStock.ticker} is ${dir} ${Math.abs(hotStock.changePct || 0).toFixed(1)}%`,
+        body: `${hotStock.name}${hotStock.playerSharesOwned > 0 ? ` — your ${hotStock.playerSharesOwned.toLocaleString()} shares are moving` : ' on Wall Street West'}. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  // D. Pregnancy countdown (real expecting mothers from Star Match)
+  try {
+    const expecting = (save.relationships || []).find((r) => r.pregnancy && r.pregnancy.weeksUntilBirth > 0);
+    if (expecting?.pregnancy) {
+      const preg = expecting.pregnancy;
+      pool.push({
+        title: `🍼 ${expecting.name}: ${preg.weeksUntilBirth} week${preg.weeksUntilBirth === 1 ? '' : 's'} to the baby`,
+        body: `Week ${preg.totalWeeks - preg.weeksUntilBirth} of ${preg.totalWeeks} — be home for the delivery. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  // E. Hired writers on contract (real social hub writers)
+  try {
+    const writers = (SocialsService.getState().writers || []).filter((w) => w.hired && w.contractWeeksRemaining > 0);
+    if (writers.length > 0) {
+      const w = writers[0];
+      pool.push({
+        title: `✍️ ${w.name} is still on your payroll`,
+        body: `${w.agencyName || 'The agency'}${w.postsThisWeek > 0 ? ` — ${w.postsThisWeek} post${w.postsThisWeek === 1 ? '' : 's'} filed this week` : ''}, ${w.contractWeeksRemaining} week${w.contractWeeksRemaining === 1 ? '' : 's'} left. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  // F. Forbes standing (real leaderboard + your real net worth)
+  try {
+    const net = NetworkService.loadState(p);
+    const no1 = (net.forbesList || [])[0];
+    if (no1 && (p?.netWorth || 0) > 0) {
+      pool.push({
+        title: `💼 Forbes #1: ${no1.name} at $${(no1.netWorth / 1_000_000_000).toFixed(1)}B`,
+        body: `You're at $${((p?.netWorth || 0) / 1_000_000).toFixed(1)}M — the gap is real but closing is a career. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  // G. Black Card Society access (real unlocked realms)
+  try {
+    const es = EmpireService.loadState(p);
+    if (es.eliteClub?.isMember) {
+      pool.push({
+        title: `🖤 The Society concierge is holding`,
+        body: `Black Card membership active — contacts, deals and the contracts floor are open whenever you're back. ${weekRef}.`,
+      });
+    }
+  } catch {}
+
+  return pool;
+}
+
+/**
+ * ROTATING OFFLINE BATCH (hourly while away — first ping 40-60 min out).
+ * Builds `count` DIFFERENT notifications from the full real-event pool
+ * (core career facts + the expanded cross-system pool above), rotating the
+ * starting point each time the player leaves so no two batches look alike.
+ * Everything derives from the player's real state.
  */
 export function buildBatchMessages(save: SaveData, count: number, offset: number = 0): { title: string; body: string }[] {
   const items = collectNotificationItems(save);
@@ -514,14 +637,22 @@ export function buildBatchMessages(save: SaveData, count: number, offset: number
     body: `Your audience is growing — give them something to cheer. ${weekRef}.`,
   });
 
-  // Build the batch, rotating through the pool from `offset`, no repeats until
-  // the pool is exhausted (then honest "still waiting" reminders).
+  // 9. Expanded cross-system pool (rivalries, milestones, markets, family, Forbes, society)
+  pool.push(...collectRichPool(save));
+
+  // Build the batch, rotating through the pool from `offset`, no repeats.
+  // If the pool is smaller than the requested count, top up with at most 3
+  // honest summary reminders (real pending counts) — never a wall of filler.
   const result: { title: string; body: string }[] = [];
   const used: number[] = [];
+  let fillers = 0;
   for (let i = 0; i < count; i++) {
     let idx = (offset + i) % pool.length;
     if (used.includes(idx)) {
-      result.push({ title: '📬 Still waiting for you', body: buildRepeatSummary(save) });
+      if (fillers < 3) {
+        fillers++;
+        result.push({ title: '📬 Still waiting for you', body: buildRepeatSummary(save) });
+      }
       continue;
     }
     used.push(idx);

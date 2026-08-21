@@ -2,7 +2,8 @@
  * HOLLYWOOD RISING - Notification Center (REAL EVENTS ONLY)
  * Shows real alerts derived from the player's actual game state:
  * offers, bids, deadlines, runs, contracts and progress thresholds.
- * Plus the "While you were away" digest (only after 2+ hours away).
+ * Offline alerts are PHONE-ONLY (first ping 40-60 min after leaving, then
+ * hourly) — nothing offline is duplicated in here.
  */
 
 import React, { useMemo } from 'react';
@@ -17,7 +18,6 @@ export const NotificationCenterModal: React.FC = () => {
   const theme = THEMES[settings.theme] || THEMES['Hollywood Gold'];
 
   const liveItems = useMemo(() => collectNotificationItems(saveData), [saveData]);
-  const digest = saveData.notificationCenter?.digest || [];
   const offlineEnabled = settings.offlineNotifications !== false;
   const isNative = notificationService.isNativeAvailable();
 
@@ -149,36 +149,14 @@ export const NotificationCenterModal: React.FC = () => {
             </button>
           </div>
 
-          {/* WHILE YOU WERE AWAY */}
-          <div>
-            <h3 className="text-[11px] font-black uppercase tracking-wider text-amber-400 mb-2 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" /> While you were away
-            </h3>
-            {digest.length === 0 ? (
-              <div
-                className="p-3 rounded-2xl border text-center"
-                style={{ borderColor: theme.borderDark, backgroundColor: 'rgba(255,255,255,0.02)' }}
-              >
-                <p className="text-[11px] text-gray-400">
-                  No missed alerts. Leave for ~50 minutes and real pending items (offers, bids, deadlines) will
-                  show up here when you return.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {digest.map((d) => (
-                  <ItemCard
-                    key={d.id}
-                    icon={d.icon}
-                    title={d.title}
-                    body={d.body}
-                    urgency={d.urgency}
-                    refWeek={d.refWeek}
-                    dim={d.read}
-                  />
-                ))}
-              </div>
-            )}
+          {/* OFFLINE PHONE-ONLY NOTE */}
+          <div className="p-3 rounded-2xl border flex items-start gap-2" style={{ borderColor: theme.borderDark, backgroundColor: 'rgba(255,255,255,0.02)' }}>
+            <Bell className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-gray-400 leading-snug">
+              While you're away, alerts go to your phone only — the first one lands 40-60 minutes after you
+              leave, then one every hour (real events: bids, feuds, market moves, deadlines). Nothing is
+              duplicated in here.
+            </p>
           </div>
 
           {/* LIVE ALERTS */}

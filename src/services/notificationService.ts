@@ -2,20 +2,20 @@
  * HOLLYWOOD RISING - Offline Phone Notification Service (REAL EVENTS ONLY)
  * Schedules phone notifications from real game state when the player closes
  * the app:
- *   - One "come online" nudge 2-5 hours after leaving (randomized)
- *   - Real deadline alerts staggered over the first 36h away
- *   - A daily repeating reminder (cancelled the moment they return)
- * Every notification references a real offer, bid, deadline or stat.
- * Capacitor Local Notifications on Android; graceful no-op on web.
+ *   - FIRST ping 40-60 minutes after leaving (randomized so it feels human)
+ *   - Then one every hour while away (24 slots ≈ a full day, then silence)
+ *   - All cancelled the instant the player returns
+ * Every notification references a real offer, bid, deadline, feud, market
+ * move or stat. Capacitor Local Notifications on Android; no-op on web.
  */
 
 import { SaveData } from '../types/game';
 import { collectNotificationItems, buildNudge, buildRepeatSummary, buildBatchMessages } from './notificationEngine';
 
-// 12 slots: one every ~47 minutes covers ~9.5 hours away, then it stops
-// (no endless overnight pinging)
-const SCHEDULED_IDS = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111];
-const BATCH_COUNT = 12;
+// 24 slots: first at 40-60 min, then hourly ≈ covers a full day away, then
+// it stops (no endless multi-day pinging)
+const SCHEDULED_IDS = Array.from({ length: 24 }, (_, i) => 100 + i);
+const BATCH_COUNT = 24;
 const ROTATION_KEY = 'HR_NOTIF_ROTATION';
 
 interface PhoneNotificationInput {
@@ -97,7 +97,7 @@ class NotificationService {
           {
             id: 999,
             title: '📬 Notifications are live',
-            body: 'This is a test — from now on you\u2019ll get real alerts (bids, offers, deadlines) every ~47 minutes while you\u2019re away.',
+            body: 'This is a test — from now on your first alert lands 40-60 minutes after you leave, then one every hour while you\u2019re away. All real events: bids, feuds, market moves, deadlines.',
             schedule: { at: new Date(Date.now() + 2000) },
             sound: 'default',
             smallIcon: 'ic_launcher',
@@ -133,13 +133,13 @@ class NotificationService {
         const batch = buildBatchMessages(save, BATCH_COUNT, offset);
         try { localStorage.setItem(ROTATION_KEY, String((offset + 1) % 8)); } catch {}
 
-        // Every 46-50 minutes (jittered per batch), starting ~47 min after leaving
-        const intervalMin = 46 + Math.floor(Math.random() * 5); // 46..50
+        // Cadence: first ping 40-60 min after leaving, then one every hour
+        const firstDelayMin = 40 + Math.floor(Math.random() * 21); // 40..60
         const list: PhoneNotificationInput[] = batch.map((msg, i) => ({
           id: 100 + i,
           title: msg.title,
           body: msg.body,
-          schedule: { at: new Date(Date.now() + (i + 1) * intervalMin * 60 * 1000) },
+          schedule: { at: new Date(Date.now() + (firstDelayMin + i * 60) * 60 * 1000) },
         }));
 
         await LocalNotifications.schedule({ notifications: list });
