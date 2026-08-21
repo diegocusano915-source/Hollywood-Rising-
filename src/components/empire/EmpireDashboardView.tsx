@@ -31,13 +31,26 @@ export const EmpireDashboardView: React.FC<Props> = ({ empireState, onBack }) =>
   const realEstateValuation = empireState.realEstate.reduce((acc, r) => acc + r.currentValuation, 0);
   const holdingValuation = empireState.holdingCompany.isFormed ? empireState.holdingCompany.totalValuation : 0;
 
-  const totalEmpireValuation = player.money + businessValuation + realEstateValuation + holdingValuation;
+  // NO DOUBLE COUNT: when the holding exists, its valuation already IS the
+  // sum of businesses + properties
+  const assetValuation = empireState.holdingCompany.isFormed
+    ? (empireState.holdingCompany.totalValuation || 0)
+    : businessValuation + realEstateValuation;
+  const totalEmpireValuation = player.money + assetValuation;
+  void holdingValuation;
 
-  // Calculate Weekly Revenue
+  // Real weekly numbers straight off the latest recorded report snapshot
+  const latestReport = (empireState.reports?.reportsHistory || [])[0];
   const weeklyBizRev = empireState.businesses.reduce((acc, b) => acc + b.weeklyRevenue, 0);
   const weeklyRERent = empireState.realEstate.reduce((acc, r) => acc + r.weeklyRentalIncome, 0);
   const weeklyRECost = empireState.realEstate.reduce((acc, r) => acc + r.weeklyMaintenanceCost, 0);
-  const weeklyNetCashFlow = weeklyBizRev + weeklyRERent - weeklyRECost;
+  const hubsNet = (empireState.globalHubs || []).reduce((acc, h) => acc + h.weeklyRegionalRevenue - h.weeklyOperatingExpense, 0);
+  const academyNet = empireState.actingAcademy.isOpen
+    ? (empireState.actingAcademy.weeklyTuitionIncome || 0) - (empireState.actingAcademy.weeklyOperationalCost || 0)
+    : 0;
+  const weeklyNetCashFlow = latestReport?.segments
+    ? latestReport.segments.business + latestReport.segments.realEstate + latestReport.segments.hubs + latestReport.segments.academy
+    : weeklyBizRev + weeklyRERent - weeklyRECost + hubsNet + academyNet;
 
   return (
     <div className="space-y-6">
@@ -80,8 +93,24 @@ export const EmpireDashboardView: React.FC<Props> = ({ empireState, onBack }) =>
             : 'EMERGING VENTURE MOGUL'}
         </h3>
         <p className="text-xs text-gray-300">
-          Consolidated portfolio includes {empireState.businesses.length} commercial businesses, {empireState.realEstate.length} real estate holdings, and {empireState.globalHubs.length} international offices.
+          Consolidated portfolio includes {empireState.businesses.length} commercial businesses, {empireState.realEstate.length} real estate holdings, {empireState.globalHubs.length} international offices, {empireState.actingAcademy.isOpen ? `an academy with ${empireState.actingAcademy.students.length} students` : 'no academy'} and {(empireState.rivalries || []).filter((r) => !r.resolved).length} active feuds.
         </p>
+      </div>
+
+      {/* Division strip — every engine, live */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {([
+          ['Businesses', empireState.businesses.filter((b) => b.status === 'Active').length, 'text-purple-300'],
+          ['Properties', empireState.realEstate.length, 'text-sky-300'],
+          ['Global Offices', (empireState.globalHubs || []).length, 'text-cyan-300'],
+          ['Academy Alumni', empireState.actingAcademy.totalGraduates || 0, 'text-emerald-300'],
+          ['Active Feuds', (empireState.rivalries || []).filter((r) => !r.resolved).length, 'text-red-300'],
+        ] as const).map(([label, n, tone]) => (
+          <div key={label} className="p-2.5 rounded-2xl bg-black/60 border border-white/10">
+            <span className="text-[8px] text-gray-500 uppercase font-black block">{label}</span>
+            <span className={`text-sm font-black font-mono ${tone}`}>{n}</span>
+          </div>
+        ))}
       </div>
 
       {/* Asset Allocation Breakdown Cards */}

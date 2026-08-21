@@ -300,6 +300,8 @@ export interface BusinessReport {
   topPerformingBusiness: string;
   executiveSummary: string;
   growthRatePercent: number;
+  /** Real segment P&L recorded by the weekly tick (newest first entries use this) */
+  segments?: { business: number; realEstate: number; hubs: number; academy: number; dividends: number };
 }
 
 export interface ReportsState {
@@ -626,7 +628,7 @@ export interface GlobalRegion {
 export interface FoundationCause {
   id: string;
   name: string;
-  category: 'Hospitals' | 'Schools' | 'Scholarships' | 'Film Grants' | 'Disaster Relief' | 'Community Projects';
+  category: string;
   totalDonated: number;
   impactRating: number;
   publicGoodwillBonus: number;
@@ -659,6 +661,10 @@ export interface GlobalOffice {
   localStaffCount: number;
   establishedWeek: number;
   establishedYear: number;
+  /** Regional demand factor 60-150 (drifts weekly; drives revenue) */
+  regionDemandPct?: number;
+  /** Weekly net snapshots (newest last, 26 weeks) */
+  revenueHistory?: number[];
 }
 
 export interface FoundationCauseOption {
@@ -689,6 +695,8 @@ export interface FoundationState {
   goodwillScore: number;
   taxDeductionsClaimed: number;
   causes: FoundationCause[];
+  /** Weekly endowment snapshots (newest last, 26 weeks) — real compounding */
+  endowmentHistory?: number[];
 }
 
 export interface EmpireFullState {

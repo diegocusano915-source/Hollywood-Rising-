@@ -1261,7 +1261,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // bestBoxOfficeGross feeds the rivalry War Room: showdown odds compare
     // against the player's best REAL worldwide gross, never a fake number.
     const bestGrossSoFar = saveData.releasedMovies.reduce((mx, m) => Math.max(mx, m.worldwideGross || 0), 0);
-    const empireResult = EmpireService.processEndWeek(p, undefined, { bestBoxOfficeGross: bestGrossSoFar });
+    const lifetimeGrossSoFar = saveData.releasedMovies.reduce((sum, m) => sum + (m.worldwideGross || 0), 0);
+    const empireResult = EmpireService.processEndWeek(p, undefined, { bestBoxOfficeGross: bestGrossSoFar, lifetimeBoxOfficeGross: lifetimeGrossSoFar });
 
     // BLACK CARD SOCIETY weekly tick — annual dues + co-investment payouts.
     // All amounts are real and hit the wallet immediately.

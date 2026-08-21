@@ -865,7 +865,7 @@ export class EmpireService {
     return { ok: true, message: `${prop.name} renovated to Tier ${prop.tierLevel + 1} — valuation +30%.`, state: next, cost };
   }
 
-  public static processEndWeek(player: Player, currentState?: EmpireFullState, opts?: { bestBoxOfficeGross?: number }): { updatedState: EmpireFullState; weeklyCashYield: number; logMessages: string[]; achievementsCash: number; achievementsXp: number } {
+  public static processEndWeek(player: Player, currentState?: EmpireFullState, opts?: { bestBoxOfficeGross?: number; lifetimeBoxOfficeGross?: number }): { updatedState: EmpireFullState; weeklyCashYield: number; logMessages: string[]; achievementsCash: number; achievementsXp: number } {
     const loadedState = currentState || EmpireService.loadState(player);
     let state: EmpireFullState = JSON.parse(JSON.stringify(loadedState));
     const logMessages: string[] = [];
@@ -1047,6 +1047,86 @@ export class EmpireService {
 
     const netRealEstateYield = totalRentalIncome - totalPropertyMaintenance;
     netWeeklyCashYield += netRealEstateYield;
+
+    // 2b. GLOBAL OFFICES \u2014 regional demand drifts weekly; revenue follows it
+    let hubsRevenue = 0;
+    let hubsExpense = 0;
+    for (const hub of state.globalHubs) {
+      hub.regionDemandPct = Math.min(150, Math.max(60, Math.round((hub.regionDemandPct || 100) + (Math.random() - 0.48) * 8)));
+      const demandMult = (hub.regionDemandPct || 100) / 100;
+      hub.weeklyRegionalRevenue = Math.max(1, Math.floor(hub.weeklyOperatingExpense * 2.5 * demandMult * (0.9 + Math.random() * 0.2)));
+      hub.revenueHistory = [...(hub.revenueHistory || []), hub.weeklyRegionalRevenue - hub.weeklyOperatingExpense].slice(-26);
+      hubsRevenue += hub.weeklyRegionalRevenue;
+      hubsExpense += hub.weeklyOperatingExpense;
+    }
+    if (hubsRevenue - hubsExpense !== 0) {
+      netWeeklyCashYield += hubsRevenue - hubsExpense;
+    }
+    // Regional markets breathe: demand labels shift, competitors move
+    if ((state.globalRegions || []).length > 0 && Math.random() < 0.35) {
+      const region = state.globalRegions[Math.floor(Math.random() * state.globalRegions.length)];
+      const demands: GlobalRegion['marketDemand'][] = ['Emerging', 'Moderate', 'High', 'Explosive'];
+      const next = demands[Math.floor(Math.random() * demands.length)];
+      if (next !== region.marketDemand) {
+        region.marketDemand = next;
+        region.localCompetitorsCount = Math.max(1, region.localCompetitorsCount + (Math.random() < 0.5 ? -1 : 1));
+        logMessages.push(`\u{1F30F} GLOBAL DESK: ${region.name} market demand shifts to ${next} (competitors: ${region.localCompetitorsCount}).`);
+      }
+      region.regionalRevenue = state.globalHubs
+        .filter((h) => h.country.toLowerCase().includes(region.name.split(' ')[0].toLowerCase()))
+        .reduce((a, h) => a + h.weeklyRegionalRevenue, region.regionalRevenue);
+    }
+
+    // 2c. FOUNDATION \u2014 the endowment compounds weekly (0.15%), goodwill pays
+    //     a real reputation dividend to the player when earned
+    let foundationNet = 0;
+    if (state.foundation.isEstablished && state.foundation.endowmentPool > 0) {
+      const growth = Math.floor(state.foundation.endowmentPool * 0.0015);
+      state.foundation.endowmentPool += growth;
+      foundationNet = growth;
+      state.foundation.endowmentHistory = [
+        ...(state.foundation.endowmentHistory || []),
+        state.foundation.endowmentPool,
+      ].slice(-26);
+      // Strong goodwill genuinely lifts public reputation (real, capped)
+      if (state.foundation.goodwillScore >= 70 && week % 4 === 0) {
+        player.publicReputation = Math.min(100, (player.publicReputation ?? 50) + 1);
+        logMessages.push(`\u2764\uFE0F FOUNDATION: goodwill work lifts your public reputation (+1).`);
+      }
+    }
+
+    // 2d. WEEKLY REPORT SNAPSHOT \u2014 a real consolidated income statement from
+    //     this week's actual processing (businesses, properties, hubs, academy)
+    {
+      const bizRev = state.businesses.filter((b) => b.status === 'Active' || b.status === 'Distressed').reduce((a, b) => a + b.weeklyRevenue, 0);
+      const bizExp = state.businesses.filter((b) => b.status === 'Active' || b.status === 'Distressed').reduce((a, b) => a + b.weeklyExpenses, 0);
+      const reRev = state.realEstate.reduce((a, r) => a + r.weeklyRentalIncome, 0);
+      const reExp = state.realEstate.reduce((a, r) => a + r.weeklyMaintenanceCost, 0);
+      const academyNet = state.actingAcademy.isOpen
+        ? state.actingAcademy.weeklyTuitionIncome - state.actingAcademy.weeklyOperationalCost
+        : 0;
+      const totalRev = bizRev + reRev + hubsRevenue + Math.max(0, academyNet);
+      const totalExp = bizExp + reExp + hubsExpense + Math.max(0, -academyNet);
+      const topBiz = [...state.businesses].sort((a, b) => b.netProfit - a.netProfit)[0]?.name || 'None';
+      state.reports.reportsHistory = [
+        {
+          id: `rep_w_${year}_${week}`,
+          period: 'Weekly' as const,
+          week,
+          year,
+          totalRevenue: totalRev,
+          totalExpenses: totalExp,
+          netProfit: totalRev - totalExp,
+          activeBusinessesCount: state.businesses.filter((b) => b.status === 'Active').length,
+          topPerformingBusiness: topBiz,
+          executiveSummary: `Week ${week}, ${year} consolidated statement from live operations.`,
+          growthRatePercent: 0,
+          segments: { business: bizRev - bizExp, realEstate: reRev - reExp, hubs: hubsRevenue - hubsExpense, academy: academyNet, dividends: 0 },
+        },
+        ...(state.reports.reportsHistory || []),
+      ].slice(-78); // 78 weekly snapshots \u2248 18 months of books
+      void foundationNet;
+    }
 
     // 3. ACTING ACADEMY SIMULATION
     if (state.actingAcademy.isOpen) {
@@ -1288,6 +1368,21 @@ export class EmpireService {
 
     // 7. LEGACY SCORE & MILESTONE UPDATE
     const totalEmpireValue = (state.holdingCompany.isFormed ? state.holdingCompany.totalValuation : 0) + player.money;
+    // REAL CAREER SYNC — legacy stats mirror the player's actual career file
+    // every week (movies, awards, lifetime gross, lifetime earnings)
+    state.legacy.totalMoviesActed = Math.max(state.legacy.totalMoviesActed || 0, player.moviesCompleted || 0);
+    state.legacy.awardsWonCount = Math.max(state.legacy.awardsWonCount || 0, player.awardsWon || 0);
+    if (opts?.lifetimeBoxOfficeGross) {
+      state.legacy.lifetimeBoxOffice = Math.max(state.legacy.lifetimeBoxOffice || 0, opts.lifetimeBoxOfficeGross);
+    }
+    state.legacy.lifetimeEarnings = Math.max(state.legacy.lifetimeEarnings || 0, (player.netWorth || 0) + (player.money || 0));
+    state.legacy.businessEmpireValuation = state.businesses
+      .filter((b) => b.status !== 'Bankrupt' && b.status !== 'Sold')
+      .reduce((a, b) => a + b.totalValuation, 0);
+    state.legacy.realEstateValuation = state.realEstate.reduce((a, r) => a + r.currentValuation, 0);
+    state.legacy.totalGlobalHubsBuilt = state.globalHubs.length;
+    state.legacy.philanthropyDonatedTotal = (state.foundation.totalDonated || 0) + (state.foundation.endowmentPool || 0);
+
     if (totalEmpireValue > state.legacy.peakNetWorth) {
       state.legacy.peakNetWorth = totalEmpireValue;
     }

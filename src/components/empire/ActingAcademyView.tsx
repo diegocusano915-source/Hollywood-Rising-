@@ -218,7 +218,27 @@ export const ActingAcademyView: React.FC<Props> = ({ empireState, onUpdateState,
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Academy Overview Banner */}
+          {/* Academy Overview Banner — live weekly P&L first */}
+          <div className="p-5 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-black via-gray-900 to-black grid grid-cols-2 md:grid-cols-4 gap-3 text-xs shadow-2xl">
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/5">
+              <span className="text-gray-400 text-[9px] uppercase font-bold block">Weekly Tuition In</span>
+              <span className="font-black text-emerald-400 text-sm font-mono">+${(academy.weeklyTuitionIncome || 0).toLocaleString()}</span>
+            </div>
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/5">
+              <span className="text-gray-400 text-[9px] uppercase font-bold block">Weekly Operating Cost</span>
+              <span className="font-black text-red-400 text-sm font-mono">−${(academy.weeklyOperationalCost || 0).toLocaleString()}</span>
+            </div>
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/5">
+              <span className="text-gray-400 text-[9px] uppercase font-bold block">Weekly Net</span>
+              <span className={`font-black text-sm font-mono ${(academy.weeklyTuitionIncome || 0) - (academy.weeklyOperationalCost || 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                {((academy.weeklyTuitionIncome || 0) - (academy.weeklyOperationalCost || 0)) >= 0 ? '+' : '−'}${Math.abs((academy.weeklyTuitionIncome || 0) - (academy.weeklyOperationalCost || 0)).toLocaleString()}
+              </span>
+            </div>
+            <div className="p-3 rounded-2xl bg-black/50 border border-white/5">
+              <span className="text-gray-400 text-[9px] uppercase font-bold block">Tuition / Student</span>
+              <span className="font-black text-white text-sm font-mono">${(1200 + (Number(academy.campusLevel) || 1) * 400).toLocaleString()}/wk</span>
+            </div>
+          </div>
           <div className="p-5 rounded-3xl border border-white/10 bg-black/60 backdrop-blur-md grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="p-3 rounded-2xl bg-black/50 border border-white/5">
               <span className="text-gray-400 text-[9px] uppercase font-bold block">Campus Level</span>
