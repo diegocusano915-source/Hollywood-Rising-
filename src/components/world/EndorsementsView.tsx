@@ -19,6 +19,8 @@ import {
   Lock,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
+import { ExclusivityService } from '../../services/exclusivityService';
+import { LockCategory } from '../../types/exclusivity';
 
 interface EndorsementsViewProps {
   onBack: () => void;
@@ -33,9 +35,28 @@ export const EndorsementsView: React.FC<EndorsementsViewProps> = ({ onBack }) =>
 
   const hasAgent = !!player.representation?.agent?.signed;
 
+  // Real product category per brand (offer.category is a tier, not a product type)
+  const PRODUCT_CATEGORY: Record<string, LockCategory> = {
+    'Beverly Hills Local Bistro': 'Beverage',
+    'California Urban Apparel': 'Fashion',
+    'Rolex Geneva': 'Luxury Watch',
+    'Nike Athletics': 'Athletics',
+    'Apple Inc.': 'Tech',
+  };
+  const lockedFor = (brandName: string): string | null =>
+    ExclusivityService.offerBlockReason(brandName, PRODUCT_CATEGORY[brandName] || 'Fashion', player.dateWeek, player.dateYear);
+
   const handleSignDeal = (offerId: string) => {
     const offer = offers.find((o) => o.id === offerId);
     if (!offer) return;
+
+    // EXCLUSIVITY: fully locked while a competing clause is active
+    const block = lockedFor(offer.brandName);
+    if (block) {
+      setFeedback(`EXCLUSIVITY: ${block}`);
+      setTimeout(() => setFeedback(null), 5000);
+      return;
+    }
 
     if (offer.requirements.includes('Fans') && (player.fans || 0) < 5000 && offer.category !== 'Local') {
       setFeedback('Requires more Fans & Star Power to sign this brand endorsement!');
@@ -46,6 +67,18 @@ export const EndorsementsView: React.FC<EndorsementsViewProps> = ({ onBack }) =>
     setOffers((prev) =>
       prev.map((o) => (o.id === offerId ? { ...o, isSigned: true } : o))
     );
+
+    // Record the exclusivity clause: category locked to this brand for the term
+    ExclusivityService.recordClause({
+      source: 'ENDORSEMENT',
+      brandName: offer.brandName,
+      category: PRODUCT_CATEGORY[offer.brandName] || 'Fashion',
+      startWeek: player.dateWeek,
+      startYear: player.dateYear,
+      durationWeeks: offer.durationYears * 52,
+      dealFee: offer.payPerYear,
+      description: `Endorsement: ${offer.brandName} — $${offer.payPerYear.toLocaleString()}/yr`,
+    });
 
     const repState = RepresentationService.getState();
     const weeklyPayout = Math.max(50, Math.round(offer.payPerYear / 52));
@@ -167,23 +200,37 @@ export const EndorsementsView: React.FC<EndorsementsViewProps> = ({ onBack }) =>
                 </div>
               </div>
 
-              {off.isSigned ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-2xl font-black text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1.5 cursor-not-allowed"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  ACTIVE ENDORSEMENT CONTRACT
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleSignDeal(off.id)}
-                  className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-102 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-1.5"
-                >
-                  <Award className="w-4 h-4" />
-                  Sign Endorsement Deal (${off.payPerYear.toLocaleString()}/yr)
-                </button>
-              )}
+              {(() => {
+                if (off.isSigned) {
+                  return (
+                    <button
+                      disabled
+                      className="w-full py-3 rounded-2xl font-black text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1.5 cursor-not-allowed"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      ACTIVE ENDORSEMENT CONTRACT
+                    </button>
+                  );
+                }
+                const lock = lockedFor(off.brandName);
+                if (lock) {
+                  return (
+                    <div className="w-full py-3 px-3 rounded-2xl font-black text-[10px] bg-rose-500/10 text-rose-300 border border-rose-500/40 flex items-center justify-center gap-1.5 leading-snug">
+                      <Lock className="w-4 h-4 shrink-0" />
+                      {lock}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    onClick={() => handleSignDeal(off.id)}
+                    className="w-full py-3 rounded-2xl font-black text-xs bg-amber-400 text-black hover:scale-102 transition-all cursor-pointer shadow-lg flex items-center justify-center gap-1.5"
+                  >
+                    <Award className="w-4 h-4" />
+                    Sign Endorsement Deal (${off.payPerYear.toLocaleString()}/yr)
+                  </button>
+                );
+              })()}
             </div>
           ))}
         </div>

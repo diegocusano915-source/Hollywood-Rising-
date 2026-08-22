@@ -8,6 +8,8 @@ import { useGame } from '../../context/GameContext';
 import { RepresentationFullState } from '../../types/representation';
 import { RepresentationService } from '../../services/representationService';
 import { Target, ArrowLeft, Check, Award, Sparkles, Clock } from 'lucide-react';
+import { ExclusivityService } from '../../services/exclusivityService';
+import { LockCategory } from '../../types/exclusivity';
 
 interface SponsorshipsViewProps {
   representationState: RepresentationFullState;
@@ -28,7 +30,32 @@ export const SponsorshipsView: React.FC<SponsorshipsViewProps> = ({
     const item = state.sponsorships.find((s) => s.id === sponsId);
     if (!item) return;
 
+    // EXCLUSIVITY: map the sponsorship category to a lock category
+    const SPON_TO_LOCK: Record<string, LockCategory> = { 'Sports Brands': 'Athletics', 'Luxury Brands': 'Luxury Watch', 'Technology': 'Tech', 'Fashion': 'Fashion', 'Cars': 'Automotive', 'Streaming': 'Streaming', 'Food': 'Beverage' };
+    const lockCat = SPON_TO_LOCK[item.category] || 'Fashion';
+    const blockReason = ExclusivityService.offerBlockReason(item.sponsorName, lockCat, player.dateWeek, player.dateYear);
+    if (blockReason) {
+      alert(`EXCLUSIVITY LOCKED
+
+${blockReason}
+
+You cannot sign a competing sponsorship while an exclusive clause is active.`);
+      return;
+    }
+
     item.status = 'ACTIVE';
+
+    ExclusivityService.recordClause({
+      source: 'SPONSORSHIP',
+      brandName: item.sponsorName,
+      category: lockCat,
+      startWeek: player.dateWeek,
+      startYear: player.dateYear,
+      durationWeeks: item.weeksRemaining,
+      dealFee: item.annualValue,
+      linkedDealId: item.id,
+      description: `Major sponsorship: ${item.sponsorName} (${item.category}) — $${item.annualValue.toLocaleString()}/yr`,
+    });
     state.reputation.worldwidePopularity = Math.min(100, state.reputation.worldwidePopularity + 10);
 
     state.contractsArchive.unshift({

@@ -122,7 +122,7 @@ export interface LawFirmState {
 }
 
 // 3. BRAND PARTNERSHIPS
-export type BrandCategory = 'Fashion' | 'Beauty' | 'Tech' | 'Beverage' | 'Automotive' | 'Luxury Watch';
+export type BrandCategory = 'Fashion' | 'Beauty' | 'Tech' | 'Beverage' | 'Automotive' | 'Luxury Watch' | 'Athletics';
 
 export interface BrandDealOffer {
   id: string;
@@ -134,7 +134,7 @@ export interface BrandDealOffer {
   totalValue: number;
   requiredFame: number;
   requiredReputation: number;
-  status: 'OFFER_PENDING' | 'ACTIVE' | 'COMPLETED' | 'DECLINED' | 'EXPIRED';
+  status: 'OFFER_PENDING' | 'ACTIVE' | 'COMPLETED' | 'DECLINED' | 'EXPIRED' | 'TERMINATED';
   weeksRemaining: number;
   dateSigned?: string;
   deliverables: string;

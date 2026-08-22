@@ -49,6 +49,8 @@ import { ensureSocietyState, processSocietyWeek } from '../services/societyEngin
 import { processStudioWeek, loadStudioState, saveStudioState } from '../services/personalStudioEngine';
 import { loadStreamingState, saveStreamingState, processStreamingRoyaltiesWeek, processBidsWeekly, processNpcLicensingWeek, drainNpcSigningBonuses } from '../services/streamingEngine';
 import { RepresentationService } from '../services/representationService';
+import { ExclusivityService } from '../services/exclusivityService';
+import { LockCategory } from '../types/exclusivity';
 import { LivingWorldService, processFilmingLocationsWeek } from '../services/livingWorldService';
 import { SocialsService, processSocialHubWeek } from '../services/socialsService';
 import { ToastMessage, ToastCategory } from '../components/common/ToastContainer';
@@ -585,6 +587,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         success: false,
         message: `CASTING DIRECTOR DECLINED YOUR SUBMISSION — ${proj.roleType} role in "${proj.title}" (${proj.studio}). The door stays closed until requirements are met.`,
         reasons: declineReasons,
+      };
+    }
+
+    // PRODUCTION SLATE CAP: max 3 active productions at once (movies OR series,
+    // sequels included). Casting directors won't hold a slot for a full slate.
+    const activeSlate = saveData.bookedProjects.filter(
+      (b) => !b.isFilmingComplete && (b.status || '') !== 'Pending Negotiation'
+    );
+    if (activeSlate.length >= 3) {
+      return {
+        success: false,
+        message: 'Production slate FULL (3/3) — you cannot commit to another movie or series until one wraps. Sequels count toward the limit.',
+        reasons: [] as string[],
       };
     }
 
@@ -1330,6 +1345,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...(saveData.bookedProjects || []).map((b) => b.studio).filter(Boolean),
       ...(saveData.releasedMovies || []).map((m) => m.studio).filter(Boolean),
     ])) as string[];
+    try {
+      const exclNotes = ExclusivityService.processWeek(newWeek, newYear);
+      if (exclNotes.length > 0) worldNews.push(...exclNotes);
+    } catch (e) {
+      console.warn('Exclusivity weekly tick error:', e);
+    }
     const livingWorldResult = LivingWorldService.advanceWorldWeek(newWeek, newYear, p, playerStudioNames);
     try {
       const locationNews = processFilmingLocationsWeek(newWeek, newYear);
@@ -1763,10 +1784,96 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             read: false,
           });
 
+          // ---- EXCLUSIVITY: brand partners, streaming locks, breach penalties ----
+          // Deterministic partner from the project id (no random fake data):
+          // some films carry a brand integration deal that locks the category.
+          const PARTNER_BRANDS: Array<{ brandName: string; category: LockCategory }> = [
+            { brandName: 'Nike', category: 'Athletics' },
+            { brandName: 'Adidas', category: 'Athletics' },
+            { brandName: 'Coca-Cola', category: 'Beverage' },
+            { brandName: 'Pepsi', category: 'Beverage' },
+            { brandName: 'Apple', category: 'Tech' },
+            { brandName: 'Samsung', category: 'Tech' },
+            { brandName: 'BMW', category: 'Automotive' },
+            { brandName: 'Mercedes-Benz', category: 'Automotive' },
+            { brandName: 'LVMH', category: 'Fashion' },
+            { brandName: 'Chanel', category: 'Fashion' },
+            { brandName: 'Rolex', category: 'Luxury Watch' },
+            { brandName: "L'Oreal", category: 'Beauty' },
+          ];
+          const idHash = String(aud.projectId || aud.movieTitle).split('').reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+          const hasPartner = idHash % 100 < 35; // ~35% of projects carry a partner
+          const partner = hasPartner ? PARTNER_BRANDS[idHash % PARTNER_BRANDS.length] : null;
+          const isSeriesBooking = aud.category === 'TV Series' || (aud as any).isTvSeries === true;
+
+          // BREACH CHECK: taking conflicting work breaks active clauses - real penalties
+          const activeClauses = ExclusivityService.activeClauses(newWeek, newYear);
+          const terminateLinked = (dealId: string) => {
+            try {
+              const repState = RepresentationService.getState();
+              const idx = repState.brandOffers.findIndex((o) => o.id === dealId);
+              if (idx >= 0) {
+                repState.brandOffers[idx] = { ...repState.brandOffers[idx], status: 'TERMINATED' as any, weeksRemaining: 0 };
+                RepresentationService.saveState(repState);
+              }
+            } catch {}
+          };
+          for (const clause of activeClauses) {
+            const streamingBreach = isSeriesBooking && clause.source === 'STREAMING_SERIES';
+            const partnerBreach = !!partner && clause.category === partner.category && clause.brandName !== partner.brandName;
+            if (streamingBreach || partnerBreach) {
+              const res = ExclusivityService.applyBreach(
+                clause,
+                `${isSeriesBooking ? 'another streaming series' : 'a rival-partnered film'}: "${aud.movieTitle}"`,
+                p,
+                terminateLinked
+              );
+              newInboxMessages.unshift({
+                id: `msg_breach_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                category: 'LEGAL',
+                sender: `${clause.brandName} Legal Department`,
+                senderRole: 'Contracts & Litigation',
+                senderAvatar: aud.posterUrl,
+                subject: `CONTRACT BREACH: Exclusivity violation — $${res.penaltyPaid.toLocaleString()} penalty`,
+                body: res.message,
+                date: dateInfo.fullDateText,
+                read: false,
+              });
+              careerCastingResults.push(`EXCLUSIVITY BREACH: broke ${clause.brandName} clause by booking "${aud.movieTitle}" — $${res.penaltyPaid.toLocaleString()} penalty, reputation hit.`);
+            }
+          }
+
+          // RECORD NEW CLAUSES for this booking
+          if (isSeriesBooking) {
+            ExclusivityService.recordClause({
+              source: 'STREAMING_SERIES',
+              brandName: (aud as any).networkName || 'The Streamer',
+              category: 'Streaming',
+              startWeek: newWeek,
+              startYear: newYear,
+              durationWeeks: aud.filmingWeeks + 12, // season lock: filming + first-run window
+              dealFee: aud.salary,
+              description: `Streaming series lock: "${aud.movieTitle}" (season exclusivity, no other streaming series)`,
+            });
+          }
+          if (partner) {
+            ExclusivityService.recordClause({
+              source: 'MOVIE_PARTNER',
+              brandName: partner.brandName,
+              category: partner.category,
+              startWeek: newWeek,
+              startYear: newYear,
+              durationWeeks: aud.filmingWeeks + 15, // filming + theatrical run
+              dealFee: Math.floor(aud.salary / 2),
+              description: `Brand integration: ${partner.brandName} (${partner.category}) partnered on "${aud.movieTitle}"`,
+            });
+          }
+
           newBookings.push({
             id: `book_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             projectId: aud.projectId,
             movieTitle: aud.movieTitle,
+            brandPartner: partner || undefined,
             posterUrl: aud.posterUrl,
             roleType: aud.roleType,
             salary: aud.salary,

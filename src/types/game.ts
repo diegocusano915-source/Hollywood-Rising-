@@ -334,6 +334,8 @@ export interface BookedProject {
   budget?: number;
   location?: string;
   backendPercent?: number;
+  /** Brand integration partner on this production (locks its category) */
+  brandPartner?: { brandName: string; category: string };
   profitSharePercent?: number;
   boxOfficeBonus?: number;
   status?: ProductionStage;

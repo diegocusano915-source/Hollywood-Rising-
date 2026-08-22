@@ -8,6 +8,7 @@ import { useGame } from '../../context/GameContext';
 import { RepresentationFullState, BrandDealOffer } from '../../types/representation';
 import { RepresentationService } from '../../services/representationService';
 import { Handshake, ArrowLeft, Check, X, Clock, DollarSign, Award, Tag } from 'lucide-react';
+import { ExclusivityService } from '../../services/exclusivityService';
 
 interface BrandPartnershipsViewProps {
   representationState: RepresentationFullState;
@@ -35,7 +36,31 @@ export const BrandPartnershipsView: React.FC<BrandPartnershipsViewProps> = ({
     const deal = state.brandOffers.find((o) => o.id === offerId);
     if (!deal) return;
 
+    // EXCLUSIVITY: competing categories are locked by active clauses
+    const blockReason = ExclusivityService.offerBlockReason(deal.brandName, deal.brandCategory, player.dateWeek, player.dateYear);
+    if (blockReason) {
+      alert(`EXCLUSIVITY LOCKED
+
+${blockReason}
+
+You cannot sign a competing ${deal.brandCategory} deal while an exclusive clause is active.`);
+      return;
+    }
+
     deal.status = 'ACTIVE';
+
+    // Record the exclusivity clause: this category is now locked to this brand
+    ExclusivityService.recordClause({
+      source: 'ENDORSEMENT',
+      brandName: deal.brandName,
+      category: deal.brandCategory,
+      startWeek: player.dateWeek,
+      startYear: player.dateYear,
+      durationWeeks: deal.contractLengthWeeks,
+      dealFee: deal.weeklyPayment * 52,
+      linkedDealId: deal.id,
+      description: `Endorsement: ${deal.brandName} (${deal.brandCategory}) — $${deal.weeklyPayment.toLocaleString()}/wk`,
+    });
     deal.dateSigned = `Week ${player.dateWeek}, ${player.dateYear}`;
     state.reputation.publicReputation = Math.min(100, state.reputation.publicReputation + 3);
 
