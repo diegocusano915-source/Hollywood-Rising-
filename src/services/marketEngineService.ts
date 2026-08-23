@@ -113,6 +113,17 @@ export interface IpoCompany {
   description: string;
 }
 
+/**
+ * LIVE CAREER FEED for the player's fan token — the coin's price reacts to
+ * real weekly career state (fame momentum, box office, fanbase size).
+ */
+export interface PlayerCoinContext {
+  fameXp: number;
+  fameDeltaPct: number;           // this week's fame momentum, %
+  lastReleasePerformance: number; // -1 (flop) .. 0 (no release) .. +1 (blockbuster)
+  fanCount: number;
+}
+
 export interface CryptoCoin {
   id: string;
   name: string;
@@ -255,6 +266,10 @@ export interface EconomyMarketState {
   pendingCryptoLosses?: number;
   /** Absolute week (year*52+week) when the next new STUDIO launches (IPO) */
   nextStudioLaunchWeek?: number;
+  /** Last week's market-cap rank of the player's fan token (flippening detector) */
+  playerCoinPrevRank?: number;
+  /** True after the player rug-pulled their fan token — exchange blacklist, no new launches */
+  playerRugPulled?: boolean;
 }
 
 /** Seed slates + flags on the studio list (used at init AND save migration) */
@@ -1519,7 +1534,7 @@ export class MarketEngineService {
    * ZERO fake numbers: Price updates, company fundamentals, cycle shifts, news,
    * and market developments are calculated deterministically.
    */
-  public static processEndWeek(playerWeek: number, playerYear: number, playerMoney: number): {
+  public static processEndWeek(playerWeek: number, playerYear: number, playerMoney: number, playerCoinCtx?: PlayerCoinContext): {
     updatedState: EconomyMarketState;
     headlineNews: string[];
     /** Structured crypto events (listings, delists, regimes) → inbox messages */
@@ -1896,6 +1911,21 @@ export class MarketEngineService {
         + (Math.random() - 0.49) * vol * 100;
       if (pumpWinners.has(coin.id)) changePct += 25 + Math.random() * 85;
 
+      // ---- PLAYER FAN TOKEN: career-driven price discovery ----
+      // The coin's own charter: "Price fluctuates with career fame and movie
+      // box office hits." Real weekly career state moves it — fame momentum,
+      // box office outcomes and fanbase scale all price in, and celebrity
+      // tokens overheat extra in BULL/PUMP manias.
+      if (coin.isMyCoin && playerCoinCtx) {
+        const famePull = Math.max(-12, Math.min(12, playerCoinCtx.fameDeltaPct * 0.45));
+        const releasePull = Math.max(-26, Math.min(26, playerCoinCtx.lastReleasePerformance * 26));
+        const fanPull = Math.min(6, playerCoinCtx.fanCount / 60000);
+        changePct += famePull + releasePull + fanPull;
+        if (regime.type === 'BULL' || regime.type === 'PUMP') changePct *= 1.25;
+        // fame bleeding out → holders lose faith faster than the market
+        if (playerCoinCtx.fameDeltaPct < -8) changePct -= 4;
+      }
+
       // ---- coin events (4% weekly per coin) ----
       let eventLabel = '';
       if (Math.random() < 0.04) {
@@ -1999,6 +2029,28 @@ export class MarketEngineService {
     // Pay out forced liquidations (creditable via GameContext)
     if (delistRemovals.length > 0) {
       (s as any)._delistPayouts = delistRemovals.reduce((a, r) => a + r.payout, 0);
+    }
+
+    // ---- 3c-0. PLAYER COIN COMPETITION RANK (vs every live NPC coin) ----
+    const myLiveCoin = s.cryptoCoins.find((c) => c.isMyCoin && (c.status === 'Active' || c.status === 'TopLeader'));
+    if (myLiveCoin) {
+      const liveRanked = s.cryptoCoins
+        .filter((c) => c.status === 'Active' || c.status === 'TopLeader')
+        .sort((a, b) => b.marketCap - a.marketCap);
+      const myRank = liveRanked.findIndex((c) => c.id === myLiveCoin.id) + 1;
+      const prevRank: number = s.playerCoinPrevRank || 0;
+      if (myRank > 0 && prevRank > 0 && myRank < prevRank && myRank <= 20) {
+        const passed = liveRanked[myRank]; // the coin now directly below us
+        pushWire({ kind: 'PUMP', symbol: myLiveCoin.symbol, title: `FLIPPENING: $${myLiveCoin.symbol} passes ${passed ? '$' + passed.symbol : 'a rival'}`, sub: `Now ranked #${myRank} of ${liveRanked.length} by market cap` });
+        headlineNews.push(`FLIPPENING: $${myLiveCoin.symbol} climbs to #${myRank} of ${liveRanked.length} on the Star Exchange${passed ? `, overtaking $${passed.symbol}` : ''}!`);
+        cryptoEvents.push({
+          kind: 'PUMP',
+          subject: `📈 FLIPPENING: $${myLiveCoin.symbol} is now the #${myRank} coin on the exchange`,
+          body: `${myLiveCoin.name} (${myLiveCoin.symbol}) just flipped ${passed ? `${passed.name} ($${passed.symbol})` : 'a rival token'} by market cap.\n\n• New rank: #${myRank} of ${liveRanked.length} live coins\n• Market cap: $${myLiveCoin.marketCap.toLocaleString()}\n• Price: $${myLiveCoin.price < 1 ? myLiveCoin.price.toFixed(4) : myLiveCoin.price.toFixed(2)}\n\nYour fan token is competing with — and beating — real exchange tokens. Keep the career hot and the community strong; every rank above you is a rival to flip.`,
+          important: myRank <= 5,
+        });
+      }
+      s.playerCoinPrevRank = myRank;
     }
 
     // ---- 3c. NEW LISTINGS — every 10-12 weeks, GOOD market caps ----
@@ -2450,10 +2502,29 @@ export class MarketEngineService {
       };
     }
 
-    const totalDollarRevenue = coinAmount * coin.price;
+    // ---- FOUNDER-SIZE DUMP IMPACT on your own fan token ----
+    // Selling more than 2% of circulating supply moves the market against
+    // you: slippage on the fill, then a real price crash + community damage.
+    // No more free spot-price exits for the founder wallet.
+    let fillPrice = coin.price;
+    let dumpNote = '';
+    if (coin.isMyCoin) {
+      const frac = coinAmount / Math.max(1, coin.circulatingSupply);
+      if (frac > 0.02) {
+        const slip = Math.min(0.55, 0.25 + frac * 5.5);
+        fillPrice = coin.price * (1 - slip);
+        coin.price = Math.max(0.000001, Math.round(coin.price * (1 - Math.min(0.6, frac * 3)) * 1000000) / 1000000);
+        coin.marketCap = Math.round(coin.price * coin.circulatingSupply);
+        coin.communityStrength = Math.max(3, Math.round(coin.communityStrength - frac * 80));
+        coin.news = `$${coin.symbol} FOUNDER WALLET DUMP — ${(frac * 100).toFixed(1)}% of supply sold. Community in revolt.`;
+        dumpNote = ` Founder dump of ${(frac * 100).toFixed(1)}% of supply: ${(slip * 100).toFixed(0)}% slippage eaten, price crashed to $${coin.price < 1 ? coin.price.toFixed(4) : coin.price.toFixed(2)}, community trust damaged.`;
+      }
+    }
+
+    const totalDollarRevenue = Math.round(coinAmount * fillPrice * 100) / 100;
     // ---- REALIZED PnL → CRYPTO TAX (fed weekly into the tax engine) ----
     const avgBuy = coin.playerAvgBuyPrice || 0;
-    const realizedPerUnit = coin.price - avgBuy;
+    const realizedPerUnit = fillPrice - avgBuy;
     const realizedPnl = realizedPerUnit * coinAmount;
     if (realizedPnl > 0) {
       s.pendingCryptoGains = (s.pendingCryptoGains || 0) + Math.floor(realizedPnl);
@@ -2490,7 +2561,7 @@ export class MarketEngineService {
 
     return {
       success: true,
-      message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!${taxNote}`,
+          message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!${taxNote}${dumpNote}`,
       totalDollarRevenue,
     };
   }
@@ -2576,6 +2647,14 @@ export class MarketEngineService {
     const s = this.getMarketState();
     const deploymentCost = 100000;
 
+    if (s.playerRugPulled) {
+      return { success: false, message: 'EXCHANGE BLACKLIST: after your rug pull, the Star Exchange will never approve another token from you.' };
+    }
+    const alreadyLaunched = s.cryptoCoins.find((c) => c.isMyCoin && (c.status === 'Active' || c.status === 'TopLeader'));
+    if (alreadyLaunched) {
+      return { success: false, message: `You already have $${alreadyLaunched.symbol} live on the exchange.` };
+    }
+
     if (playerMoney < deploymentCost) {
       return { success: false, message: `Smart contract deployment fee requires $${deploymentCost.toLocaleString()}.` };
     }
@@ -2614,6 +2693,177 @@ export class MarketEngineService {
     return {
       success: true,
       message: `WEB3 TOKEN DEPLOYED! $${cleanSymbol} (${coinName}) is now live with 1,000,000 token founder allocation!`,
+    };
+  }
+
+  // ==========================================================
+  // FOUNDER OPS — the player controls their own fan token
+  // ==========================================================
+
+  /**
+   * FOUNDER LIQUIDITY INJECTION — spend real cash to pump your coin.
+   * Price impact scales with injection size vs market cap (capped, with
+   * diminishing returns like a real buy wall). The cash is spent — gone
+   * into the treasury, buying a pump that the market can still fade.
+   */
+  public static injectCashIntoMyCoin(
+    symbol: string,
+    dollarAmount: number,
+    playerMoney: number
+  ): { success: boolean; message: string; newPrice: number } {
+    if (!Number.isFinite(dollarAmount) || dollarAmount < 10000) {
+      return { success: false, message: 'Minimum liquidity injection is $10,000.', newPrice: 0 };
+    }
+    const s = this.getMarketState();
+    const coin = s.cryptoCoins.find((c) => c.isMyCoin && (c.id === symbol || c.symbol === symbol) && (c.status === 'Active' || c.status === 'TopLeader'));
+    if (!coin) return { success: false, message: 'Your fan token is not live on the exchange.', newPrice: 0 };
+    if (playerMoney < dollarAmount) {
+      return { success: false, message: `Insufficient cash. Injection requires $${dollarAmount.toLocaleString()}.`, newPrice: 0 };
+    }
+
+    const impactRatio = dollarAmount / Math.max(1, coin.marketCap);
+    const priceMult = 1 + Math.min(0.6, impactRatio * 0.9); // real buy wall, capped at +60%
+    coin.prevPrice = coin.price;
+    coin.price = Math.max(0.000001, Math.round(coin.price * priceMult * 1000000) / 1000000);
+    coin.marketCap = Math.round(coin.price * coin.circulatingSupply);
+    coin.volume24h += Math.round(dollarAmount * 3);
+    coin.communityStrength = Math.min(100, coin.communityStrength + 4);
+    coin.popularity = Math.min(100, coin.popularity + 6);
+    coin.change24h = Math.round(((coin.price / Math.max(0.000001, coin.prevPrice) - 1) * 100 + (coin.change24h || 0)) * 100) / 100;
+    coin.sparkline = [...(coin.sparkline || []), coin.price].slice(-12);
+    coin.news = `$${coin.symbol} TREASURY INJECTION — founder deploys $${dollarAmount.toLocaleString()} liquidity support!`;
+
+    s.transactions.unshift({
+      id: `tx_inj_${Date.now()}`,
+      assetType: 'CRYPTO',
+      assetId: coin.id,
+      symbol: coin.symbol,
+      name: coin.name,
+      type: 'BUY',
+      units: dollarAmount / coin.price,
+      pricePerUnit: coin.price,
+      totalCost: dollarAmount,
+      week: s.currentWeek,
+      year: s.currentYear,
+      timestamp: `W${s.currentWeek}, ${s.currentYear}`,
+    });
+    this.saveMarketState(s);
+
+    return {
+      success: true,
+      newPrice: coin.price,
+      message: `LIQUIDITY INJECTED: $${dollarAmount.toLocaleString()} deployed — $${coin.symbol} pumps ${((priceMult - 1) * 100).toFixed(1)}% to $${coin.price < 1 ? coin.price.toFixed(4) : coin.price.toFixed(2)} (mcap $${(coin.marketCap / 1000000).toFixed(1)}M). Cash is spent — the market can still fade it.`,
+    };
+  }
+
+  /**
+   * RUG PULL — the founder exit scam. Sells the entire founder allocation
+   * into the market at once with catastrophic slippage, kills the coin,
+   * and returns the fan/community/legal consequences for GameContext to
+   * apply. You only get one: the exchange blacklists you forever.
+   */
+  public static rugPullMyCoin(): {
+    success: boolean;
+    message: string;
+    proceeds: number;
+    consequences?: {
+      fansLostPct: number;
+      fameHitPct: number;
+      reputationHit: number;
+      industryRespectHit: number;
+      fine: number;
+      coinName: string;
+      symbol: string;
+    };
+  } {
+    const s = this.getMarketState();
+    const coin = s.cryptoCoins.find((c) => c.isMyCoin && (c.status === 'Active' || c.status === 'TopLeader'));
+    if (!coin) return { success: false, message: 'No live fan token to rug.', proceeds: 0 };
+    const holdings = coin.playerHoldings || 0;
+    if (holdings <= 0) return { success: false, message: 'You hold no founder allocation to dump.', proceeds: 0 };
+
+    const supplyFrac = holdings / Math.max(1, coin.circulatingSupply);
+    const slippage = Math.min(0.85, 0.35 + supplyFrac * 0.6); // 35% floor, worse the bigger the dump
+    const grossValue = holdings * coin.price;
+    const proceeds = Math.max(0, Math.round(grossValue * (1 - slippage)));
+
+    coin.prevPrice = coin.price;
+    coin.price = Math.max(0.000001, Math.round(coin.price * 0.02 * 1000000) / 1000000); // -98%
+    coin.marketCap = Math.round(coin.price * coin.circulatingSupply);
+    coin.volume24h = Math.round(coin.volume24h * 4); // panic volume
+    coin.communityStrength = 3;
+    coin.popularity = 5;
+    coin.playerHoldings = 0;
+    coin.playerAvgBuyPrice = 0;
+    coin.status = 'RugPulled';
+    coin.news = `$${coin.symbol} RUG PULL — founder wallet drained all liquidity. Investors wiped out.`;
+    s.playerRugPulled = true;
+
+    s.transactions.unshift({
+      id: `tx_rug_${Date.now()}`,
+      assetType: 'CRYPTO',
+      assetId: coin.id,
+      symbol: coin.symbol,
+      name: coin.name,
+      type: 'SELL',
+      units: holdings,
+      pricePerUnit: coin.price,
+      totalCost: proceeds,
+      week: s.currentWeek,
+      year: s.currentYear,
+      timestamp: `W${s.currentWeek}, ${s.currentYear}`,
+    });
+
+    // Rival celebrity/degen tokens soak up the fleeing liquidity
+    s.cryptoCoins = s.cryptoCoins.map((c) =>
+      c.id === coin.id ? c : (c.sector === 'Celebrity Fan Token' || c.risk === 'Extreme Degen') && (c.status === 'Active' || c.status === 'TopLeader')
+        ? { ...c, volume24h: Math.round(c.volume24h * 1.4), popularity: Math.min(100, c.popularity + 5) }
+        : c
+    );
+    this.saveMarketState(s);
+
+    const consequences = {
+      fansLostPct: Math.round(30 + Math.random() * 15),          // 30-45% of fans gone
+      fameHitPct: Math.round(12 + Math.random() * 8),            // 12-20% fame wipe
+      reputationHit: 12,
+      industryRespectHit: 10,
+      fine: Math.round(proceeds * 0.5),                          // regulators claw back half
+      coinName: coin.name,
+      symbol: coin.symbol,
+    };
+
+    return {
+      success: true,
+      proceeds,
+      consequences,
+      message: `RUG PULL EXECUTED on $${coin.symbol}: dumped ${holdings.toLocaleString()} tokens through ${(slippage * 100).toFixed(0)}% slippage for $${proceeds.toLocaleString()}. The coin is dead (-98%). Regulators, fans and the exchange are coming for you.`,
+    };
+  }
+
+  /**
+   * Live competitive snapshot of the player's fan token for the founder console.
+   */
+  public static getMyCoinStatus(): {
+    coin: CryptoCoin | null;
+    ruggedCoin: CryptoCoin | null;
+    rank: number;
+    totalLive: number;
+    leader: CryptoCoin | null;
+    blacklisted: boolean;
+  } {
+    const s = this.getMarketState();
+    const live = s.cryptoCoins
+      .filter((c) => c.status === 'Active' || c.status === 'TopLeader')
+      .sort((a, b) => b.marketCap - a.marketCap);
+    const coin = live.find((c) => c.isMyCoin) || null;
+    const ruggedCoin = s.cryptoCoins.find((c) => c.isMyCoin && c.status === 'RugPulled') || null;
+    return {
+      coin,
+      ruggedCoin,
+      rank: coin ? live.findIndex((c) => c.id === coin.id) + 1 : 0,
+      totalLive: live.length,
+      leader: live[0] && live[0].id !== coin?.id ? live[0] : live[1] || null,
+      blacklisted: !!s.playerRugPulled,
     };
   }
 }

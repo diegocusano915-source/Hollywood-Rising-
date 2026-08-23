@@ -952,6 +952,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       let p = { ...saveData.player };
+      // Snapshot for the fan-token price engine (fame momentum this week)
+      const fameXpAtWeekStart = p.fameXp;
 
     // Ensure talents object exists
     if (!p.talents) {
@@ -2939,7 +2941,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Invisible Market Engine Weekly Processing
-    const marketResult = MarketEngineService.processEndWeek(newWeek, newYear, p.money);
+    // The player's fan token prices off REAL career state: fame momentum,
+    // this week's box office performance, and fanbase scale.
+    const thisWeekReleases = newReleasedMovies.filter((m) => m.releaseWeek === newWeek && m.releaseYear === newYear);
+    const lastReleasePerformance = thisWeekReleases.length > 0
+      ? Math.max(-1, Math.min(1, Math.max(...thisWeekReleases.map((m) => {
+          const budget = Math.max(1000000, m.budget || 25000000);
+          return ((m.worldwideGross || 0) - budget) / (budget * 2);
+        }))))
+      : 0;
+    const hasLiveFanToken = MarketEngineService.getMarketState().cryptoCoins.some((c) => c.isMyCoin && (c.status === 'Active' || c.status === 'TopLeader'));
+    const marketResult = MarketEngineService.processEndWeek(newWeek, newYear, p.money, hasLiveFanToken ? {
+      fameXp: p.fameXp,
+      fameDeltaPct: fameXpAtWeekStart > 0 ? ((p.fameXp - fameXpAtWeekStart) / fameXpAtWeekStart) * 100 : 0,
+      lastReleasePerformance,
+      fanCount: p.fans,
+    } : undefined);
     if (marketResult && marketResult.headlineNews && marketResult.headlineNews.length > 0) {
       worldNews.push(...marketResult.headlineNews);
     }

@@ -176,6 +176,45 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     }
   };
 
+  // ---- founder ops (your own fan token) ----
+  const myStatus = coin?.isMyCoin ? MarketEngineService.getMyCoinStatus() : null;
+  const [injectAmt, setInjectAmt] = useState('50000');
+  const [rugStep, setRugStep] = useState(0);
+
+  const handleInject = () => {
+    if (!coin) return;
+    const amt = parseFloat(injectAmt) || 0;
+    const res = MarketEngineService.injectCashIntoMyCoin(coin.symbol, amt, player.money);
+    if (res.success) {
+      player.money -= amt;
+      persistNow();
+    }
+    showFb(res.message);
+    refreshMarket();
+    const fresh = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
+    if (fresh) setSelectedCoin(fresh);
+  };
+
+  const handleRug = () => {
+    const res = MarketEngineService.rugPullMyCoin();
+    if (res.success && res.consequences) {
+      const c = res.consequences;
+      const fansBefore = player.fans;
+      player.fans = Math.floor(player.fans * (1 - c.fansLostPct / 100));
+      player.fameXp = Math.max(0, Math.floor(player.fameXp * (1 - c.fameHitPct / 100)));
+      player.publicReputation = Math.max(0, (player.publicReputation || 0) - c.reputationHit);
+      player.industryRespect = Math.max(0, (player.industryRespect || 0) - c.industryRespectHit);
+      player.money = Math.max(0, player.money + res.proceeds - c.fine);
+      persistNow();
+      showFb(`☠️ ${res.message} Fans −${(fansBefore - player.fans).toLocaleString()} (${c.fansLostPct}%), fame −${c.fameHitPct}%, regulators clawed back $${c.fine.toLocaleString()}. You are blacklisted from launching new tokens.`);
+      setRugStep(0);
+      setSelectedCoin(null);
+    } else {
+      showFb(res.message);
+    }
+    refreshMarket();
+  };
+
   // ---- filters ----
   const filtered = liveCoins
     .filter((c) => {
@@ -258,6 +297,84 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
           {coin.delistWarning && (
             <div className="mx-4 mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-400/40 text-rose-300 text-[10px] font-bold leading-relaxed">
               ⚠️ UNDER DELIST REVIEW — {coin.delistStreak || 0} consecutive weak weeks. If removed, holdings are force-liquidated at a 40% discount. You hold {coin.playerHoldings.toFixed(4)} {coin.symbol}.
+            </div>
+          )}
+
+          {/* FOUNDER CONSOLE — your coin, your controls */}
+          {coin.isMyCoin && myStatus && (
+            <div className="mx-4 mb-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <b className="text-[10.5px] text-amber-300 tracking-widest">🎖 FOUNDER CONSOLE</b>
+                <span className="text-[9px] font-mono text-amber-200/70">YOUR COIN · YOUR RULES</span>
+              </div>
+
+              {/* competition rank */}
+              <div className="flex items-center justify-between bg-black/40 rounded-lg px-3 py-2 border border-white/5">
+                <div>
+                  <span className="text-[8.5px] text-[#6b7484] tracking-wider block">EXCHANGE RANK (BY MARKET CAP)</span>
+                  <b className="text-sm text-white font-mono">#{myStatus.rank} <span className="text-[10px] text-[#6b7484]">of {myStatus.totalLive} live coins</span></b>
+                </div>
+                {myStatus.leader && (
+                  <div className="text-right">
+                    <span className="text-[8.5px] text-[#6b7484] tracking-wider block">RIVAL ABOVE</span>
+                    <b className="text-[11px] text-gray-200 font-mono">${myStatus.leader.symbol} · {fmtCap(myStatus.leader.marketCap)}</b>
+                  </div>
+                )}
+              </div>
+
+              {/* community trust meter */}
+              <div>
+                <div className="flex justify-between text-[8.5px] font-black mb-1">
+                  <span className="text-[#6b7484] tracking-wider">COMMUNITY TRUST</span>
+                  <span className={coin.communityStrength < 30 ? 'text-[#ff5b6e]' : 'text-[#3ddc97]'}>{coin.communityStrength}/100{coin.communityStrength < 30 ? ' — FANS ARE TURNING' : ''}</span>
+                </div>
+                <div className="h-1.5 bg-[#0b0e14] rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${coin.communityStrength < 30 ? 'bg-[#ff5b6e]' : 'bg-gradient-to-r from-[#3ddc97] to-[#f5b942]'}`} style={{ width: `${Math.min(100, coin.communityStrength)}%` }} />
+                </div>
+              </div>
+
+              {/* liquidity injection */}
+              <div className="bg-black/40 rounded-lg p-3 border border-white/5 space-y-2">
+                <span className="text-[8.5px] text-[#6b7484] tracking-wider block">💰 PUMP WITH YOUR OWN CASH — liquidity injection</span>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={injectAmt}
+                    onChange={(e) => setInjectAmt(e.target.value)}
+                    min={10000}
+                    step={10000}
+                    className="flex-1 bg-[#0e1117] border border-[#1b212c] rounded-lg px-3 py-2 text-[11px] font-mono text-white outline-none focus:border-amber-400/50"
+                    placeholder="USD (min $10,000)"
+                  />
+                  <button
+                    onClick={handleInject}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3ddc97] to-[#2aa876] text-[#06251a] text-[10px] font-black cursor-pointer whitespace-nowrap"
+                  >
+                    INJECT 💸
+                  </button>
+                </div>
+                <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
+                  Real cash, real impact: price pumps up to +60% scaled to injection vs market cap. Cash is spent — the market can still fade the pump.
+                </p>
+              </div>
+
+              {/* rug pull */}
+              <div className={`rounded-lg p-3 border space-y-2 ${rugStep > 0 ? 'bg-rose-500/10 border-rose-400/50' : 'bg-black/40 border-white/5'}`}>
+                <span className="text-[8.5px] text-[#ff5b6e] tracking-wider block">☠️ RUG PULL — dump your founder allocation and exit</span>
+                {rugStep === 0 ? (
+                  <>
+                    <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
+                      Sell everything at once through massive slippage (35%+ haircut). The coin dies −98%. You keep the cash — but fans (−30-45%), fame (−12-20%), reputation, industry respect and regulators (they claw back half) ALL come for you. One rug = permanent exchange blacklist.
+                    </p>
+                    <button onClick={() => setRugStep(1)} className="w-full py-2 rounded-lg bg-[#1b212c] text-[#ff5b6e] text-[10px] font-black cursor-pointer border border-rose-400/30">I KNOW THE CONSEQUENCES →</button>
+                  </>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setRugStep(0)} className="flex-1 py-2 rounded-lg bg-[#1b212c] text-gray-300 text-[10px] font-black cursor-pointer">CANCEL</button>
+                    <button onClick={handleRug} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-[#ff5b6e] to-[#c73548] text-white text-[10px] font-black cursor-pointer">CONFIRM RUG PULL ☠️</button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
