@@ -203,14 +203,14 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     const amt = parseFloat(airdropAmt) || 0;
     const res = MarketEngineService.airdropToCommunity(coin.symbol, amt, player.dateWeek + (player.dateYear * 52));
     if (res.success) {
-      // broadcast on social — real reach converts to followers + fans
+      // broadcast on social — reach converts to platform followers only
+      // (game fans come exclusively from movie releases and awards)
       const post = SocialsService.postAirdropAnnouncement(player, {
         symbol: coin.symbol,
         coinName: coin.name,
         tokenAmount: amt,
         fmtAmount: fmtTokens(amt),
       });
-      if (post.success && post.fansGained > 0) player.fans += post.fansGained;
       persistNow();
       showFb(`${res.message}${post.success ? ` ${post.message}` : ''}`);
     } else {

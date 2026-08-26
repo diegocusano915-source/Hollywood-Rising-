@@ -658,6 +658,12 @@ export interface SocialsState {
   socialMonthlyEarnings?: { year: number; month: string; accrued: number; postsCounted: number };
   /** Real revenue accrued THIS week per bank — powers every social bank panel */
   socialWeeklyAccrued?: { youtube: number; instagram: number; twitter: number; week: number; year: number };
+  /** Lifetime gross earnings per bank — real cumulative, never resets */
+  socialLifetimeEarned?: { youtube: number; instagram: number; twitter: number; facebook: number; reddit: number; telegram: number };
+  /** Balances for platforms without ad engines yet (deposits + future earnings) */
+  facebookBalance?: number;
+  redditBalance?: number;
+  telegramBalance?: number;
 }
 
 /** Monthly social-earnings envelope: real-engine range $5,000-$25,000 */
@@ -915,6 +921,16 @@ export class SocialsService {
           }
           if (typeof this.state.youtubeBalance !== 'number') this.state.youtubeBalance = 0;
           if (!Array.isArray(this.state.youtubePendingPayouts)) this.state.youtubePendingPayouts = [];
+          // Lifetime earned: seed from current balances once (honest baseline —
+          // history before this field existed is baked into what you hold)
+          if (!this.state.socialLifetimeEarned) {
+            this.state.socialLifetimeEarned = {
+              youtube: this.state.youtubeBalance || 0,
+              instagram: 0, twitter: 0, facebook: 0, reddit: 0, telegram: 0,
+            };
+            if (typeof this.state.instagramBalance === 'number') this.state.socialLifetimeEarned.instagram = this.state.instagramBalance;
+            if (typeof this.state.twitterBalance === 'number') this.state.socialLifetimeEarned.twitter = this.state.twitterBalance;
+          }
           if (!Array.isArray(this.state.youtubeScheduled)) this.state.youtubeScheduled = [];
           if (typeof this.state.youtubeLifetimeUploads !== 'number') this.state.youtubeLifetimeUploads = this.state.youtubeVideos.length;
           if (typeof this.state.youtubeUploadStreak !== 'number') this.state.youtubeUploadStreak = 0;
@@ -1720,17 +1736,19 @@ export class SocialsService {
     const fameFactor = Math.floor((player.fameXp || 0) * 0.7);
     const platformWeights: Record<string, number> = { twitter: 0.35, instagram: 0.40, youtube: 0.15, facebook: 0.05, reddit: 0.03, telegram: 0.02 };
     const growthLines: string[] = [];
+    const activePids: string[] = [];
     for (const pid of SocialsService.WRITER_PLATFORMS) {
-      if (HQ_PLATFORMS.has(pid)) continue;
-      const feed = SocialsService.pidToFeed(pid)!;
       if (!this.hasAccount(pid, player)) continue;
       const posts = state.postsThisWeekByPlatform?.[pid] || 0;
+      if (posts > 0) activePids.push(pid);
+      if (HQ_PLATFORMS.has(pid)) continue; // HQ engines grow these
       if (posts <= 0) continue;
 
       const activityMultiplier = 1.2 + Math.min(1.2, posts * 0.15);
       const weight = platformWeights[pid] || 0.1;
       const g = Math.floor(fameFactor * activityMultiplier * weight * (0.8 + Math.random() * 0.4));
       if (g > 0) {
+        const feed = SocialsService.pidToFeed(pid)!;
         const capped = Math.min(500000000000, (state.followers[feed] || 0) + g);
         const actual = capped - (state.followers[feed] || 0);
         state.followers[feed] = capped;
@@ -1739,16 +1757,21 @@ export class SocialsService {
       }
     }
 
-    if (growthLines.length > 0) {
-      socialPosts.push(`📈 Separate platform growth: ${growthLines.join(' · ')}.`);
+    // Recap line reflects ALL tracked activity — manual posts, writer posts
+    // AND creator-HQ platforms (their growth is reported by their engines).
+    if (growthLines.length > 0 && activePids.length > 0) {
+      socialPosts.push(`📈 Platform activity on ${activePids.map((p) => SocialsService.PLATFORM_LABEL[p] || p).join(', ')} — organic growth: ${growthLines.join(' · ')}.`);
+    } else if (activePids.length > 0) {
+      socialPosts.push(`📈 Platform activity on ${activePids.map((p) => SocialsService.PLATFORM_LABEL[p] || p).join(', ')} — follower growth reported by their creator engines.`);
     } else {
-      socialPosts.push(`📲 No platform-specific activity this week — every account was stagnant. Post on a platform (or hire a writer there) to grow it.`);
+      socialPosts.push(`📲 No platform activity this week — every account was stagnant. Post on a platform (or hire a writer there) to grow it.`);
     }
 
     // weekly activity counters reset
     state.postsThisWeekByPlatform = {};
 
-    player.fans = (player.fans || 0) + fanGrowth;
+    // FOLLOWERS ARE NOT GAME FANS: player.fans grows ONLY from movie
+    // releases and award wins. Social followers live on the platforms.
 
     // 4. Update Dynamic Trending Topics based on actual gameplay
     const newTrends: string[] = [];
@@ -1987,6 +2010,8 @@ export class SocialsService {
       // YT BANK: accrue revenue + tick pending payouts
       if (totalYtRevenueThisWeek > 0) {
         state.youtubeBalance = (state.youtubeBalance || 0) + totalYtRevenueThisWeek;
+        if (!state.socialLifetimeEarned) state.socialLifetimeEarned = { youtube: 0, instagram: 0, twitter: 0, facebook: 0, reddit: 0, telegram: 0 };
+        state.socialLifetimeEarned.youtube += totalYtRevenueThisWeek;
         state.creatorStudio.totalAdRevenue += totalYtRevenueThisWeek;
         state.creatorStudio.weeklyAdRevenue = totalYtRevenueThisWeek;
       } else {
@@ -2107,6 +2132,8 @@ export class SocialsService {
       }
       if (igAccruedThisWeek > 0) {
         state.instagramBalance = (state.instagramBalance || 0) + igAccruedThisWeek;
+        if (!state.socialLifetimeEarned) state.socialLifetimeEarned = { youtube: 0, instagram: 0, twitter: 0, facebook: 0, reddit: 0, telegram: 0 };
+        state.socialLifetimeEarned.instagram += igAccruedThisWeek;
         socialPosts.push(`📸 IG Creator Bonus +$${igAccruedThisWeek.toLocaleString()} → Gram Bank (balance $${(state.instagramBalance || 0).toLocaleString()}).`);
       }
       // Engagement authority drip
@@ -2239,6 +2266,8 @@ export class SocialsService {
       (state as any).__twAccrued = twAccrued;
       if (twAccrued > 0) {
         state.twitterBalance = (state.twitterBalance || 0) + twAccrued;
+        if (!state.socialLifetimeEarned) state.socialLifetimeEarned = { youtube: 0, instagram: 0, twitter: 0, facebook: 0, reddit: 0, telegram: 0 };
+        state.socialLifetimeEarned.twitter += twAccrued;
         socialPosts.push(`𝕏 Ad revenue +$${twAccrued.toLocaleString()} → X Bank (balance $${(state.twitterBalance || 0).toLocaleString()}).`);
       }
       state.twitterAccruedLastWeek = twAccrued;
@@ -2254,6 +2283,30 @@ export class SocialsService {
         return true;
       });
       twPayoutArrivals.push(...twArrivals);
+    }
+
+    // Extra platform banks (Facebook / Reddit / Telegram): payout ticks —
+    // deposits and any future earnings clear through the same pipeline.
+    const extraArrivals: Array<{ net: number; tax: number; gross: number; weeks: number; platform: string }> = [];
+    for (const pid of ['facebook', 'reddit', 'telegram'] as const) {
+      const qf = `${pid}PendingPayouts`;
+      const queue = (state as any)[qf] || [];
+      if (queue.length === 0) continue;
+      (state as any)[qf] = (queue as Array<YouTubePendingPayout & { _platform?: string }>).filter((po) => {
+        po.weeksRemaining -= 1;
+        if (po.weeksRemaining <= 0) {
+          extraArrivals.push({ net: po.net, tax: po.taxWithheld, gross: po.gross, weeks: po.totalWeeks, platform: pid });
+          return false;
+        }
+        return true;
+      });
+    }
+    if (extraArrivals.length > 0) {
+      // Credit straight to the wallet via the existing transfer-arrival path
+      for (const a of extraArrivals) {
+        twPayoutArrivals.push({ net: a.net, tax: a.tax, gross: a.gross, weeks: a.weeks });
+        socialPosts.push(`💸 ${SocialsService.PLATFORM_LABEL[a.platform] || a.platform} bank transfer cleared: $${a.net.toLocaleString()} net.`);
+      }
     }
 
     // 7h. MONTH-END SOCIAL PAYOUT — the ONLY way bank money leaves. On the
@@ -2317,6 +2370,18 @@ export class SocialsService {
         state.twitterPendingPayouts = startPending(state.twitterPendingPayouts, twBal, twTax, 'Twitter');
         state.twitterBalance = 0;
         socialPosts.push(`🏦 MONTH-END PAYOUT: X $${twBal.toLocaleString()} — $${twTax.toLocaleString()} creator tax withheld (20%). Clears in 1-5 weeks.`);
+      }
+      // Extra platform banks (Facebook / Reddit / Telegram) auto-pay at
+      // month-end with the same 20% creator tax.
+      for (const pid of ['facebook', 'reddit', 'telegram'] as const) {
+        const bal = SocialsService.getSocialBankBalance(pid);
+        if (bal > 0) {
+          const pTax = Math.round(bal * SOCIAL_BANK_TAX_PCT);
+          (state as any)[`${pid}PendingPayouts`] = startPending((state as any)[`${pid}PendingPayouts`], bal, pTax, pid.toUpperCase() as any);
+          const f = SocialsService.bankField(pid);
+          (state as any)[f] = 0;
+          socialPosts.push(`🏦 MONTH-END PAYOUT: ${SocialsService.PLATFORM_LABEL[pid] || pid} $${bal.toLocaleString()} — $${pTax.toLocaleString()} creator tax withheld (20%). Clears in 1-5 weeks.`);
+        }
       }
       if (ytBal === 0 && igBal === 0 && twBal === 0 && !eligibleForFloor) {
         socialPosts.push(`🏦 MONTH-END: no social payout — banks are empty. Posts only earn revenue with Premium (or YouTube monetization).`);
@@ -2383,13 +2448,16 @@ export class SocialsService {
    * clear in 1-5 weeks through the same real payout pipeline as month-end.
    */
   public static transferSocialBankToAccount(
-    platform: 'youtube' | 'instagram' | 'twitter',
+    platform: string,
     player: { dateWeek?: number; dateYear?: number }
   ): { success: boolean; message: string; net?: number; tax?: number } {
     const state = this.getState();
-    const balField = platform === 'youtube' ? 'youtubeBalance' : platform === 'instagram' ? 'instagramBalance' : 'twitterBalance';
-    const queueField = platform === 'youtube' ? 'youtubePendingPayouts' : platform === 'instagram' ? 'instagramPendingPayouts' : 'twitterPendingPayouts';
-    const label = platform === 'youtube' ? 'YouTube Creator Bank' : platform === 'instagram' ? 'Gram Bank' : 'X Bank';
+    const balField = SocialsService.bankField(platform);
+    const queueField = `${platform}PendingPayouts`;
+    const label = `${SocialsService.PLATFORM_LABEL[platform] || platform} Bank`;
+    if (!balField || typeof (state as any)[balField] === 'undefined') {
+      // platforms without a dedicated balance field still work — field is created on demand
+    }
     const balance = (state as any)[balField] || 0;
     if (balance < SOCIAL_BANK_MIN_TRANSFER) {
       return { success: false, message: `${label} holds $${balance.toLocaleString()} — transfers need at least $${SOCIAL_BANK_MIN_TRANSFER.toLocaleString()} accrued.` };
@@ -2417,6 +2485,65 @@ export class SocialsService {
       tax,
       message: `${label}: $${balance.toLocaleString()} transfer requested — $${tax.toLocaleString()} creator tax (20%) withheld, $${net.toLocaleString()} net clears to your account in ${weeks} week${weeks === 1 ? '' : 's'}.`,
     };
+  }
+
+  // ---- UNIVERSAL SOCIAL BANK HELPERS (all six platforms) ----
+
+  /** Balance field mapping for every platform bank. */
+  private static bankField(platform: string): string {
+    return ({
+      youtube: 'youtubeBalance', instagram: 'instagramBalance', twitter: 'twitterBalance',
+      facebook: 'facebookBalance', reddit: 'redditBalance', telegram: 'telegramBalance',
+    } as Record<string, string>)[platform] || '';
+  }
+
+  public static getSocialBankBalance(platform: string): number {
+    const state = this.getState();
+    const f = SocialsService.bankField(platform);
+    return f ? ((state as any)[f] || 0) : 0;
+  }
+
+  /**
+   * DEPOSIT your own cash into a platform bank — no tax on the way in
+   * (it's already your money; the 20% creator tax applies on earnings
+   * leaving through transfers/payouts). Fuel for giveaways and stunts.
+   */
+  public static depositToSocialBank(
+    platform: string,
+    amount: number,
+    playerMoney: number
+  ): { success: boolean; message: string } {
+    if (!Number.isFinite(amount) || amount < 100) {
+      return { success: false, message: 'Minimum deposit is $100.' };
+    }
+    if (playerMoney < amount) {
+      return { success: false, message: `Insufficient cash — deposit needs $${amount.toLocaleString()}.` };
+    }
+    const f = SocialsService.bankField(platform);
+    if (!f) return { success: false, message: 'Unknown platform bank.' };
+    const state = this.getState();
+    (state as any)[f] = ((state as any)[f] || 0) + amount;
+    this.saveState(state);
+    return { success: true, message: `Deposited $${amount.toLocaleString()} into ${platform} bank — no tax on deposits. Bank now holds $${((state as any)[f]).toLocaleString()}.` };
+  }
+
+  /** Lifetime gross earned per bank — cumulative, never resets. */
+  public static getLifetimeEarned(platform: string): number {
+    const s = this.getState().socialLifetimeEarned;
+    return (s as any)?.[platform] || 0;
+  }
+
+  /** Credit earned revenue to a bank + its lifetime tracker (internal). */
+  public static creditBankEarnings(platform: string, gross: number): void {
+    if (!gross || gross <= 0) return;
+    const f = SocialsService.bankField(platform);
+    if (!f) return;
+    const state = this.getState();
+    (state as any)[f] = ((state as any)[f] || 0) + gross;
+    if (!state.socialLifetimeEarned) {
+      state.socialLifetimeEarned = { youtube: 0, instagram: 0, twitter: 0, facebook: 0, reddit: 0, telegram: 0 };
+    }
+    (state.socialLifetimeEarned as any)[platform] += gross;
   }
 
   /**

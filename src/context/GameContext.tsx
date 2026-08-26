@@ -1443,7 +1443,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    fansGainedThisWeek = (fansGainedThisWeek || 0) + (socialsResult.fanGrowth || 0);
+    // FOLLOWERS ARE NOT GAME FANS. player.fans grows ONLY from movie
+    // releases and award wins; social followers stay on the platforms.
     prRetainerExpensesThisWeek = repResult.prWeeklyCost || 0;
     legalRetainerExpensesThisWeek = repResult.lawWeeklyCost || 0;
     writerExpensesThisWeek = socialsResult.writerWeeklyCost || 0;
@@ -3364,7 +3365,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         netWeeklyChange,
       },
       social: {
-        followersGained: fansGainedThisWeek,
+        followersGained: socialsResult.fanGrowth || 0,
         following: updatedRelationships.filter(r => r.relationshipLevel > 30).length,
         posts: socialPosts,
         trending: socialTrending,

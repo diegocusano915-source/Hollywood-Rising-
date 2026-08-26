@@ -8,6 +8,7 @@ import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, Send, MessageCircle, Users, Megaphone, Camera, Check, Crown, Radio, Search } from 'lucide-react';
 import { PremiumPanel, WriterSheet } from './HubPanels';
+import { SocialBankPanel } from './SocialBankPanel';
 
 export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { player, releasedMovies, saveData, updateSave } = useGame();
@@ -299,6 +300,7 @@ export const TelegramView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       )}
 
+      <div className="px-3 sm:px-4 pb-2"><SocialBankPanel platform="telegram" accent="cyan" /></div>
       {tab === 'PREMIUM' && <PremiumPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
       {BottomNav}
     </div>

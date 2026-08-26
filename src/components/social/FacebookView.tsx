@@ -9,6 +9,7 @@ import { SocialsService, SocialsState, PremiumService } from '../../services/soc
 import { RepresentationService } from '../../services/representationService';
 import { ArrowLeft, ThumbsUp, Heart, Laugh, Frown, Angry, MessageCircle, Share, Users, ShoppingBag, Clock, Crown, Image as ImageIcon } from 'lucide-react';
 import { PremiumPanel, WriterSheet } from './HubPanels';
+import { SocialBankPanel } from './SocialBankPanel';
 
 const REACTIONS = [
   { id: 'like', icon: '👍', label: 'Like' },
@@ -325,6 +326,7 @@ export const FacebookView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       )}
 
+      <div className="px-3 sm:px-4 pb-2"><SocialBankPanel platform="facebook" accent="orange" /></div>
       {tab === 'PREMIUM' && <PremiumPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
       {BottomNav}
     </div>

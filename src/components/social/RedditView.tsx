@@ -8,6 +8,7 @@ import { useGame } from '../../context/GameContext';
 import { SocialsService, SocialsState, PremiumService } from '../../services/socialsService';
 import { ArrowLeft, ArrowUp, ArrowDown, MessageCircle, Award, Search, Home, Compass, Crown, Share2 } from 'lucide-react';
 import { PremiumPanel, WriterSheet } from './HubPanels';
+import { SocialBankPanel } from './SocialBankPanel';
 
 const SUBREDDITS: { name: string; members: number; verified: boolean }[] = [
   { name: 'r/HollywoodRising', members: 100000000, verified: true },
@@ -316,6 +317,7 @@ export const RedditView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       )}
 
+      <div className="px-3 sm:px-4 pb-2"><SocialBankPanel platform="reddit" accent="orange" /></div>
       {tab === 'PREMIUM' && <PremiumPanel state={state} onRefresh={() => setState({ ...SocialsService.getState() })} />}
       {BottomNav}
     </div>
