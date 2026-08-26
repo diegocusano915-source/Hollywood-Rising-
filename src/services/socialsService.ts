@@ -1379,6 +1379,70 @@ export class SocialsService {
     this.saveState(state);
   }
 
+  /**
+   * AIRDROP ANNOUNCEMENT — auto-posted on X (and Telegram if the account
+   * exists) the moment the founder airdrops tokens. Reach scales from the
+   * REAL follower count of each platform; airdrop posts skew viral because
+   * free money travels. Returns followers + fans gained for the caller.
+   */
+  public static postAirdropAnnouncement(player: any, input: { symbol: string; coinName: string; tokenAmount: number; fmtAmount: string }): { success: boolean; message: string; followersGained: number; fansGained: number } {
+    const state = this.getState();
+    const targets: Array<{ pid: string; feed: PlatformType }> = [
+      { pid: 'twitter', feed: 'Twitter' },
+      { pid: 'telegram', feed: 'Telegram' },
+    ];
+    const active = targets.filter((t) => this.hasAccount(t.pid, player));
+    if (active.length === 0) {
+      return { success: false, message: 'No social account to announce on — create your X account to broadcast airdrops.', followersGained: 0, fansGained: 0 };
+    }
+
+    const text = `🪂 $${input.symbol} AIRDROP IS LIVE! ${input.fmtAmount} tokens, FREE, to the community. Claim → hold → we ride. First come, first served. 🚀`;
+    const playerHandle = SocialsService.getHandle('twitter', player);
+    let followersGained = 0;
+
+    for (const t of active) {
+      const followers = state.followers[t.feed] || 0;
+      // airdrop posts reach 25-60% of the platform's real follower base
+      const views = Math.floor(followers * (0.25 + Math.random() * 0.35));
+      const likes = Math.floor(views * (0.04 + Math.random() * 0.04)); // free money engages harder
+      const shares = Math.floor(views * 0.02);                          // claim-referral spread
+      const comments = Math.floor(views * 0.006);
+
+      const post: SocialPost = {
+        id: `post_airdrop_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        authorName: `${player.firstName} ${player.lastName}`,
+        authorHandle: playerHandle,
+        authorAvatar: player.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop',
+        platform: t.feed,
+        tab: 'PLAYER_FEED',
+        text,
+        likes,
+        comments,
+        retweets: shares,
+        shares,
+        views,
+        timestamp: 'Just now',
+        isPlayer: true,
+        isNpc: false,
+        sentiment: 'Viral',
+      };
+      state.playerPosts[t.feed] = state.playerPosts[t.feed] || [];
+      state.playerPosts[t.feed].unshift(post);
+      // viral reach converts to followers at 0.8-1.6% (airdrop refugees follow the faucet)
+      const gained = Math.floor(views * (0.008 + Math.random() * 0.008));
+      followersGained += gained;
+      state.followers[t.feed] = Math.min(500000000000, followers + gained);
+    }
+    this.saveState(state);
+
+    return {
+      success: true,
+      followersGained,
+      fansGained: followersGained, // fans grow 1:1 with real social followers
+      message: `Airdrop posted to ${active.map((t) => t.feed).join(' + ')} — ${followersGained.toLocaleString()} new followers.`,
+    };
+  }
+
   /** Player manual posting limit per platform per week. */
   public static readonly PLAYER_POSTS_PER_WEEK = 2;
 

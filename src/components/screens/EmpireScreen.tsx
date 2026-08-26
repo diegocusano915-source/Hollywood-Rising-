@@ -23,6 +23,7 @@ import { GlobalExpansionView } from '../empire/GlobalExpansionView';
 import { FoundationView } from '../empire/FoundationView';
 import { EmpireDashboardView } from '../empire/EmpireDashboardView';
 import { ReportsView } from '../empire/ReportsView';
+import { CommandDeckStyles, CommandDeckCard, CommandDeckHeader, DeckAccent } from '../common/CommandDeck';
 
 import {
   Building2,
@@ -298,124 +299,212 @@ export const EmpireScreen: React.FC = () => {
   const totalREVal = realEstateList.reduce((sum, r) => sum + (r?.currentValuation || 0), 0);
   const totalEmpireVal = (player?.money || 0) + totalBizVal + totalREVal;
 
-  const getRealCardBadge = (id: EmpireFeatureId): string => {
+  // ---- COMMAND DECK: real status / accent / meter per feature ----
+  const pct = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / Math.max(1, max)) * 100)));
+  const kfmt = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`);
+
+  const getDeckInfo = (id: EmpireFeatureId): {
+    status: string; tag?: string; accent: DeckAccent;
+    meter: { label: string; pct: number; text: string }; foot: string;
+  } => {
     switch (id) {
-      case 'HOLDING_COMPANY':
-        return empireState?.holdingCompany?.isFormed
-          ? `$${(empireState.holdingCompany.totalValuation || 0).toLocaleString()} Valuation`
-          : 'Not Formed';
-      case 'BUSINESS_VENTURES':
-        return `Businesses: ${businessesList.length}`;
-      case 'REAL_ESTATE':
-        return `Properties: ${realEstateList.length}`;
-      case 'ELITE_CLUB':
-        return empireState?.eliteClub?.isMember ? 'Active Member' : 'Locked';
-      case 'RIVALRIES':
-        return `Active: ${(empireState?.rivalries || []).length}`;
-      case 'ACTING_ACADEMY':
-        return empireState?.actingAcademy?.isOpen ? 'Open' : 'Closed';
-      case 'TAX_REVENUE':
-        return empireState?.taxState?.accountantTier && empireState.taxState.accountantTier !== 'None'
-          ? `${empireState.taxState.accountantTier} CPA`
-          : 'Standard Tier';
-      case 'ACHIEVEMENTS': {
-        const unlocked = (empireState?.achievements || []).filter((a) => a?.isUnlocked).length;
-        return `Unlocked: ${unlocked}/${(empireState?.achievements || []).length}`;
+      case 'HOLDING_COMPANY': {
+        const hc = empireState?.holdingCompany;
+        const formed = !!hc?.isFormed;
+        return {
+          status: formed ? 'ACTIVE' : 'INACTIVE',
+          tag: formed ? 'FORMED' : 'PENDING',
+          accent: formed ? 'warn' : 'crit',
+          meter: { label: 'VALUATION SCALE', pct: formed ? pct(hc!.totalValuation || 0, 25000000) : 0, text: formed ? kfmt(hc!.totalValuation || 0) : 'NOT FORMED' },
+          foot: formed ? 'PARENT CONGLOMERATE' : 'REQUIRES EMPIRE SCALE',
+        };
       }
-      case 'LEGACY':
-        return empireState?.legacy && (empireState.legacy.walkOfFameStar || (empireState.legacy.hallOfFameScore || 0) > 0)
-          ? `${empireState.legacy.hallOfFameRank}`
-          : 'Upcoming Talent';
-      case 'FOUNDATION':
-        return empireState?.foundation && empireState.foundation.isEstablished ? 'Established' : 'Not Established';
-      case 'CORPORATE_BOARD':
-        return `${(empireState?.boardSeats || []).length} Seats`;
-      case 'GLOBAL_EXPANSION':
-        return `${(empireState?.globalHubs || []).length} Offices`;
-      case 'REPORTS':
-        return businessesList.length > 0 || realEstateList.length > 0 ? 'Audits Ready' : 'No Statements';
-      case 'EMPIRE_DASHBOARD':
-        return `Valuation: $${totalEmpireVal.toLocaleString()}`;
+      case 'BUSINESS_VENTURES': {
+        const profit = businessesList.reduce((s, b) => s + (b?.weeklyRevenue || 0), 0);
+        return {
+          status: `${businessesList.length} UNIT${businessesList.length === 1 ? '' : 'S'}`,
+          tag: 'PROFIT',
+          accent: businessesList.length > 0 ? 'ok' : 'crit',
+          meter: { label: 'WEEKLY PROFIT', pct: pct(profit, 150000), text: profit > 0 ? `${kfmt(profit)}/WK` : 'NO REVENUE' },
+          foot: businessesList.length > 0 ? 'COMMERCIAL BRANDS' : 'NO VENTURES YET',
+        };
+      }
+      case 'REAL_ESTATE': {
+        const rent = realEstateList.reduce((s, r) => s + (r?.weeklyRentalIncome || 0), 0);
+        return {
+          status: `${realEstateList.length} PROP${realEstateList.length === 1 ? '' : 'S'}`,
+          tag: 'MARKET',
+          accent: realEstateList.length > 0 ? 'info' : 'crit',
+          meter: { label: 'RENT INCOME', pct: pct(rent, 100000), text: rent > 0 ? `${kfmt(rent)}/WK` : 'NONE RENTED' },
+          foot: realEstateList.length > 0 ? 'PORTFOLIO LIVE · 4WK CYCLE' : 'NO HOLDINGS',
+        };
+      }
+      case 'CORPORATE_BOARD': {
+        const gates =
+          (player.moviesCompleted >= 8 ? 1 : 0) +
+          (player.fameXp >= 2000 ? 1 : 0) +
+          (player.awardsWon >= 1 ? 1 : 0) +
+          ((player.industryRespect || 0) >= 55 ? 1 : 0) +
+          (player.money >= 10000000 ? 1 : 0);
+        const readiness = pct(gates, 5);
+        return {
+          status: gates >= 5 ? 'UNLOCKED' : 'LOCKED',
+          tag: `${gates}/5 GATES`,
+          accent: gates >= 5 ? 'ok' : 'crit',
+          meter: { label: 'BUYOUT READINESS', pct: readiness, text: `${readiness}%` },
+          foot: gates >= 5 ? 'TAKEOVER DESK OPEN' : 'GATES SEALED UNTIL ESTABLISHED',
+        };
+      }
+      case 'GLOBAL_EXPANSION': {
+        const hubs = (empireState?.globalHubs || []).length;
+        return {
+          status: hubs > 0 ? 'ACTIVE' : 'LOCKED',
+          tag: `${hubs} HUB${hubs === 1 ? '' : 'S'}`,
+          accent: hubs > 0 ? 'ok' : 'crit',
+          meter: { label: 'GLOBAL REACH', pct: pct(hubs, 6), text: `${hubs}/6 REGIONS` },
+          foot: hubs > 0 ? 'INTERNATIONAL OFFICES' : 'NO INTERNATIONAL PRESENCE',
+        };
+      }
+      case 'ELITE_CLUB': {
+        const member = !!empireState?.eliteClub?.isMember;
+        return {
+          status: member ? 'MEMBER' : 'LOCKED',
+          tag: 'VIP',
+          accent: member ? 'warn' : 'crit',
+          meter: { label: 'SOCIETY ACCESS', pct: member ? 100 : 0, text: member ? 'ACTIVE' : 'INQUIRE WITHIN' },
+          foot: member ? 'BILLIONAIRE SOCIETY' : 'INVITATION REQUIRED',
+        };
+      }
+      case 'RIVALRIES': {
+        const feuds = (empireState?.rivalries || []).length;
+        return {
+          status: feuds > 0 ? 'ENGAGED' : 'CLEAR',
+          tag: `${feuds} FEUD${feuds === 1 ? '' : 'S'}`,
+          accent: feuds > 0 ? 'crit' : 'ok',
+          meter: { label: 'WAR ROOM PRESSURE', pct: pct(feuds, 5), text: feuds > 0 ? `${feuds} ACTIVE` : 'NO FEUDS' },
+          foot: feuds > 0 ? 'PRESS BATTLES LIVE' : 'NO ACTIVE FEUDS',
+        };
+      }
+      case 'ACTING_ACADEMY': {
+        const ac = empireState?.actingAcademy;
+        const open = !!ac?.isOpen;
+        const students = (ac?.students || []).length;
+        return {
+          status: open ? 'OPEN' : 'CLOSED',
+          tag: `LVL ${ac?.campusLevel || 0}`,
+          accent: open ? 'warn' : 'crit',
+          meter: { label: 'ENROLLMENT', pct: pct(students, 250), text: open ? `${students} ENROLLED` : 'CAMPUS SHUT' },
+          foot: open ? `${kfmt(ac?.weeklyTuitionIncome || 0)}/WK TUITION` : 'CAMPUS NOT OPENED',
+        };
+      }
+      case 'TAX_REVENUE': {
+        const tier = empireState?.taxState?.accountantTier || 'None';
+        const tierPct = tier === 'Elite Offshore Tax Attorneys' ? 100 : tier === 'Boutique Firm' ? 70 : tier === 'Standard CPA' ? 40 : 0;
+        return {
+          status: tierPct > 0 ? 'RETAINED' : 'STANDARD',
+          tag: tierPct > 0 ? 'CPA' : 'DIY',
+          accent: tierPct > 0 ? 'warn' : 'info',
+          meter: { label: 'TAX STRATEGY', pct: tierPct, text: tier.toUpperCase() },
+          foot: tierPct > 0 ? `${tier} ACTIVE` : 'NO ACCOUNTANT RETAINED',
+        };
+      }
+      case 'ACHIEVEMENTS': {
+        const all = empireState?.achievements || [];
+        const unlocked = all.filter((a) => a?.isUnlocked).length;
+        return {
+          status: 'SYNCED',
+          tag: `${unlocked}/${all.length}`,
+          accent: 'ok',
+          meter: { label: 'MOGUL TRACK', pct: pct(unlocked, Math.max(1, all.length)), text: `${pct(unlocked, Math.max(1, all.length))}%` },
+          foot: 'MILESTONES & REWARDS',
+        };
+      }
+      case 'LEGACY': {
+        const score = empireState?.legacy?.hallOfFameScore || 0;
+        return {
+          status: score > 0 ? 'TRACKING' : 'PENDING',
+          tag: score >= 800 ? 'LEGEND' : score >= 500 ? 'ICON' : 'RISING',
+          accent: 'info',
+          meter: { label: 'HALL OF FAME', pct: pct(score, 800), text: `${score}/800` },
+          foot: empireState?.legacy?.walkOfFameStar ? '★ WALK OF FAME STAR' : 'STAR PENDING',
+        };
+      }
+      case 'FOUNDATION': {
+        const f = empireState?.foundation;
+        const est = !!f?.isEstablished;
+        return {
+          status: est ? 'RUNNING' : 'PENDING',
+          tag: est ? 'LIVE' : 'N/A',
+          accent: est ? 'ok' : 'crit',
+          meter: { label: 'ENDOWMENT POOL', pct: est ? pct(f!.endowmentPool || 0, 10000000) : 0, text: est ? kfmt(f!.endowmentPool || 0) : 'NOT ESTABLISHED' },
+          foot: est ? `GOODWILL ${f!.goodwillScore || 0}/100` : 'ESTABLISH TO BEGIN',
+        };
+      }
+      case 'REPORTS': {
+        const assets = businessesList.length + realEstateList.length;
+        return {
+          status: assets > 0 ? 'READY' : 'EMPTY',
+          tag: 'AUDIT',
+          accent: assets > 0 ? 'info' : 'crit',
+          meter: { label: 'STATEMENTS FILED', pct: pct(assets, 12), text: assets > 0 ? `${assets} ENTITIES` : 'NO STATEMENTS' },
+          foot: assets > 0 ? 'P&L + VALUATION AUDITS' : 'NEED ASSETS FIRST',
+        };
+      }
+      case 'EMPIRE_DASHBOARD': {
+        return {
+          status: 'TRACKING',
+          tag: 'ALL SYSTEMS',
+          accent: 'warn',
+          meter: { label: 'MOGUL NET WORTH', pct: pct(totalEmpireVal, 100000000), text: kfmt(totalEmpireVal) },
+          foot: `CONSOLIDATED · WK ${player.dateWeek} Y${player.dateYear}`,
+        };
+      }
       default:
-        return '';
+        return { status: 'ONLINE', accent: 'ok', meter: { label: 'STATUS', pct: 100, text: 'OK' }, foot: 'SYSTEM' };
     }
   };
 
   return (
-    <div className="w-full min-h-full bg-gradient-to-b from-gray-950 via-black to-gray-950 text-white p-3 sm:p-4 select-none pb-12">
+    <div className="w-full min-h-full cmdk-bg text-white p-3 sm:p-4 select-none pb-12">
+      <CommandDeckStyles />
       {activeFeature ? (
         renderSubView()
       ) : (
-        <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header Banner */}
-          <div className="p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-black to-amber-500/10 backdrop-blur-xl shadow-2xl flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 shadow-lg">
-                <Crown className="w-7 h-7 text-amber-400" />
-              </div>
-              <div>
-                <h1 className="text-xl font-black tracking-wide uppercase text-white">HOLLYWOOD EMPIRE</h1>
-                <p className="text-xs text-amber-300 font-medium">
-                  Holding Conglomerate, Commercial Real Estate, Global Hubs & Media Mogul Network
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-black/60 border border-white/10 text-right">
-                <span className="text-[10px] text-gray-400 uppercase font-bold block">Consolidated Valuation</span>
-                <span className="text-sm font-black text-amber-400">${totalEmpireVal.toLocaleString()}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-black/60 border border-white/10 text-right">
-                <span className="text-[10px] text-gray-400 uppercase font-bold block">Portfolio Entities</span>
-                <span className="text-sm font-black text-emerald-400">
-                  {businessesList.length + realEstateList.length} Assets
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="max-w-6xl mx-auto space-y-5">
+          {/* HUD Header — command deck language */}
+          <CommandDeckHeader
+            title="HOLLYWOOD EMPIRE"
+            metaLeft={<>NET WORTH <b className="text-[#3ddc97]">${totalEmpireVal.toLocaleString()}</b></>}
+            metaRight={<>ENTITIES <b className="text-[#3ddc97]">{businessesList.length + realEstateList.length}</b> · WK {player.dateWeek} Y{player.dateYear}</>}
+          />
 
           {/* Grid Layout: Exactly 3 Cards Per Row on Medium/Large screens */}
           <div>
-            <div className="flex items-center justify-between mb-4 px-1">
-              <span className="text-xs font-black uppercase text-gray-400 tracking-widest">
-                Mogul Operations Grid
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-[10px] font-black uppercase text-[#6fae8f] tracking-[3px] font-mono">
+                MOGUL OPERATIONS GRID
               </span>
-              <span className="text-xs text-amber-300/80 font-bold">16 Enterprise Systems</span>
+              <span className="text-[10px] text-[#3ddc97]/80 font-bold font-mono tracking-widest">16 ENTERPRISE SYSTEMS</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
               {EMPIRE_FEATURE_CARDS.map((card) => {
                 const IconComponent = card.icon;
-                const realBadge = getRealCardBadge(card.id);
+                const deck = getDeckInfo(card.id);
 
                 return (
-                  <button
+                  <CommandDeckCard
                     key={card.id}
+                    icon={IconComponent}
+                    title={card.title}
+                    subtitle={card.subtitle}
+                    status={deck.status}
+                    tag={deck.tag}
+                    accent={deck.accent}
+                    meter={deck.meter}
+                    foot={deck.foot}
                     onClick={() => setActiveFeature(card.id)}
-                    className={`relative p-3 sm:p-4 rounded-3xl border backdrop-blur-md shadow-xl flex flex-col justify-between items-center text-center space-y-2 cursor-pointer group transition-all duration-300 hover:scale-104 hover:brightness-125 ${card.color}`}
-                    style={{ minHeight: '135px' }}
-                  >
-                    {/* Top Badge */}
-                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight px-2 py-0.5 rounded-full bg-black/70 text-amber-300 border border-white/10 w-full truncate">
-                      {realBadge || 'ACTIVE'}
-                    </span>
-
-                    {/* Large Center Icon */}
-                    <div className="p-2.5 sm:p-3 rounded-2xl bg-black/60 border border-white/10 group-hover:border-amber-400/60 group-hover:scale-110 transition-all shadow-lg">
-                      <IconComponent className="w-6 h-6 sm:w-7 sm:h-7" />
-                    </div>
-
-                    {/* Card Title & Description */}
-                    <div className="w-full">
-                      <h3 className="text-[10px] sm:text-xs font-black text-white group-hover:text-amber-300 tracking-tight leading-tight truncate">
-                        {card.title}
-                      </h3>
-                      <p className="text-[8px] sm:text-[9px] text-gray-400 font-bold truncate mt-0.5">
-                        {card.subtitle}
-                      </p>
-                    </div>
-                  </button>
+                  />
                 );
               })}
             </div>

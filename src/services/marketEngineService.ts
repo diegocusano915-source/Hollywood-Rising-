@@ -124,6 +124,16 @@ export interface PlayerCoinContext {
   fanCount: number;
 }
 
+/** Token amounts in exchange shorthand: 1.50B / 240.0M / 15.2K */
+export function fmtTokens(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return String(Math.round(n));
+}
+
 export interface CryptoCoin {
   id: string;
   name: string;
@@ -153,6 +163,16 @@ export interface CryptoCoin {
   listedYear?: number;
   /** Consecutive weeks of declining health — drives delist votes */
   delistStreak?: number;
+  /** Tokens airdropped to the community so far (founder wallet gives them up) */
+  communityAirdropped?: number;
+  /** Unique community holders gained through airdrops */
+  airdropHolders?: number;
+  /** Absolute week (year*52+week) of the last airdrop — enforces cooldown */
+  lastAirdropWeek?: number;
+  /** Consecutive airdrops — each extra one dims the effect (community fatigue) */
+  airdropStreak?: number;
+  /** Weeks of airdrop buzz left — decaying price tailwind */
+  buzzWeeksLeft?: number;
   /** Formally under delist review — shown to player as warning */
   delistWarning?: boolean;
   /** All-time-high price tracker */
@@ -1916,6 +1936,8 @@ export class MarketEngineService {
       // box office hits." Real weekly career state moves it — fame momentum,
       // box office outcomes and fanbase scale all price in, and celebrity
       // tokens overheat extra in BULL/PUMP manias.
+      let buzzWeeksLeft = coin.buzzWeeksLeft || 0;
+      let buzzNote = '';
       if (coin.isMyCoin && playerCoinCtx) {
         const famePull = Math.max(-12, Math.min(12, playerCoinCtx.fameDeltaPct * 0.45));
         const releasePull = Math.max(-26, Math.min(26, playerCoinCtx.lastReleasePerformance * 26));
@@ -1924,6 +1946,23 @@ export class MarketEngineService {
         if (regime.type === 'BULL' || regime.type === 'PUMP') changePct *= 1.25;
         // fame bleeding out → holders lose faith faster than the market
         if (playerCoinCtx.fameDeltaPct < -8) changePct -= 4;
+        // airdrop buzz: decaying weekly tailwind while claim volume runs hot
+        if (buzzWeeksLeft > 0) {
+          const buzzPower = Math.min(18, 5 + ((coin.airdropHolders || 0) / Math.max(1, coin.circulatingSupply)) * 60) * (buzzWeeksLeft / 3);
+          changePct += buzzPower;
+          buzzNote = buzzWeeksLeft === 3
+            ? `$${coin.symbol} airdrop claims running hot — new holders pile in!`
+            : `$${coin.symbol} airdrop buzz still lifting volume.`;
+          if (buzzNote) {
+            coin.news = buzzNote;
+            headlineNews.push(`CRYPTO: ${buzzNote}`);
+          }
+          buzzWeeksLeft -= 1;
+        }
+        // consecutive weekly decay of the airdrop streak (fatigue resets slowly)
+        if (buzzWeeksLeft === 0 && (coin.airdropStreak || 0) > 0 && Math.random() < 0.25) {
+          coin.airdropStreak = Math.max(0, (coin.airdropStreak || 0) - 1);
+        }
       }
 
       // ---- coin events (4% weekly per coin) ----
@@ -1985,6 +2024,7 @@ export class MarketEngineService {
         weeksSinceListing: age,
         delistStreak,
         delistWarning,
+        buzzWeeksLeft: coin.isMyCoin ? buzzWeeksLeft : (coin.buzzWeeksLeft || 0),
       };
     });
 
@@ -2642,7 +2682,8 @@ export class MarketEngineService {
     symbol: string,
     initialPrice: number,
     playerFameXp: number,
-    playerMoney: number
+    playerMoney: number,
+    tokenomics?: { totalSupply?: number; founderPct?: number; airdropPct?: number; liquidityPct?: number }
   ): { success: boolean; message: string } {
     const s = this.getMarketState();
     const deploymentCost = 100000;
@@ -2659,7 +2700,21 @@ export class MarketEngineService {
       return { success: false, message: `Smart contract deployment fee requires $${deploymentCost.toLocaleString()}.` };
     }
 
+    // ---- TOKENOMICS: real allocation split (must total exactly 100%) ----
+    const founderPct = Math.round(tokenomics?.founderPct ?? 90);
+    const airdropPct = Math.round(tokenomics?.airdropPct ?? 5);
+    const liquidityPct = Math.round(tokenomics?.liquidityPct ?? 5);
+    if (founderPct + airdropPct + liquidityPct !== 100) {
+      return { success: false, message: `Tokenomics must total 100% — you set Founder ${founderPct}% + Airdrop ${airdropPct}% + Liquidity ${liquidityPct}%.` };
+    }
+    if (founderPct < 10 || founderPct > 95) return { success: false, message: 'Founder allocation must be between 10% and 95%.' };
+    if (airdropPct < 0 || liquidityPct < 0) return { success: false, message: 'Allocations cannot be negative.' };
+    const totalSupply = Math.max(1000000, Math.min(100000000000, Math.floor(tokenomics?.totalSupply ?? 10000000)));
+
     const cleanSymbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'STAR';
+    const founderAllocation = Math.floor((totalSupply * founderPct) / 100);
+    const launchAirdrop = Math.floor((totalSupply * airdropPct) / 100);
+    const launchLiquidity = Math.floor((totalSupply * liquidityPct) / 100);
 
     const playerCoin: CryptoCoin = {
       id: `crypto_player_${Date.now()}`,
@@ -2669,36 +2724,135 @@ export class MarketEngineService {
       prevPrice: initialPrice,
       change24h: 25.0,
       change7d: 50.0,
-      marketCap: initialPrice * 10000000,
-      circulatingSupply: 10000000,
-      volume24h: 15000000,
+      marketCap: Math.round(initialPrice * totalSupply),
+      circulatingSupply: totalSupply,
+      volume24h: 15000000 + launchLiquidity,
       popularity: Math.min(100, Math.floor((playerFameXp || 0) / 100) + 50),
-      communityStrength: 95,
+      communityStrength: Math.min(100, 90 + (launchAirdrop > 0 ? 6 : 0)),
       volatility: 'Extreme Degen',
       sector: 'Celebrity Fan Token',
       risk: 'High',
-      techDescription: `Official celebrity fan cryptocurrency deployed on Hollywood Web3 Exchange. Price fluctuates with career fame and movie box office hits.`,
+      techDescription: `Official celebrity fan cryptocurrency deployed on Hollywood Web3 Exchange. Tokenomics: ${founderPct}% founder, ${airdropPct}% community airdrop, ${liquidityPct}% liquidity. Price fluctuates with career fame and movie box office hits.`,
       sparkline: [initialPrice * 0.5, initialPrice * 0.75, initialPrice],
-      news: `${coinName} ($${cleanSymbol}) launches on Web3 exchange powered by celebrity stardom!`,
+      news: launchAirdrop > 0
+        ? `${coinName} ($${cleanSymbol}) launches with a ${fmtTokens(launchAirdrop)} token community airdrop!`
+        : `${coinName} ($${cleanSymbol}) launches on Web3 exchange powered by celebrity stardom!`,
       isMyCoin: true,
       status: 'TopLeader',
-      playerHoldings: 1000000, // 10% founder allocation
+      playerHoldings: founderAllocation,
       playerAvgBuyPrice: initialPrice,
+      communityAirdropped: launchAirdrop,
+      airdropHolders: launchAirdrop > 0 ? Math.min(50000, Math.floor(launchAirdrop / 40)) : 0,
+      airdropStreak: launchAirdrop > 0 ? 1 : 0,
+      buzzWeeksLeft: launchAirdrop > 0 ? 3 : 0,
     };
 
     s.cryptoCoins.unshift(playerCoin);
     s.playerCustomCryptosCount = (s.playerCustomCryptosCount || 0) + 1;
     this.saveMarketState(s);
 
+    const airdropNote = launchAirdrop > 0
+      ? ` ${fmtTokens(launchAirdrop)} tokens airdropped to the community at launch — ${fmtTokens(playerCoin.airdropHolders || 0)} new holders, launch buzz live for 3 weeks!`
+      : '';
     return {
       success: true,
-      message: `WEB3 TOKEN DEPLOYED! $${cleanSymbol} (${coinName}) is now live with 1,000,000 token founder allocation!`,
+      message: `WEB3 TOKEN DEPLOYED! $${cleanSymbol} (${coinName}) live with ${fmtTokens(founderAllocation)} founder allocation (${founderPct}%) and ${fmtTokens(launchLiquidity)} liquidity (${liquidityPct}%).${airdropNote}`,
     };
   }
 
   // ==========================================================
   // FOUNDER OPS — the player controls their own fan token
   // ==========================================================
+
+  /**
+   * COMMUNITY AIRDROP — give real founder tokens away for free.
+   * Costs allocation, gains holders, trust and 3 weeks of decaying
+   * price buzz. Consecutive airdrops fade (community fatigue); a
+   * 2-week cooldown stops spamming.
+   */
+  public static airdropToCommunity(
+    symbol: string,
+    tokenAmount: number,
+    currentWeek: number
+  ): { success: boolean; message: string; holdersGained: number; socialText?: string } {
+    if (!Number.isFinite(tokenAmount) || tokenAmount < 1000) {
+      return { success: false, message: 'Minimum airdrop is 1,000 tokens.', holdersGained: 0 };
+    }
+    const s = this.getMarketState();
+    const coin = s.cryptoCoins.find((c) => c.isMyCoin && (c.id === symbol || c.symbol === symbol) && (c.status === 'Active' || c.status === 'TopLeader'));
+    if (!coin) return { success: false, message: 'Your fan token is not live on the exchange.', holdersGained: 0 };
+    if ((coin.playerHoldings || 0) < tokenAmount) {
+      return { success: false, message: `Insufficient founder allocation — you hold ${fmtTokens(coin.playerHoldings || 0)} $${coin.symbol}.`, holdersGained: 0 };
+    }
+    const lastWeek: number = coin.lastAirdropWeek || 0;
+    if (lastWeek > 0 && currentWeek - lastWeek < 2) {
+      return { success: false, message: `Airdrop cooldown — the community is still claiming the last drop. Next airdrop week: ${lastWeek + 2}.`, holdersGained: 0 };
+    }
+
+    // fatigue: each consecutive airdrop dims the effect
+    const streak = (coin.airdropStreak || 0) + 1;
+    const effectMult = Math.max(0.2, 1 - (streak - 1) * 0.3);
+    const supplyFrac = tokenAmount / Math.max(1, coin.circulatingSupply);
+    const sizeFactor = Math.min(1, supplyFrac * 20); // 5% of supply = full effect
+
+    const holdersGained = Math.floor(Math.min(50000, tokenAmount / 40) * effectMult);
+    coin.playerHoldings = (coin.playerHoldings || 0) - tokenAmount;
+    coin.communityAirdropped = (coin.communityAirdropped || 0) + tokenAmount;
+    coin.airdropHolders = (coin.airdropHolders || 0) + holdersGained;
+    coin.lastAirdropWeek = currentWeek;
+    coin.airdropStreak = streak;
+    coin.buzzWeeksLeft = Math.min(4, Math.max(coin.buzzWeeksLeft || 0, 3));
+    coin.communityStrength = Math.max(3, Math.min(100, Math.round(coin.communityStrength + (3 + 10 * sizeFactor) * effectMult)));
+    coin.popularity = Math.min(100, Math.round(coin.popularity + 6 * effectMult));
+    // announcement pop + panic-buy volume
+    coin.prevPrice = coin.price;
+    coin.price = Math.max(0.000001, Math.round(coin.price * (1 + (0.02 + 0.04 * sizeFactor) * effectMult) * 1000000) / 1000000);
+    coin.marketCap = Math.round(coin.price * coin.circulatingSupply);
+    coin.volume24h += Math.round(tokenAmount * coin.price * 2);
+    coin.sparkline = [...(coin.sparkline || []), coin.price].slice(-12);
+    const fatigueHit = effectMult < 0.6;
+    if (fatigueHit) coin.communityStrength = Math.max(3, coin.communityStrength - 3);
+    coin.news = `🪂 $${coin.symbol} AIRDROP — ${fmtTokens(tokenAmount)} tokens to the community. ${fmtTokens(coin.airdropHolders || 0)} total holders!`;
+
+    s.transactions.unshift({
+      id: `tx_air_${Date.now()}`,
+      assetType: 'CRYPTO',
+      assetId: coin.id,
+      symbol: coin.symbol,
+      name: coin.name,
+      type: 'SELL',
+      units: tokenAmount,
+      pricePerUnit: 0,
+      totalCost: 0,
+      week: s.currentWeek,
+      year: s.currentYear,
+      timestamp: `W${s.currentWeek}, ${s.currentYear}`,
+    });
+    this.saveMarketState(s);
+
+    const fatigueNote = fatigueHit ? ' ⚠️ Community fatigue detected — trust dipped. Space out future airdrops.' : '';
+    return {
+      success: true,
+      holdersGained,
+      socialText: `🪂 $${coin.symbol} AIRDROP IS LIVE! ${fmtTokens(tokenAmount)} tokens, FREE, to the community. Claim → hold → we ride. First come, first served. 🚀`,
+      message: `AIRDROP EXECUTED: ${fmtTokens(tokenAmount)} $${coin.symbol} distributed free — ${holdersGained.toLocaleString()} new holders, trust ${coin.communityStrength}/100, buzz live 3 weeks.${fatigueNote}`,
+    };
+  }
+
+  /**
+   * Preview a founder-size sell WITHOUT executing: live slippage estimate
+   * for the order panel so the consequences are readable before confirming.
+   */
+  public static estimateFounderSellImpact(symbol: string, coinAmount: number): { fillPrice: number; slipPct: number; revenue: number } | null {
+    const s = this.getMarketState();
+    const coin = s.cryptoCoins.find((c) => c.isMyCoin && (c.id === symbol || c.symbol === symbol));
+    if (!coin || !coinAmount || coinAmount <= 0) return null;
+    const frac = coinAmount / Math.max(1, coin.circulatingSupply);
+    if (frac <= 0.02) return { fillPrice: coin.price, slipPct: 0, revenue: coinAmount * coin.price };
+    const slip = Math.min(0.55, 0.25 + frac * 5.5);
+    const fillPrice = coin.price * (1 - slip);
+    return { fillPrice, slipPct: Math.round(slip * 100), revenue: coinAmount * fillPrice };
+  }
 
   /**
    * FOUNDER LIQUIDITY INJECTION — spend real cash to pump your coin.

@@ -13,7 +13,9 @@ import {
   MarketEngineService,
   CryptoCoin,
   EconomyMarketState,
+  fmtTokens,
 } from '../../services/marketEngineService';
+import { SocialsService } from '../../services/socialsService';
 
 interface StockCoinViewProps {
   onBack: () => void;
@@ -75,11 +77,20 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
   const [tokenName, setTokenName] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
   const [tokenPrice, setTokenPrice] = useState(1.0);
+  // tokenomics — allocation must total 100%
+  const [tokenSupply, setTokenSupply] = useState(1000000000);
+  const [founderPct, setFounderPct] = useState(70);
+  const [airdropPct, setAirdropPct] = useState(15);
+  const [liquidityPct, setLiquidityPct] = useState(15);
+  const tokSum = founderPct + airdropPct + liquidityPct;
 
   const handleDeployToken = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tokenName || !tokenSymbol) { showFb('❌ Token name and symbol required.'); return; }
-    const res = MarketEngineService.launchPlayerCrypto(tokenName, tokenSymbol, tokenPrice, player.fameXp || 0, player.money);
+    if (tokSum !== 100) { showFb(`❌ Tokenomics must total 100% — currently ${tokSum}%.`); return; }
+    const res = MarketEngineService.launchPlayerCrypto(tokenName, tokenSymbol, tokenPrice, player.fameXp || 0, player.money, {
+      totalSupply: tokenSupply, founderPct, airdropPct, liquidityPct,
+    });
     if (res.success) {
       player.money -= 100000;
       persistNow();
@@ -134,6 +145,11 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
   const estReceive = orderSide === 'buy'
     ? (amountMode === 'usd' ? amtNum / (coin?.price || 1) : amtNum)
     : (amountMode === 'usd' ? amtNum : amtNum * (coin?.price || 0));
+  // founder-size sell preview: tokens being sold + live slippage estimate
+  const sellTokens = orderSide === 'sell' ? (amountMode === 'usd' ? amtNum / (coin?.price || 1) : amtNum) : 0;
+  const sellImpact = orderSide === 'sell' && coin?.isMyCoin
+    ? MarketEngineService.estimateFounderSellImpact(coin.symbol, sellTokens)
+    : null;
 
   const executeOrder = () => {
     if (!coin) return;
@@ -180,6 +196,30 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
   const myStatus = coin?.isMyCoin ? MarketEngineService.getMyCoinStatus() : null;
   const [injectAmt, setInjectAmt] = useState('50000');
   const [rugStep, setRugStep] = useState(0);
+  const [airdropAmt, setAirdropAmt] = useState('1000000');
+
+  const handleAirdrop = () => {
+    if (!coin) return;
+    const amt = parseFloat(airdropAmt) || 0;
+    const res = MarketEngineService.airdropToCommunity(coin.symbol, amt, player.dateWeek + (player.dateYear * 52));
+    if (res.success) {
+      // broadcast on social — real reach converts to followers + fans
+      const post = SocialsService.postAirdropAnnouncement(player, {
+        symbol: coin.symbol,
+        coinName: coin.name,
+        tokenAmount: amt,
+        fmtAmount: fmtTokens(amt),
+      });
+      if (post.success && post.fansGained > 0) player.fans += post.fansGained;
+      persistNow();
+      showFb(`${res.message}${post.success ? ` ${post.message}` : ''}`);
+    } else {
+      showFb(`❌ ${res.message}`);
+    }
+    refreshMarket();
+    const fresh = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
+    if (fresh) setSelectedCoin(fresh);
+  };
 
   const handleInject = () => {
     if (!coin) return;
@@ -358,6 +398,48 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
                 </p>
               </div>
 
+              {/* community airdrop */}
+              <div className="bg-black/40 rounded-lg p-3 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8.5px] text-[#3ddc97] tracking-wider">🪂 AIRDROP TO THE COMMUNITY — free tokens, real buzz</span>
+                  <span className="text-[8px] font-mono text-[#8b96a8]">{fmtTokens(coin.communityAirdropped || 0)} dropped · {fmtTokens(coin.airdropHolders || 0)} holders</span>
+                </div>
+                <input
+                  type="number"
+                  value={airdropAmt}
+                  onChange={(e) => setAirdropAmt(e.target.value)}
+                  min={1000}
+                  step={1000}
+                  className="w-full bg-[#0e1117] border border-[#1b212c] rounded-lg px-3 py-2 text-[11px] font-mono text-white outline-none focus:border-[#3ddc97]/50"
+                  placeholder="Tokens to airdrop (min 1,000)"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-[#3ddc97]">{fmtTokens(parseFloat(airdropAmt) || 0)} tokens</span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { label: '1K', v: 1000 }, { label: '100K', v: 100000 }, { label: '1M', v: 1000000 },
+                      { label: '10M', v: 10000000 }, { label: 'MAX', v: Math.floor(coin.playerHoldings || 0) },
+                    ].map((c) => (
+                      <button key={c.label} type="button" onClick={() => setAirdropAmt(String(c.v))}
+                        className="px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-400 text-[9px] font-black cursor-pointer hover:border-[#3ddc97]/50 hover:text-[#3ddc97]">
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={handleAirdrop}
+                  className="w-full py-2 rounded-lg bg-gradient-to-r from-[#3ddc97] to-[#2aa876] text-[#06251a] text-[10px] font-black cursor-pointer"
+                >
+                  AIRDROP 🪂 (auto-posts to socials)
+                </button>
+                <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
+                  Tokens leave your founder wallet permanently. New holders, trust and 3 weeks of buzz follow — announced on your X/Telegram where real followers see it. 2-week cooldown; back-to-back drops cause community fatigue.
+                  {(coin.airdropStreak || 0) >= 2 && <span className="text-[#ff5b6e]"> Fatigue streak: {coin.airdropStreak} — diminishing returns active.</span>}
+                  {(coin.buzzWeeksLeft || 0) > 0 && <span className="text-[#f5b942]"> Buzz live: {coin.buzzWeeksLeft} week{(coin.buzzWeeksLeft || 0) === 1 ? '' : 's'} left.</span>}
+                </p>
+              </div>
+
               {/* rug pull */}
               <div className={`rounded-lg p-3 border space-y-2 ${rugStep > 0 ? 'bg-rose-500/10 border-rose-400/50' : 'bg-black/40 border-white/5'}`}>
                 <span className="text-[8.5px] text-[#ff5b6e] tracking-wider block">☠️ RUG PULL — dump your founder allocation and exit</span>
@@ -438,6 +520,23 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
                   : `$${estReceive.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
               </b>
             </div>
+
+            {/* founder dump impact — live slippage estimate before you confirm */}
+            {orderSide === 'sell' && coin.isMyCoin && sellImpact && sellImpact.slipPct > 0 && (
+              <div className="mt-2 p-2.5 rounded-lg bg-[#ff5b6e]/10 border border-[#ff5b6e]/40">
+                <div className="flex justify-between text-[9px] font-mono text-[#ff9aa6]">
+                  <span>⚠ FOUNDER DUMP IMPACT</span>
+                  <b>−{sellImpact.slipPct}% SLIPPAGE</b>
+                </div>
+                <div className="flex justify-between text-[9px] font-mono text-[#ff9aa6] mt-1">
+                  <span>REAL FILL ≈</span>
+                  <b>${sellImpact.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({fmtTokens(sellTokens)} tokens)</b>
+                </div>
+                <p className="text-[8px] text-[#8b96a8] mt-1 leading-relaxed">
+                  Dumping more than 2% of supply moves the market against you — the coin crashes after the sale and community trust takes damage.
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-1.5 mt-3">
               {[10, 25, 50, 75, 100].map((p) => (
@@ -741,6 +840,55 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
               <label className="text-[9px] text-gray-400 block mb-1 font-black">INITIAL PRICE ($)</label>
               <input type="number" step="0.1" min="0.1" max="100" value={tokenPrice} onChange={(e) => setTokenPrice(Number(e.target.value))}
                 className="w-full bg-[#0b0e14] text-white p-2.5 rounded-lg border border-[#1b212c] text-xs outline-none" />
+            </div>
+
+            {/* TOKENOMICS — supply + allocation split */}
+            <div className="p-3 rounded-xl bg-[#0b0e14] border border-[#1b212c] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-[#f5b942] tracking-wider">TOKENOMICS</span>
+                <span className={`text-[9px] font-black font-mono ${tokSum === 100 ? 'text-[#3ddc97]' : 'text-[#ff5b6e]'}`}>
+                  {tokSum}% / 100%
+                </span>
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-400 block mb-1 font-black">TOTAL SUPPLY — <span className="text-[#3ddc97] font-mono">{fmtTokens(tokenSupply)}</span></label>
+                <input type="number" step={1000000} min={1000000} max={100000000000} value={tokenSupply} onChange={(e) => setTokenSupply(Math.max(1000000, Math.min(100000000000, Number(e.target.value) || 0)))}
+                  className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
+                <div className="flex gap-1.5 mt-1.5">
+                  {[
+                    { label: '1M', v: 1000000 }, { label: '100M', v: 100000000 }, { label: '1B', v: 1000000000 },
+                    { label: '10B', v: 10000000000 }, { label: '100B', v: 100000000000 },
+                  ].map((c) => (
+                    <button key={c.label} type="button" onClick={() => setTokenSupply(c.v)}
+                      className={`flex-1 py-1 rounded text-[9px] font-black cursor-pointer border ${tokenSupply === c.v ? 'bg-[#3ddc97]/20 border-[#3ddc97]/60 text-[#3ddc97]' : 'bg-white/5 border-white/10 text-gray-400'}`}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[8.5px] text-gray-400 block mb-1 font-black">FOUNDER %</label>
+                  <input type="number" min={10} max={95} value={founderPct} onChange={(e) => setFounderPct(Number(e.target.value) || 0)}
+                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
+                  <span className="text-[8px] text-[#f5b942] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * founderPct / 100))}</span>
+                </div>
+                <div>
+                  <label className="text-[8.5px] text-[#3ddc97] block mb-1 font-black">AIRDROP %</label>
+                  <input type="number" min={0} max={80} value={airdropPct} onChange={(e) => setAirdropPct(Number(e.target.value) || 0)}
+                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
+                  <span className="text-[8px] text-[#3ddc97] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * airdropPct / 100))}</span>
+                </div>
+                <div>
+                  <label className="text-[8.5px] text-[#38bdf8] block mb-1 font-black">LIQUIDITY %</label>
+                  <input type="number" min={0} max={80} value={liquidityPct} onChange={(e) => setLiquidityPct(Number(e.target.value) || 0)}
+                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
+                  <span className="text-[8px] text-[#38bdf8] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * liquidityPct / 100))}</span>
+                </div>
+              </div>
+              <p className="text-[8.5px] text-gray-500 leading-relaxed">
+                Allocation must total exactly 100%. Airdropped tokens go free to the community at launch — more airdrop = more holders, trust and launch buzz, but less founder upside.
+              </p>
             </div>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowDeploy(false)} className="flex-1 py-2.5 rounded-lg bg-white/5 text-white text-[10.5px] font-black cursor-pointer">Cancel</button>

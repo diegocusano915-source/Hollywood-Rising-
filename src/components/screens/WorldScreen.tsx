@@ -10,6 +10,7 @@ import { WorldFeatureId } from '../../types/world';
 import { loadStreamingState } from '../../services/streamingEngine';
 import { MarketEngineService } from '../../services/marketEngineService';
 import { EmpireService } from '../../services/empireService';
+import { CommandDeckStyles, CommandDeckCard, DeckAccent } from '../common/CommandDeck';
 import {
   TrendingUp,
   Briefcase,
@@ -182,6 +183,24 @@ export const WorldScreen: React.FC = () => {
   if (activeFeature === 'STAR_STOCKS') return <StarStocksView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'FILMING_LOCATIONS') return <FilmingLocationsView onBack={() => setActiveFeature(null)} />;
   if (activeFeature === 'ENDORSEMENTS') return <EndorsementsView onBack={() => setActiveFeature(null)} />;
+// COMMAND DECK accents per World feature — blue = media, green = money, red = competitive
+const WORLD_DECK_ACCENT: Record<string, DeckAccent> = {
+  BOX_OFFICE: 'warn',
+  STREAMING: 'info',
+  RADIO_STATIONS: 'info',
+  TV_STATIONS: 'info',
+  AWARDS: 'warn',
+  SOCIALS: 'ok',
+  STAR_STOCKS: 'ok',
+  STOCK_COIN: 'warn',
+  PERSONAL_STUDIO: 'warn',
+  BANKROLL: 'ok',
+  ENDORSEMENTS: 'ok',
+  STUDIO_RELATIONSHIPS: 'info',
+  FILMING_LOCATIONS: 'info',
+  MORE: 'crit',
+};
+
   if (activeFeature === 'STUDIO_RELATIONSHIPS') return <StudioRelationshipsView onBack={() => setActiveFeature(null)} />;
 
   // 15 Cards grouped strictly in 5 Rows (3 per row)
@@ -359,9 +378,9 @@ export const WorldScreen: React.FC = () => {
 
   return (
     <div
-      className="w-full min-h-full flex flex-col p-3 sm:p-5 select-none pb-12 space-y-4"
-      style={{ backgroundColor: theme.background }}
+      className="w-full min-h-full cmdk-bg flex flex-col p-3 sm:p-5 select-none pb-12 space-y-4"
     >
+      <CommandDeckStyles />
       {/* GLASSMORPHISM TOP HEADER */}
       <div className="p-4 rounded-3xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-2xl flex items-center justify-between gap-3">
         {/* Title & Subtitle */}
@@ -493,49 +512,23 @@ export const WorldScreen: React.FC = () => {
         </div>
       )}
 
-      {/* PREMIUM GRID VIEW - 3 CARDS PER ROW IN PORTRAIT */}
+      {/* COMMAND DECK GRID VIEW - 3 CARDS PER ROW IN PORTRAIT */}
       <div className="space-y-3">
         {gridRows.map((row, rowIdx) => (
           <div key={`row_${rowIdx}`} className="grid grid-cols-3 gap-2.5 sm:gap-4">
-            {row.map((feat) => {
-              const Icon = feat.icon;
-              const isAnimating = animatingId === feat.id;
-
-              return (
-                <button
-                  key={feat.id}
-                  onClick={() => handleCardClick(feat.id as any)}
-                  className={`relative p-3 sm:p-4 rounded-3xl border ${feat.border} bg-gradient-to-b ${
-                    feat.color
-                  } backdrop-blur-md shadow-xl flex flex-col justify-between items-center text-center space-y-2 cursor-pointer group transition-all duration-300 ${
-                    isAnimating
-                      ? 'scale-90 ring-4 ring-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.9)]'
-                      : 'hover:scale-104 hover:brightness-125'
-                  }`}
-                  style={{ minHeight: '135px' }}
-                >
-                  {/* Top Badge */}
-                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight px-2 py-0.5 rounded-full bg-black/70 text-amber-300 border border-white/10 w-full truncate">
-                    {feat.badge}
-                  </span>
-
-                  {/* Large Center Icon */}
-                  <div className="p-2.5 sm:p-3 rounded-2xl bg-black/60 border border-white/10 group-hover:border-amber-400/60 group-hover:scale-110 transition-all shadow-lg">
-                    <Icon className={`w-6 h-6 sm:w-7 sm:h-7 ${feat.iconColor}`} />
-                  </div>
-
-                  {/* Card Title & Description */}
-                  <div className="w-full">
-                    <h2 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors truncate">
-                      {feat.name}
-                    </h2>
-                    <p className="text-[9px] sm:text-[10px] text-gray-300/80 font-bold truncate mt-0.5">
-                      {feat.desc}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+            {row.map((feat) => (
+              <CommandDeckCard
+                key={feat.id}
+                icon={feat.icon}
+                title={feat.name}
+                subtitle={feat.desc}
+                status={feat.badge}
+                accent={WORLD_DECK_ACCENT[feat.id] || 'ok'}
+                foot="WORLD FEED"
+                animating={animatingId === feat.id}
+                onClick={() => handleCardClick(feat.id as any)}
+              />
+            ))}
           </div>
         ))}
       </div>

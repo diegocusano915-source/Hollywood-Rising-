@@ -21,7 +21,7 @@ const launch = MarketEngineService.launchPlayerCrypto('Star Power', 'STARX', 0.5
 ok(launch.success, `launch succeeds (${launch.message.slice(0, 50)}...)`);
 const st1 = MarketEngineService.getMyCoinStatus();
 ok(!!st1.coin && st1.rank > 0, `live on exchange, rank #${st1.rank}/${st1.totalLive}, leader $${st1.leader?.symbol}`);
-ok(st1.coin!.playerHoldings === 1000000, 'founder allocation 1,000,000 tokens');
+ok(st1.coin!.playerHoldings === 9000000, `founder allocation ${st1.coin!.playerHoldings.toLocaleString()} (90% of 10M default tokenomics)`);
 
 // ---- 2. INJECT CASH PUMP ----
 console.log('\n[2] LIQUIDITY INJECTION');
@@ -80,7 +80,7 @@ console.log('\n[5] RUG PULL + CONSEQUENCES');
 const st5 = MarketEngineService.getMyCoinStatus().coin!;
 const rug = MarketEngineService.rugPullMyCoin();
 ok(rug.success, `rug executed: ${rug.message.slice(0, 80)}...`);
-ok(rug.proceeds > 0 && rug.consequences, `netted $${rug.proceeds.toLocaleString()} after slippage, fine $${rug.consequences!.fine.toLocaleString()}, fans -${rug.consequences!.fansLostPct}%, fame -${rug.consequences!.fameHitPct}%`);
+ok(!!rug.consequences && rug.proceeds > 0, `netted $${rug.proceeds.toLocaleString()} after slippage, fine $${rug.consequences!.fine.toLocaleString()}, fans -${rug.consequences!.fansLostPct}%, fame -${rug.consequences!.fameHitPct}%`);
 const st6 = MarketEngineService.getMyCoinStatus();
 ok(st6.coin === null, 'coin is dead — no longer on the live exchange');
 ok(st6.blacklisted, 'founder is blacklisted');
