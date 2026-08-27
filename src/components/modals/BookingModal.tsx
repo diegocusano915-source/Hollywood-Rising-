@@ -115,49 +115,7 @@ export const BookingModal: React.FC = () => {
     Math.max(20, Math.round(50 + (player.talents.acting / 2) + (player.leadRolesCount * 5) - (player.energy < 20 ? 10 : 0)))
   );
 
-  // Cast Co-stars list
-  const [castMembers, setCastMembers] = useState([
-    {
-      id: 'cast_1',
-      name: 'Timothée Chalamet',
-      role: 'Co-Lead',
-      fame: 'A-List Legend',
-      reputation: 92,
-      relationship: 78,
-      chemistry: 85,
-      mood: 'Enthusiastic',
-    },
-    {
-      id: 'cast_2',
-      name: 'Zendaya Coleman',
-      role: 'Supporting Lead',
-      fame: 'Global Icon',
-      reputation: 95,
-      relationship: 82,
-      chemistry: 88,
-      mood: 'Focused',
-    },
-  ]);
-
-  // Director Relationship & Satisfaction System
-  const [directorSatisfaction, setDirectorSatisfaction] = useState<
-    'Excellent' | 'Good' | 'Neutral' | 'Concerned' | 'Disappointed' | 'Furious'
-  >('Good');
-  const [directorTrust, setDirectorTrust] = useState(78);
-  const [isBlacklisted, setIsBlacklisted] = useState(false);
-
-  // Weekly Schedule State
-  const [weeklySchedule, setWeeklySchedule] = useState([
-    { day: 'Monday', activity: 'Script Rehearsal & Table Read', energyCost: 1 },
-    { day: 'Tuesday', activity: 'Principal Camera Filming', energyCost: 2 },
-    { day: 'Wednesday', activity: 'TV Press Interview & Promo', energyCost: 1 },
-    { day: 'Thursday', activity: 'Director One-on-One Meeting', energyCost: 1 },
-    { day: 'Friday', activity: 'Stunt & Action Choreography', energyCost: 2 },
-    { day: 'Saturday', activity: 'Rest & Mental Recovery', energyCost: 0 },
-    { day: 'Sunday', activity: 'Social Media Hype Campaign', energyCost: 1 },
-  ]);
-
-  // Performance breakdown rating
+  // Performance breakdown rating (real talent stats)
   const overallPerformance = Math.min(
     100,
     Math.round(player.talents.acting * 0.4 + player.talents.drama * 0.3 + player.talents.action * 0.3)
@@ -167,87 +125,6 @@ export const BookingModal: React.FC = () => {
   const triggerFeedback = (msg: string) => {
     setLocalFeedback(msg);
     setTimeout(() => setLocalFeedback(null), 4000);
-  };
-
-  // Cast Actions
-  const handleCastAction = (castName: string, actionName: string) => {
-    if (player.energy < 1) {
-      triggerFeedback('Insufficient energy remaining for cast activity.');
-      return;
-    }
-    setCastMembers((prev) =>
-      prev.map((c) =>
-        c.name === castName
-          ? {
-              ...c,
-              chemistry: Math.min(100, c.chemistry + 5),
-              relationship: Math.min(100, c.relationship + 4),
-              mood: 'Inspired',
-            }
-          : c
-      )
-    );
-    triggerFeedback(`Completed ${actionName} with ${castName}. Cast chemistry & relationship increased!`);
-  };
-
-  // Director Actions
-  const handleDirectorAction = (actionType: string) => {
-    if (player.energy < 1) {
-      triggerFeedback('Insufficient energy to meet with Director.');
-      return;
-    }
-    switch (actionType) {
-      case 'meeting':
-        setDirectorTrust((t) => Math.min(100, t + 4));
-        triggerFeedback(`Held a constructive vision meeting with Director ${directorName}. Trust increased!`);
-        break;
-      case 'script':
-        setDirectorTrust((t) => Math.min(100, t + 6));
-        triggerFeedback(`Discussed character motivation and script arcs with ${directorName}.`);
-        break;
-      case 'pitch':
-        if (player.talents.acting >= 45) {
-          setDirectorSatisfaction('Excellent');
-          triggerFeedback(`Director ${directorName} loved your creative scene pitch! Satisfaction: Excellent.`);
-        } else {
-          triggerFeedback(`Director ${directorName} listened to your pitch and gave constructive guidance.`);
-        }
-        break;
-      case 'apologize':
-        if (directorSatisfaction === 'Concerned' || directorSatisfaction === 'Disappointed') {
-          setDirectorSatisfaction('Good');
-          triggerFeedback(`Apologized professionally to ${directorName}. Satisfaction restored to Good.`);
-        } else {
-          triggerFeedback(`Exchanged professional courtesies with Director ${directorName}.`);
-        }
-        break;
-      case 'accept_feedback':
-        setDirectorTrust((t) => Math.min(100, t + 5));
-        setDirectorSatisfaction('Excellent');
-        triggerFeedback(`Accepted director notes on set. Director satisfaction increased to Excellent!`);
-        break;
-      default:
-        break;
-    }
-  };
-
-  // Weekly Activity Run
-  const handleRunActivity = (actName: string) => {
-    if (player.energy < 1) {
-      triggerFeedback('Not enough energy to perform this production activity.');
-      return;
-    }
-    triggerFeedback(`Completed ${actName}! Production quality & studio confidence boosted.`);
-  };
-
-  // Mandatory Promotion
-  const handlePromote = (promoType: string) => {
-    if (player.energy < 1) {
-      triggerFeedback('Not enough energy for press promotion.');
-      return;
-    }
-    setDirectorTrust((t) => Math.min(100, t + 3));
-    triggerFeedback(`Completed ${promoType}! Movie popularity & Studio Confidence increased.`);
   };
 
   // Negotiation Adapter & Actions for Greenlit Sequels / Pending Deals
@@ -640,173 +517,73 @@ export const BookingModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* CARD 2: CAST */}
-              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
+              {/* CARD 2: PRODUCTION INTEL — all real project data */}
+              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-2.5 flex flex-col justify-between shadow-lg">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-purple-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">2. Cast Ensemble</h3>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">2. Production Intel</h3>
                   </div>
-                  <span className="text-[10px] text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
-                    High Synergy
-                  </span>
+                  {currentProject && (
+                    <span className="text-[10px] text-purple-300 font-bold bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+                      {(currentProject.budget ? `$${(currentProject.budget / 1000000).toFixed(0)}M` : 'BUDGET N/A')}
+                    </span>
+                  )}
                 </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {castMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="p-2.5 rounded-xl bg-black/60 border border-white/5 space-y-2"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="text-xs font-black text-white">{member.name}</div>
-                          <div className="text-[10px] text-gray-400">
-                            {member.role} • {member.fame}
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          Chem: {member.chemistry}%
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-1 pt-1">
-                        <button
-                          onClick={() => handleCastAction(member.name, 'Rehearse Lines')}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 cursor-pointer"
-                        >
-                          Rehearse
-                        </button>
-                        <button
-                          onClick={() => handleCastAction(member.name, 'Dinner Outing')}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-pink-600/30 hover:bg-pink-600/50 text-pink-200 border border-pink-500/40 cursor-pointer"
-                        >
-                          Dinner
-                        </button>
-                        <button
-                          onClick={() => handleCastAction(member.name, 'Support & Praise')}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 cursor-pointer"
-                        >
-                          Support
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
+                {currentProject ? (
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between"><span className="text-gray-400">Studio:</span><b className="text-white">{currentProject.studio || 'Independent'}</b></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Director:</span><b className="text-white">{currentProject.director || 'TBA'}</b></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Genre:</span><b className="text-gray-200">{currentProject.genre || 'Drama'}</b></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Location:</span><b className="text-gray-200">{currentProject.location || 'Los Angeles'}</b></div>
+                    <div className="flex justify-between"><span className="text-gray-400">Hype Score:</span><b className="text-amber-300 font-mono">{currentProject.hypeScore ?? 40}/100</b></div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-gray-500 italic">No active production.</p>
+                )}
                 <p className="text-[10px] text-gray-400 italic">
-                  Good cast chemistry elevates movie quality and award potential.
+                  Hype builds weekly in the Release window and during production events — it feeds your box office opening.
                 </p>
               </div>
 
-              {/* CARD 3: DIRECTOR */}
-              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
+              {/* CARD 3: RELEASE WINDOW TRACKER — real stage countdown */}
+              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-2.5 flex flex-col justify-between shadow-lg">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                   <div className="flex items-center gap-2">
                     <UserCheck className="w-4 h-4 text-sky-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">3. Director Relations</h3>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">3. Release Window</h3>
                   </div>
                   <span
                     className={`text-[10px] font-black px-2 py-0.5 rounded border ${
-                      directorSatisfaction === 'Excellent'
+                      currentProject?.status === 'Release'
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : directorSatisfaction === 'Furious'
-                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                         : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                     }`}
                   >
-                    {directorSatisfaction}
+                    {currentProject?.status === 'Release' ? 'CAMPAIGN LIVE' : 'IN PRODUCTION'}
                   </span>
                 </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between text-gray-300 font-medium">
-                    <span>Director:</span>
-                    <span className="font-bold text-white">{directorName}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-300 font-medium">
-                    <span>Director Trust:</span>
-                    <span className="font-bold text-sky-300">{directorTrust}/100</span>
-                  </div>
-                  <div className="flex justify-between text-gray-300 font-medium">
-                    <span>Working Style:</span>
-                    <span className="font-bold text-gray-200">Visionary & Methodical</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 pt-2">
-                  <button
-                    onClick={() => handleDirectorAction('meeting')}
-                    className="p-1.5 rounded-xl text-[10px] font-bold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 cursor-pointer"
-                  >
-                    Vision Meeting
-                  </button>
-                  <button
-                    onClick={() => handleDirectorAction('script')}
-                    className="p-1.5 rounded-xl text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 cursor-pointer"
-                  >
-                    Discuss Script
-                  </button>
-                  <button
-                    onClick={() => handleDirectorAction('pitch')}
-                    className="p-1.5 rounded-xl text-[10px] font-bold bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 cursor-pointer"
-                  >
-                    Pitch Ideas
-                  </button>
-                  <button
-                    onClick={() => handleDirectorAction('accept_feedback')}
-                    className="p-1.5 rounded-xl text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 cursor-pointer"
-                  >
-                    Accept Feedback
-                  </button>
-                </div>
+                {currentProject?.status === 'Release' ? (
+                  <>
+                    <b className="text-xl font-black text-white font-mono">
+                      {Math.max(1, currentProject.stageWeeksRemaining ?? 1)} <span className="text-xs text-gray-400">week(s) to worldwide debut</span>
+                    </b>
+                    <div className="h-2 bg-black/60 rounded-full overflow-hidden border border-white/10">
+                      <div className="h-full bg-gradient-to-r from-sky-400 to-emerald-400 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, Math.max(5, ((20 - (currentProject.stageWeeksRemaining ?? 1)) / 20) * 100))}%` }} />
+                    </div>
+                    <p className="text-[10px] text-gray-400 italic">
+                      Marketing pushes hype every week (+2). The window caps at 20 weeks — debut fires automatically, and longer campaigns mean stronger openings.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[10px] text-gray-500 italic leading-relaxed">
+                    After filming wraps, your movie enters a studio RELEASE window (6-20 weeks depending on budget): festivals, trailers and exhibitor dating before the theatrical debut drives box office.
+                  </p>
+                )}
               </div>
 
               {/* ==================== ROW 2 ==================== */}
-
-              {/* CARD 4: ACTIVITIES */}
-              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">4. Weekly Activities</h3>
-                  </div>
-                  <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
-                    Energy: {player.energy}/100
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 text-xs">
-                  {[
-                    { name: 'Script Rehearsal', category: 'Acting (+2)' },
-                    { name: 'Fight & Stunt Training', category: 'Action (+2)' },
-                    { name: 'Voice & Accent Coaching', category: 'Drama (+2)' },
-                    { name: 'Director One-on-One', category: 'Trust (+5)' },
-                    { name: 'Improvisation Practice', category: 'Comedy (+2)' },
-                  ].map((act, i) => (
-                    <div
-                      key={i}
-                      className="p-2 rounded-xl bg-black/60 border border-white/5 flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-bold text-white text-xs">{act.name}</div>
-                        <div className="text-[10px] text-gray-400">{act.category}</div>
-                      </div>
-                      <button
-                        onClick={() => handleRunActivity(act.name)}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-400 hover:bg-amber-300 text-black cursor-pointer shadow"
-                      >
-                        Train (-1 E)
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="w-full py-2.5 px-3 rounded-xl text-[11px] font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-center gap-2 text-center">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Production advances automatically — press END WEEK to film the next week</span>
-                </div>
-              </div>
 
               {/* CARD 5: CONTRACT */}
               <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
@@ -851,56 +628,6 @@ export const BookingModal: React.FC = () => {
                   Termination clauses active. Skips or contract breaches will trigger studio legal action.
                 </div>
               </div>
-
-              {/* CARD 6: PROMOTION */}
-              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Megaphone className="w-4 h-4 text-pink-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">6. Promotion Hub</h3>
-                  </div>
-                  <span className="text-[10px] font-bold text-pink-300 bg-pink-500/20 px-2 py-0.5 rounded border border-pink-500/30">
-                    Mandatory
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-gray-300 leading-snug">
-                  Execute mandatory press junkets and media events to maintain studio satisfaction and hype.
-                </p>
-
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
-                  <button
-                    onClick={() => handlePromote('TV Interview')}
-                    className="p-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/30 text-[10px] font-bold cursor-pointer"
-                  >
-                    TV Junket
-                  </button>
-                  <button
-                    onClick={() => handlePromote('Magazine Cover Shoot')}
-                    className="p-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer"
-                  >
-                    Cover Shoot
-                  </button>
-                  <button
-                    onClick={() => handlePromote('Live Stream Fan Q&A')}
-                    className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
-                  >
-                    Fan Live Stream
-                  </button>
-                  <button
-                    onClick={() => handlePromote('Press Conference')}
-                    className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold cursor-pointer"
-                  >
-                    Press Conf.
-                  </button>
-                </div>
-
-                <div className="text-[10px] text-gray-400 italic">
-                  Ignoring promotion lowers Studio Confidence & audience hype.
-                </div>
-              </div>
-
-              {/* ==================== ROW 3 ==================== */}
 
               {/* CARD 7: PERFORMANCE */}
               <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
@@ -1015,35 +742,6 @@ export const BookingModal: React.FC = () => {
               </div>
 
               {/* ==================== ROW 4 ==================== */}
-
-              {/* CARD 10: SCHEDULE */}
-              <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-sky-400" />
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">10. Weekly Schedule</h3>
-                  </div>
-                  <span className="text-[10px] font-bold text-sky-300 bg-sky-500/20 px-2 py-0.5 rounded border border-sky-500/30">
-                    Calendar Set
-                  </span>
-                </div>
-
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1 text-[11px]">
-                  {weeklySchedule.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-1.5 rounded-lg bg-black/60 border border-white/5 flex items-center justify-between"
-                    >
-                      <span className="font-bold text-sky-300 w-20">{item.day}</span>
-                      <span className="text-gray-200 truncate flex-1">{item.activity}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="text-[10px] text-gray-400">
-                  Select activities to customize your weekly schedule focus.
-                </p>
-              </div>
 
               {/* CARD 11: FINANCE */}
               <div className="bg-black/40 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 sm:p-5 space-y-3 flex flex-col justify-between shadow-lg">

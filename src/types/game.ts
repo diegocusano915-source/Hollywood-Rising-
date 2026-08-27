@@ -277,6 +277,7 @@ export type ProductionStage =
   | 'Contract Signed'
   | 'Pre-Production'
   | 'Filming'
+  | 'Release'
   | 'Post Production'
   | 'Editing'
   | 'Color Grading'

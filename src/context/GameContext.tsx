@@ -574,6 +574,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       declineReasons.push(`CRAFT: Acting skill ${proj.requiredActing} required — yours is ${p.talents?.acting || 0}. Train the specific skill.`);
     }
 
+    // ---- MEDIUM-HARD ROLE ACCESS (beyond courses) — bigger productions need
+    // proven performers. New players must grind up through small roles. ----
+    const budgetM = proj.budget / 1000000;
+    if (budgetM >= 80) {
+      if ((p.talents?.acting || 0) < 55) {
+        declineReasons.push(`CRAFT BAR ($${budgetM.toFixed(0)}M production): Acting skill 55+ required to carry a scene at this scale — yours is ${p.talents?.acting || 0}.`);
+      }
+      if (p.moviesCompleted < 4) {
+        declineReasons.push(`TRACK RECORD: 4+ completed roles required for tentpole submissions — you have ${p.moviesCompleted}. Studios don't gamble $${budgetM.toFixed(0)}M on resumes.`);
+      }
+      if ((p.fameXp || 0) < 1200) {
+        declineReasons.push(`STAR POWER: A-list casting needs 1,200+ Fame XP — yours is ${(p.fameXp || 0).toLocaleString()}. Build your name first.`);
+      }
+    } else if (budgetM >= 20) {
+      if ((p.talents?.acting || 0) < 35) {
+        declineReasons.push(`CRAFT BAR ($${budgetM.toFixed(0)}M production): Acting skill 35+ required — yours is ${p.talents?.acting || 0}.`);
+      }
+      if (p.moviesCompleted < 2) {
+        declineReasons.push(`TRACK RECORD: 2+ completed roles required at this level — you have ${p.moviesCompleted}. Prove yourself on smaller sets.`);
+      }
+    }
+    // Small productions (<$20M): open to newcomers — this IS the entry point.
+
     if (proj.budget > 50000000 && !p.isUnionMember) {
       declineReasons.push(`UNION: SAG-AFTRA membership required on productions over $50M (you need 4 completed lead roles to join).`);
     }
@@ -1687,14 +1710,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (RepresentationService.hasActiveCriticalScandal()) score -= 25; // Active CRITICAL scandal hurts casting
 
         let requiredScore = 15;
-        // MEDIUM-HARD: new players with no training mostly book Support/Minor.
-        // Courses unlock Principal AND Lead equally (same requirement) — leads
-        // carry no extra gate since they're not needed for membership/unlocks.
-        if (aud.roleType === 'Lead') requiredScore = 27;
-        else if (aud.roleType === 'Principal') requiredScore = 27;
-        else if (aud.roleType === 'Support') requiredScore = 20;
+        // MEDIUM-HARD AT EVERY TIER: even Support/Minor roles demand real
+        // craft now — new players win some, lose many, and grind up.
+        if (aud.roleType === 'Lead') requiredScore = 34;
+        else if (aud.roleType === 'Principal') requiredScore = 30;
+        else if (aud.roleType === 'Support') requiredScore = 24;
+        else requiredScore = 18; // Minor/Cameo still needs an actual performance
 
-        const isAccepted = (score + Math.random() * 20) >= requiredScore;
+        // Skill > luck: narrower random spread makes talent the deciding factor
+        const isAccepted = (score + Math.random() * 14 + 3) >= requiredScore;
         // PRODUCTION HUB CAP: max 3 active productions (3 movies, or 2 movies + 1 series),
         // and only ONE series at a time. If the hub is full, the studio moves on.
         const activeProds = newBookings.filter(
@@ -2146,6 +2170,118 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedBookedProjects: BookedProject[] = [];
     const newReleasedMovies: ReleasedMovie[] = [...saveData.releasedMovies];
 
+    // THEATRICAL RELEASE EXECUTION — runs when a movie's Release window
+    // expires (max 20 weeks). Computes the real box office debut from
+    // player stats, pays out, creates the ReleasedMovie, fires the news.
+    const executeTheatricalRelease = (book: BookedProject, hypeAtRelease: number): void => {
+      const baseBudget = book.budget || 1500000;
+      const actingTalent = p.talents?.acting || 10;
+      const dramaTalent = p.talents?.drama || 10;
+
+      // Star Rating % (0% to 100%) based on real player stats & guild status
+      const starRatingPct = Math.min(100, Math.max(10, Math.round(
+        (actingTalent * 0.35) + (dramaTalent * 0.30) + ((p.fameXp || 0) / 10) + (p.isUnionMember ? 15 : 0) + (p.leadRolesCount * 4)
+      )));
+
+      // Realistic scaling: low rating (<50%) -> low multiplier, high rating (70%+) -> high multiplier
+      const performanceMultiplier = starRatingPct >= 70
+        ? (1.2 + (starRatingPct - 70) * 0.04)
+        : (0.35 + (starRatingPct / 100) * 0.65);
+
+      // STAR-POWER SCALING (SLOW BURN): sub-linear — fame's draw grows at
+      // square-root pace (4x fame = 2x power, not 4x). Deterministic curve.
+      const fameVal = p.fameXp || 0;
+      const fameMult = Math.min(25, 1 + Math.sqrt(fameVal / 1000) * 0.5);
+      const baseOpening = Math.max(1500000, Math.floor(
+        (baseBudget * 0.16 * performanceMultiplier) + (hypeAtRelease * 8000 * (starRatingPct / 100)) + (Math.sqrt(fameVal) * 100000)
+      ));
+      const MAX_PLAYER_GROSS = 500000000000; // up to $500B for legends
+      const worldwideGross = Math.min(MAX_PLAYER_GROSS, Math.floor(baseOpening * (2.5 + Math.random() * 2) * fameMult * (0.7 + performanceMultiplier)));
+      const domesticGross = Math.floor(worldwideGross * (0.4 + Math.random() * 0.12));
+      const openingGross = Math.floor(worldwideGross * (0.18 + Math.random() * 0.1));
+
+      const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
+      const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
+
+      // RELEASE FAME HALVED (user request): raw pool value, still subject
+      // to the global slow-burn multiplier at the end of the week
+      const releaseFame = book.roleType === 'Lead' ? 22 : book.roleType === 'Principal' ? 16 : 10;
+      fameGainedThisWeek += releaseFame;
+
+      const currentPart = book.franchisePart || 1;
+      const currentSeason = book.tvSeason || 1;
+      const isTv = book.isTvSeries || book.category === 'TV Series';
+
+      const newReleasedMovie: ReleasedMovie = {
+        id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        movieTitle: book.movieTitle,
+        posterUrl: book.posterUrl,
+        roleType: book.roleType,
+        category: book.category,
+        playerEarnings: book.salary,
+        openingWeekendGross: openingGross,
+        domesticGross,
+        worldwideGross,
+        audienceRating,
+        criticRating,
+        boxOfficePosition: 1,
+        weeksInCinemas: 1,
+        awardsWon: 0,
+        awardsNominated: 0,
+        inCinemas: true,
+        studio: book.studio || 'Universal Pictures',
+        director: book.director || 'Denis Villeneuve',
+        genre: book.genre || 'Drama',
+        sequelCheckWeeks: 0,
+        // Studios don't rush franchise calls: 12–20 weeks of watching the run
+        sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
+        sequelOffered: false,
+        sequelTarget: Math.floor(baseBudget * 1.8),
+        budget: book.budget || baseBudget,
+        releaseWeek: newWeek,
+        releaseYear: newYear,
+        isFranchise: book.isFranchise || currentPart > 1,
+        franchisePart: currentPart,
+        isTvSeries: isTv,
+        tvSeason: currentSeason,
+        isSequel: currentPart > 1 || currentSeason > 1,
+        parentMovieTitle: book.parentMovieTitle || book.movieTitle,
+      };
+
+      newReleasedMovies.unshift(newReleasedMovie);
+
+      careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office! (Star Rating: ${starRatingPct}%)`);
+      careerTraining.push(`🌟 +${Math.max(1, Math.floor(releaseFame * FAME_XP_MULTIPLIER))} Fame XP - Theatrical Release of '${book.movieTitle}'`);
+
+      newTimelineEvents.push({
+        id: `tl_rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        year: newYear,
+        week: newWeek,
+        category: 'RELEASE',
+        title: `Theatrical Debut: ${book.movieTitle}`,
+        description: `"${book.movieTitle}" completed production and debuted in theaters with an opening gross of $${(openingGross / 1000000).toFixed(1)}M. Star Rating: ${starRatingPct}%. Contract salary: $${book.salary.toLocaleString()}.`,
+      });
+
+      newInboxMessages.unshift({
+        id: `msg_theatrical_debut_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        category: 'CAREER',
+        sender: `${book.studio || 'Studio'} Distribution`,
+        senderRole: 'VP Theatrical Distribution',
+        senderAvatar: book.posterUrl,
+        subject: `THEATRICAL DEBUT: "${book.movieTitle}" Opens at $${(openingGross / 1000000).toFixed(1)}M!`,
+        body: `THEATRICAL DEBUT REPORT\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\nDirector: ${book.director || 'Director'}\n\nBOX OFFICE OPENING RESULTS:\n• Star Track Record: ${starRatingPct}%\n• Opening Weekend Gross: $${openingGross.toLocaleString()}\n• Domestic Projection: $${domesticGross.toLocaleString()}\n• Worldwide Projection: $${worldwideGross.toLocaleString()}\n• Rotten Tomatoes Audience: ${audienceRating}%\n• Rotten Tomatoes Critics: ${criticRating}%\n\nYour salary of $${book.salary.toLocaleString()} has been fully paid. Residuals will accrue weekly in your IMDb Releases tab!`,
+        date: dateInfo.fullDateText,
+        read: false,
+      });
+
+      // Trigger Breaking Hollywood Insider Article
+      try {
+        HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, newWeek, newYear);
+      } catch (e) {
+        console.error('Error triggering Hollywood Insider release article:', e);
+      }
+    };
+
     newBookings.forEach(book => {
       let stage = book.status || 'Pre-Production';
       let stageWeeks = book.stageWeeksRemaining !== undefined ? book.stageWeeksRemaining : 1;
@@ -2188,6 +2324,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             type: 'info',
           });
         }
+      }
+
+      // 1.5 RELEASE WINDOW STAGE (max 20 weeks) — marketing & dating before debut
+      else if (stage === 'Release') {
+        stageWeeks -= 1;
+        hype = Math.min(100, hype + 2); // campaign builds weekly
+        if (stageWeeks <= 0) {
+          // RELEASE WINDOW EXPIRED → full theatrical debut pipeline
+          logs.unshift({
+            week: newWeek,
+            year: newYear,
+            stage: 'Release',
+            eventText: `Release window closed — "${book.movieTitle}" debuts worldwide THIS WEEK!`,
+            type: 'milestone',
+          });
+          executeTheatricalRelease(book, hype);
+          // Movie is completed & released — do not push back into updatedBookedProjects
+          return;
+        }
+        logs.unshift({
+          week: newWeek,
+          year: newYear,
+          stage: 'Release',
+          eventText: `Release campaign running — trailers, press tour prep and exhibitor deals (${stageWeeks} week${stageWeeks === 1 ? '' : 's'} to debut).`,
+          type: 'info',
+        });
+        careerFilmingProgress.push(`RELEASE WINDOW: '${book.movieTitle}' — ${stageWeeks} week${stageWeeks === 1 ? '' : 's'} to debut`);
       }
 
       // 2. FILMING STAGE
@@ -2252,119 +2415,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (book.roleType === 'Lead') p.leadRolesCount += 1;
           else if (book.roleType === 'Principal') p.principalRolesCount += 1;
 
-          const baseBudget = book.budget || 1500000;
-          const actingTalent = p.talents?.acting || 10;
-          const dramaTalent = p.talents?.drama || 10;
-          const fameBonus = (p.fameXp || 0) * 1200;
-
-          // Star Rating % (0% to 100%) based on real player stats & guild status
-          const starRatingPct = Math.min(100, Math.max(10, Math.round(
-            (actingTalent * 0.35) + (dramaTalent * 0.30) + ((p.fameXp || 0) / 10) + (p.isUnionMember ? 15 : 0) + (p.leadRolesCount * 4)
-          )));
-
-          // Realistic scaling: low rating (<50%) -> low multiplier, high rating (70%+) -> high multiplier
-          const performanceMultiplier = starRatingPct >= 70
-            ? (1.2 + (starRatingPct - 70) * 0.04)
-            : (0.35 + (starRatingPct / 100) * 0.65);
-
-          // STAR-POWER SCALING (SLOW BURN): sub-linear — fame's draw grows at
-          // square-root pace (4x fame = 2x power, not 4x). Deterministic curve.
-          const fameVal = p.fameXp || 0;
-          const fameMult = Math.min(25, 1 + Math.sqrt(fameVal / 1000) * 0.5);
-          const baseOpening = Math.max(1500000, Math.floor(
-            (baseBudget * 0.16 * performanceMultiplier) + (hype * 8000 * (starRatingPct / 100)) + (Math.sqrt(fameVal) * 100000)
-          ));
-          const MAX_PLAYER_GROSS = 500000000000; // up to $500B for legends
-          const worldwideGross = Math.min(MAX_PLAYER_GROSS, Math.floor(baseOpening * (2.5 + Math.random() * 2) * fameMult * (0.7 + performanceMultiplier)));
-          const domesticGross = Math.floor(worldwideGross * (0.4 + Math.random() * 0.12));
-          const openingGross = Math.floor(worldwideGross * (0.18 + Math.random() * 0.1));
-
-          const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
-          const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
-
-          // RELEASE FAME HALVED (user request): raw pool value, still subject
-          // to the global slow-burn multiplier at the end of the week
-          const releaseFame = book.roleType === 'Lead' ? 22 : book.roleType === 'Principal' ? 16 : 10;
-          fameGainedThisWeek += releaseFame;
-
-          const currentPart = book.franchisePart || 1;
-          const currentSeason = book.tvSeason || 1;
-          const isTv = book.isTvSeries || book.category === 'TV Series';
-
-          const newReleasedMovie: ReleasedMovie = {
-            id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            movieTitle: book.movieTitle,
-            posterUrl: book.posterUrl,
-            roleType: book.roleType,
-            category: book.category,
-            playerEarnings: book.salary,
-            openingWeekendGross: openingGross,
-            domesticGross,
-            worldwideGross,
-            audienceRating,
-            criticRating,
-            boxOfficePosition: 1,
-            weeksInCinemas: 1,
-            awardsWon: 0,
-            awardsNominated: 0,
-            inCinemas: true,
-            studio: book.studio || 'Universal Pictures',
-            director: book.director || 'Denis Villeneuve',
-            genre: book.genre || 'Drama',
-            sequelCheckWeeks: 0,
-            // Studios don't rush franchise calls: 12–20 weeks of watching the run
-            sequelEligibleAfter: 12 + Math.floor(Math.random() * 9),
-            sequelOffered: false,
-            sequelTarget: Math.floor(baseBudget * 1.8),
-            budget: book.budget || baseBudget,
-            releaseWeek: newWeek,
-            releaseYear: newYear,
-            isFranchise: book.isFranchise || currentPart > 1,
-            franchisePart: currentPart,
-            isTvSeries: isTv,
-            tvSeason: currentSeason,
-            isSequel: currentPart > 1 || currentSeason > 1,
-            parentMovieTitle: book.parentMovieTitle || book.movieTitle,
-          };
-
-          newReleasedMovies.unshift(newReleasedMovie);
-
-          careerMovies.push(`THEATRICAL DEBUT: '${book.movieTitle}' opened at $${(openingGross / 1000000).toFixed(1)}M Box Office! (Star Rating: ${starRatingPct}%)`);
-          careerTraining.push(`🌟 +${Math.max(1, Math.floor(releaseFame * FAME_XP_MULTIPLIER))} Fame XP - Theatrical Release of '${book.movieTitle}'`);
-
-          newTimelineEvents.push({
-            id: `tl_rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            year: newYear,
+          // WRAPPED FILMING → RELEASE WINDOW (max 20 weeks): the film enters
+          // the studio's release calendar (festivals, marketing, dating)
+          // before its theatrical debut. Bigger budgets wait longer.
+          const releaseWindow = Math.min(20, 6 + Math.floor((book.budget || 1500000) / 20000000));
+          stage = 'Release';
+          stageWeeks = releaseWindow;
+          hype = Math.min(100, hype + 8);
+          logs.unshift({
             week: newWeek,
-            category: 'RELEASE',
-            title: `Theatrical Debut: ${book.movieTitle}`,
-            description: `"${book.movieTitle}" completed production and debuted in theaters with an opening gross of $${(openingGross / 1000000).toFixed(1)}M. Star Rating: ${starRatingPct}%. Contract salary: $${book.salary.toLocaleString()}.`,
+            year: newYear,
+            stage: 'Release',
+            eventText: `Filming wrapped! "${book.movieTitle}" enters its RELEASE window — ${releaseWindow} weeks of marketing, festival buzz and theater dating before the worldwide debut (max 20 weeks).`,
+            type: 'milestone',
           });
-
-          newInboxMessages.unshift({
-            id: `msg_theatrical_debut_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            category: 'CAREER',
-            sender: `${book.studio || 'Studio'} Distribution`,
-            senderRole: 'VP Theatrical Distribution',
-            senderAvatar: book.posterUrl,
-            subject: `THEATRICAL DEBUT: "${book.movieTitle}" Opens at $${(openingGross / 1000000).toFixed(1)}M!`,
-            body: `THEATRICAL DEBUT REPORT\n\nMovie: "${book.movieTitle}"\nRole: ${book.roleType}\nStudio: ${book.studio || 'Studio'}\nDirector: ${book.director || 'Director'}\n\nBOX OFFICE OPENING RESULTS:\n• Star Track Record: ${starRatingPct}%\n• Opening Weekend Gross: $${openingGross.toLocaleString()}\n• Domestic Projection: $${domesticGross.toLocaleString()}\n• Worldwide Projection: $${worldwideGross.toLocaleString()}\n• Rotten Tomatoes Audience: ${audienceRating}%\n• Rotten Tomatoes Critics: ${criticRating}%\n\nYour salary of $${book.salary.toLocaleString()} has been fully paid. Residuals will accrue weekly in your IMDb Releases tab!`,
-            date: dateInfo.fullDateText,
-            read: false,
-          });
-
-          // Trigger Breaking Hollywood Insider Article
-          try {
-            HollywoodInsiderService.onMovieReleased(newReleasedMovie.movieTitle, newReleasedMovie.studio || 'The studio', newReleasedMovie.budget || 0, newWeek, newYear);
-          } catch (e) {
-            console.error('Error triggering Hollywood Insider release article:', e);
-          }
-
-          // Greenlight decisions now happen in the WEEKLY SEQUEL TRACKER below
-          // (target must be met over weeks in the box office — no instant greenlights).
-
-          // Movie is completed & released — do not push back into updatedBookedProjects
-          return;
+          careerFilmingProgress.push(`WRAPPED: '${book.movieTitle}' — release window opens (${releaseWindow} weeks to debut)`);
         } else {
           logs.unshift({
             week: newWeek,
