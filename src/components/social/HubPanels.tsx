@@ -86,13 +86,14 @@ export const PremiumPanel: React.FC<{ state: SocialsState; onRefresh: () => void
   );
 };
 
-export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void; platform?: string }> = ({ state, onRefresh, platform = 'twitter' }) => {
+export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void; platform?: string; roleLabel?: string }> = ({ state, onRefresh, platform = 'twitter', roleLabel }) => {
   const { player, saveData, updateSave } = useGame();
   const [fb, setFb] = useState<string | null>(null);
   const [fbOk, setFbOk] = useState(true);
   const [selectedWriter, setSelectedWriter] = useState<string | null>(null);
   const [selectedWeeks, setSelectedWeeks] = useState(10);
   const platformLabel = SocialsService.PLATFORM_LABEL[platform] || platform;
+  const role = roleLabel || 'Writer';
   const hired = state.writers.find((w) => w.hired && (w.platform || 'twitter') === platform);
 
   const apply = (id: string) => {
@@ -140,9 +141,9 @@ export const WritersPanel: React.FC<{ state: SocialsState; onRefresh: () => void
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <PenTool className="w-4 h-4 text-purple-400" />
-        <h3 className="text-sm font-black uppercase tracking-wider text-purple-200">{platformLabel} Writer (1 max · {WRITER_MIN_CONTRACT_WEEKS}-{WRITER_MAX_CONTRACT_WEEKS} wks)</h3>
+        <h3 className="text-sm font-black uppercase tracking-wider text-purple-200">{platformLabel} {role} (1 max · {WRITER_MIN_CONTRACT_WEEKS}-{WRITER_MAX_CONTRACT_WEEKS} wks)</h3>
       </div>
-      <p className="text-[9px] text-gray-500">Separate writer per platform — posts ONLY on {platformLabel}. Writers audit your career before accepting. Their reply lands in your Inbox.</p>
+      <p className="text-[9px] text-gray-500">Separate {role.toLowerCase()} per platform — posts ONLY on {platformLabel}. They audit your career before accepting. Their reply lands in your Inbox.</p>
       {fb && <p className={`text-[11px] p-2 rounded-xl border ${fbOk ? 'text-emerald-200 bg-emerald-500/10 border-emerald-500/30' : 'text-amber-200 bg-amber-500/10 border-amber-500/30'}`}>{fb}</p>}
       {hired ? (
         <div className="p-3 rounded-2xl border border-purple-400/40 bg-purple-500/10 space-y-1">

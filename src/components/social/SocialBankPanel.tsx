@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialsService, SOCIAL_BANK_MIN_TRANSFER } from '../../services/socialsService';
-import { Landmark, ArrowDownToLine, Clock, Receipt, Wallet } from 'lucide-react';
+import { Landmark, ArrowDownToLine, Clock, Receipt } from 'lucide-react';
 
 interface Props {
   platform: 'youtube' | 'instagram' | 'twitter' | 'facebook' | 'reddit' | 'telegram';
@@ -34,12 +34,9 @@ const LABELS: Record<string, string> = {
   telegram: 'Telegram Bank',
 };
 
-const NO_AD_ENGINE: Set<string> = new Set(['facebook', 'reddit', 'telegram']);
-
 export const SocialBankPanel: React.FC<Props> = ({ platform, accent = 'red' }) => {
   const { player, persistNow } = useGame();
   const [msg, setMsg] = useState<string | null>(null);
-  const [depositAmt, setDepositAmt] = useState('1000');
   const a = ACCENTS[accent] || ACCENTS.red;
 
   const state = SocialsService.getState();
@@ -54,14 +51,6 @@ export const SocialBankPanel: React.FC<Props> = ({ platform, accent = 'red' }) =
 
   const handleTransfer = () => {
     const res = SocialsService.transferSocialBankToAccount(platform, player);
-    setMsg(res.message);
-    if (res.success) persistNow();
-  };
-
-  const handleDeposit = () => {
-    const amt = parseFloat(depositAmt) || 0;
-    const res = SocialsService.depositToSocialBank(platform, amt, player.money);
-    if (res.success) player.money -= amt;
     setMsg(res.message);
     if (res.success) persistNow();
   };
@@ -97,37 +86,6 @@ export const SocialBankPanel: React.FC<Props> = ({ platform, accent = 'red' }) =
         </div>
       </div>
 
-      {/* DEPOSIT — your cash into the platform bank (no tax on the way in) */}
-      <div className="p-2.5 rounded-2xl bg-black/40 border border-white/5">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[9px] text-gray-400 uppercase font-black flex items-center gap-1">
-            <Wallet className="w-3 h-3" /> Deposit into this bank
-          </span>
-          <span className="text-[8px] text-gray-600">your money moves · no tax on deposits · min $100</span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min={100}
-            step={100}
-            value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)}
-            className="flex-1 bg-[#0b0e14] border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white/25"
-            placeholder="USD amount"
-          />
-          <button
-            onClick={handleDeposit}
-            disabled={player.money < 100}
-            className={`px-4 py-2 rounded-xl text-[10px] font-black whitespace-nowrap transition-all ${player.money >= 100 ? `${a.btn} text-white cursor-pointer` : 'bg-white/5 text-gray-500 cursor-not-allowed'}`}
-          >
-            DEPOSIT
-          </button>
-        </div>
-        <p className="text-[8.5px] text-gray-500 mt-1.5 font-mono">
-          Your account cash: ${player.money.toLocaleString(undefined, { maximumFractionDigits: 0 })} · deposits can fund giveaways, stunts and community payouts on this platform.
-        </p>
-      </div>
-
       <button
         onClick={handleTransfer}
         disabled={!canTransfer}
@@ -137,7 +95,7 @@ export const SocialBankPanel: React.FC<Props> = ({ platform, accent = 'red' }) =
       >
         <ArrowDownToLine className="w-4 h-4" />
         {canTransfer
-          ? `TRANSFER $${balance.toLocaleString()} TO ACCOUNT (net $${netOnTransfer.toLocaleString()} after $${taxOnTransfer.toLocaleString()} tax)`
+          ? `WITHDRAW $${balance.toLocaleString()} (net $${netOnTransfer.toLocaleString()} after $${taxOnTransfer.toLocaleString()} tax)`
           : `NEEDS $${SOCIAL_BANK_MIN_TRANSFER} MINIMUM (holds $${balance.toLocaleString()})`}
       </button>
 
@@ -163,9 +121,7 @@ export const SocialBankPanel: React.FC<Props> = ({ platform, accent = 'red' }) =
       )}
 
       <p className="text-[9px] text-gray-600 font-mono leading-relaxed">
-        {NO_AD_ENGINE.has(platform)
-          ? `${LABELS[platform]} has no ad-revenue engine yet — the balance grows from your deposits (and future monetization). Deposits and transfers follow the same rules: 20% creator tax on every exit.`
-          : `Earnings accrue to this bank every week (updates land before payout). All creator income is taxed 20% on every exit — transfers and month-end payouts alike. Month-end auto-pays any remaining balance.`}
+        Withdrawals wait for payday — they clear in 1-5 weeks (20% creator tax withheld) and then credit your account automatically with an inbox confirmation. Earnings keep accruing here every week and month-end auto-pays whatever remains.
       </p>
     </div>
   );

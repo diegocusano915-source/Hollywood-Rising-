@@ -2081,8 +2081,8 @@ export class MarketEngineService {
       const prevRank: number = s.playerCoinPrevRank || 0;
       if (myRank > 0 && prevRank > 0 && myRank < prevRank && myRank <= 20) {
         const passed = liveRanked[myRank]; // the coin now directly below us
-        pushWire({ kind: 'PUMP', symbol: myLiveCoin.symbol, title: `FLIPPENING: $${myLiveCoin.symbol} passes ${passed ? '$' + passed.symbol : 'a rival'}`, sub: `Now ranked #${myRank} of ${liveRanked.length} by market cap` });
-        headlineNews.push(`FLIPPENING: $${myLiveCoin.symbol} climbs to #${myRank} of ${liveRanked.length} on the Star Exchange${passed ? `, overtaking $${passed.symbol}` : ''}!`);
+        pushWire({ kind: 'PUMP', symbol: myLiveCoin.symbol, title: `FLIPPENING: $${myLiveCoin.symbol} passes ${passed ? '$' + passed.symbol : 'a rival'}`, sub: `Week-end rank #${myRank} of ${liveRanked.length} by market cap` });
+        headlineNews.push(`FLIPPENING (week-end): $${myLiveCoin.symbol} holds #${myRank} of ${liveRanked.length} on the Star Exchange${passed ? `, having flipped $${passed.symbol}` : ''}. Live rank can move with mid-week pumps.`);
         cryptoEvents.push({
           kind: 'PUMP',
           subject: `📈 FLIPPENING: $${myLiveCoin.symbol} is now the #${myRank} coin on the exchange`,

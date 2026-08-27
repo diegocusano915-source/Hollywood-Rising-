@@ -10,6 +10,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { SocialBankPanel } from './SocialBankPanel';
+import { WritersPanel } from './HubPanels';
 import {
   SocialsService,
   SocialsState,
@@ -40,7 +41,7 @@ const gradeFor = (reach: number): { g: string; cls: string } => {
 
 export const InstagramView: React.FC<{ onBack: () => void }> = () => {
   const { player, releasedMovies, saveData } = useGame();
-  const [tab, setTab] = useState<'HOME' | 'STUDIO' | 'BANK' | 'PROFILE'>('HOME');
+  const [tab, setTab] = useState<'HOME' | 'STUDIO' | 'BANK' | 'MANAGERS' | 'PROFILE'>('HOME');
   const [fb, setFb] = useState<string | null>(null);
   const [fbOk, setFbOk] = useState(true);
   const [state, setState] = useState<SocialsState>(() => SocialsService.getState());
@@ -121,7 +122,7 @@ export const InstagramView: React.FC<{ onBack: () => void }> = () => {
             </div>
           </div>
           <div className="flex gap-1.5">
-            {(['HOME', 'STUDIO', 'BANK', 'PROFILE'] as const).map((t) => (
+            {(['HOME', 'STUDIO', 'BANK', 'MANAGERS', 'PROFILE'] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-2.5 py-1.5 rounded-lg text-[8.5px] font-black cursor-pointer ${tab === t ? 'bg-pink-500 text-white' : 'bg-white/5 text-gray-400 border border-white/10'}`}>
                 {t}
@@ -371,6 +372,12 @@ export const InstagramView: React.FC<{ onBack: () => void }> = () => {
       )}
 
       {/* ================= PROFILE ================= */}
+      {tab === 'MANAGERS' && (
+        <div className="px-3 pb-6">
+          <WritersPanel state={state} platform="instagram" roleLabel="Manager" onRefresh={() => setState({ ...SocialsService.getState() })} />
+        </div>
+      )}
+
       {tab === 'PROFILE' && (
         <div className="px-3 space-y-3">
           <div className="rounded-2xl border border-white/10 bg-black/40 p-4 flex items-center gap-3.5">

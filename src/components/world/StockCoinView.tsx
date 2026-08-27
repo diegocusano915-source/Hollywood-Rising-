@@ -211,6 +211,11 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
         tokenAmount: amt,
         fmtAmount: fmtTokens(amt),
       });
+      if (post.success) {
+        // crypto NPC accounts react: claim posts now + weeks of hype chatter
+        const afterCoin = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
+        SocialsService.igniteCoinHype({ symbol: coin.symbol, coinName: coin.name, holders: (afterCoin?.airdropHolders) || 0 });
+      }
       persistNow();
       showFb(`${res.message}${post.success ? ` ${post.message}` : ''}`);
     } else {
@@ -275,6 +280,10 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     .slice(0, 80);
 
   const tickerCoins = [...liveCoins].sort((a, b) => b.volume24h - a.volume24h).slice(0, 8);
+  // TRUE market-cap rank per coin — the single source the recap and founder
+  // console both use. List position ≠ rank (HOT sorts by popularity).
+  const mcapRankById: Record<string, number> = {};
+  [...liveCoins].sort((a, b) => b.marketCap - a.marketCap).forEach((c, i) => { mcapRankById[c.id] = i + 1; });
   const wire = (marketState.cryptoWire || []).slice(0, 8);
   const cryptoTxs = marketState.transactions.filter((t) => t.assetType === 'CRYPTO').slice(0, 30);
 
@@ -658,7 +667,7 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
                 ))}
               </div>
 
-              {/* coin rows */}
+              {/* coin rows — index is LIST ORDER, 🏙 chip is the TRUE market-cap rank */}
               <div className="rounded-2xl border border-[#1b212c] bg-[#0e1117] overflow-hidden">
                 {filtered.map((c, idx) => (
                   <button key={c.id} onClick={() => { setSelectedCoin(c); setAmount('1000'); setOrderSide('buy'); }}
@@ -668,6 +677,8 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
                     <div className="flex-1 min-w-0">
                       <b className="text-[11.5px] text-gray-100 block truncate">
                         {c.name}
+                        {mcapRankById[c.id] === 1 && <span className="ml-1.5 text-[7px] font-black bg-[#f5b942] text-[#1a1206] px-1.5 py-0.5 rounded align-middle">👑 #1 MCAP</span>}
+                        {c.isMyCoin && mcapRankById[c.id] !== undefined && mcapRankById[c.id] > 1 && <span className="ml-1.5 text-[7px] font-black bg-sky-400/20 text-sky-300 px-1.5 py-0.5 rounded border border-sky-400/40 align-middle">RANK #{mcapRankById[c.id]}</span>}
                         {(c.weeksSinceListing || 0) <= 6 && <span className="ml-1.5 text-[7px] font-black bg-[#3ddc97] text-[#06251a] px-1.5 py-0.5 rounded align-middle">NEW</span>}
                         {c.delistWarning && <span className="ml-1.5 text-[7px] font-black bg-[#ff5b6e]/20 text-[#ff5b6e] px-1.5 py-0.5 rounded border border-[#ff5b6e]/40 align-middle">RISK</span>}
                       </b>

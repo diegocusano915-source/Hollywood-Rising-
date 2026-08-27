@@ -664,6 +664,8 @@ export interface SocialsState {
   facebookBalance?: number;
   redditBalance?: number;
   telegramBalance?: number;
+  /** Live NPC hype for the player's fan token — decays weekly while the coin trades */
+  playerCoinHype?: { symbol: string; coinName: string; weeksLeft: number };
 }
 
 /** Monthly social-earnings envelope: real-engine range $5,000-$25,000 */
@@ -1457,6 +1459,112 @@ export class SocialsService {
       fansGained: followersGained, // fans grow 1:1 with real social followers
       message: `Airdrop posted to ${active.map((t) => t.feed).join(' + ')} — ${followersGained.toLocaleString()} new followers.`,
     };
+  }
+
+  // ---- NPC COIN CHATTER — crypto personas react to the player's fan token ----
+
+  /** Crypto-native NPC accounts that trade celebrity fan tokens. */
+  public static readonly CRYPTO_NPC_ACCOUNTS = [
+    { name: 'DegenDuke', handle: '@degenduke_eth', avatar: 'https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?w=100&auto=format&fit=crop', badge: 'NONE' as VerificationType, tone: 'hype' },
+    { name: 'ChainQueen', handle: '@chainqueen.sol', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop', badge: 'BLUE' as VerificationType, tone: 'hype' },
+    { name: 'RugDetective', handle: '@rugdetective', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop', badge: 'BLUE' as VerificationType, tone: 'audit' },
+    { name: 'MoonOrRekt', handle: '@moonorrekt', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop', badge: 'NONE' as VerificationType, tone: 'chart' },
+    { name: 'AirdropAddict', handle: '@airdropaddict', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop', badge: 'NONE' as VerificationType, tone: 'claimer' },
+    { name: 'TokenTrending', handle: '@tokentrending', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop', badge: 'GOLD' as VerificationType, tone: 'news' },
+    { name: 'WhaleWatcher', handle: '@whalewatch_wsb', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop', badge: 'BLUE' as VerificationType, tone: 'chart' },
+    { name: 'FanTokenFanatic', handle: '@fantokenfanatic', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop', badge: 'NONE' as VerificationType, tone: 'claimer' },
+  ];
+
+  private static cryptoNpcPost(kind: 'claim' | 'hype' | 'chart' | 'audit', input: { symbol: string; coinName: string; holders?: number; pricePct?: number; rank?: number }): SocialPost {
+    const acc = SocialsService.CRYPTO_NPC_ACCOUNTS[Math.floor(Math.random() * SocialsService.CRYPTO_NPC_ACCOUNTS.length)];
+    const mcapText = (n: number) => (n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : `$${Math.round(n / 1e6)}M`);
+    const texts: Record<string, string[]> = {
+      claim: [
+        `🪂 JUST CLAIMED ${input.symbol} airdrop from @${input.coinName.toLowerCase().replace(/\s+/g, '')}! Free tokens just for holding the fan base. Team actually delivered. Claims still live, move fast 🚀 #Airdrop`,
+        `${input.symbol} AIRDROP LANDED IN MY WALLET ✅ Founder said community first — respect. The flip side of fame tokens is real. Who else got in?`,
+        `wake up babes, new ${input.symbol} airdrop just dropped 🪂 celebrity coins usually rug — this one came from an actual star with a real career. Watched.`,
+      ],
+      hype: [
+        `Everyone sleeping on $${input.symbol}. Celebrity fan tokens print when their star releases movies — this founder has the hottest career in Hollywood right now. Do the math 🔥`,
+        `$${input.symbol} community is DIFFERENT. Holders actually show up because they're fans of the work, not chart watchers. This is how fan tokens survive.`,
+        `PSA: $${input.symbol} isn't another dead celeb coin. Real utility = access + bragging rights when ${input.coinName} drops something new. Volume tells the story. 📈`,
+      ],
+      chart: [
+        `$${input.symbol} weekly: ${input.pricePct !== undefined && input.pricePct >= 0 ? '+' : ''}${(input.pricePct ?? 0).toFixed(1)}% · holders ${(input.holders || 0).toLocaleString()} · structured growth, no blow-off top yet. One to watch 👀`,
+        `Ranking check: $${input.symbol} sits at ${input.rank ? '#' + input.rank : 'a climbing spot'} by market cap on Star Exchange. Fan tokens rarely hold a chart like this without paid promo. This one has organic flow.`,
+      ],
+      audit: [
+        `Audited the $${input.symbol} contract basics: allocations published at launch (${input.holders ? (input.holders).toLocaleString() + ' tracked claimers' : 'real holder spread'}), no honeypot logic visible, liquidity locked pattern OK. Not financial advice — but it's not a rug template either. ✅`,
+        `RUG-CHECK: $${input.symbol} passed the sniff test. Founder wallet visible on-chain and NOT dumping. Rare air for celebrity tokens.`,
+      ],
+    };
+    const pool = texts[kind];
+    const text = pool[Math.floor(Math.random() * pool.length)];
+    const views = Math.floor(40000 + Math.random() * 900000);
+    return {
+      id: `npc_coin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      authorName: acc.name,
+      authorHandle: acc.handle,
+      authorAvatar: acc.avatar,
+      badge: acc.badge,
+      platform: 'Twitter',
+      tab: 'NPC_FEED',
+      text,
+      likes: Math.floor(views * (0.03 + Math.random() * 0.05)),
+      comments: Math.floor(views * 0.004),
+      retweets: Math.floor(views * 0.01),
+      shares: Math.floor(views * 0.008),
+      views,
+      timestamp: `${Math.floor(Math.random() * 20) + 1}h ago`,
+      isPlayer: false,
+      isNpc: true,
+      sentiment: kind === 'audit' ? 'Neutral' : 'Viral',
+    };
+  }
+
+  /**
+   * FIRE THE HYPE ENGINE after an airdrop: NPC recipients post claims
+   * immediately, and a multi-week hype tail keeps crypto personas posting
+   * about the coin (charts, audits, hype) while it trades.
+   */
+  public static igniteCoinHype(input: { symbol: string; coinName: string; holders: number }): void {
+    const state = this.getState();
+    state.playerPosts.Twitter = state.playerPosts.Twitter || [];
+    // instant reactions: 3-5 claim posts right now
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      state.playerPosts.Twitter.unshift(SocialsService.cryptoNpcPost('claim', input));
+    }
+    // plus one analyst post on the launch stats
+    state.playerPosts.Twitter.unshift(SocialsService.cryptoNpcPost('chart', input));
+    // keep the tail burning
+    state.playerCoinHype = { symbol: input.symbol, coinName: input.coinName, weeksLeft: 4 };
+    this.saveState(state);
+  }
+
+  /** Weekly hype tick: decays, then spawns continuing NPC chatter while alive. */
+  public static tickCoinHype(coinState?: { pricePct?: number; rank?: number; holders?: number }): string[] {
+    const state = this.getState();
+    const h = state.playerCoinHype;
+    if (!h || h.weeksLeft <= 0) return [];
+    state.playerPosts.Twitter = state.playerPosts.Twitter || [];
+    const lines: string[] = [];
+    const kinds: Array<'hype' | 'chart' | 'audit'> = ['hype', 'chart', 'audit'];
+    const count = h.weeksLeft >= 3 ? 2 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      state.playerPosts.Twitter.unshift(SocialsService.cryptoNpcPost(kinds[Math.floor(Math.random() * kinds.length)], {
+        symbol: h.symbol,
+        coinName: h.coinName,
+        holders: coinState?.holders,
+        pricePct: coinState?.pricePct,
+        rank: coinState?.rank,
+      }));
+    }
+    lines.push(`💬 Crypto X is still talking about $${h.symbol} — ${count} fresh takes from trader accounts.`);
+    h.weeksLeft -= 1;
+    if (h.weeksLeft <= 0) delete state.playerCoinHype;
+    this.saveState(state);
+    return lines;
   }
 
   /** Player manual posting limit per platform per week. */

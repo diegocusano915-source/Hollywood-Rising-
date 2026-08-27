@@ -1365,11 +1365,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socialsResult.socialTrending) socialTrending.push(...socialsResult.socialTrending);
     if (socialsResult.socialReputation) socialReputation.push(...socialsResult.socialReputation);
 
+    // NPC coin-hype tick: crypto personas keep posting about the player's
+    // fan token after an airdrop (claims already fired at drop time).
+    try {
+      const myCoinNow = MarketEngineService.getMyCoinStatus();
+      const hypeLines = SocialsService.tickCoinHype(myCoinNow.coin ? {
+        pricePct: myCoinNow.coin.change24h,
+        rank: myCoinNow.rank,
+        holders: myCoinNow.coin.airdropHolders,
+      } : undefined);
+      socialPosts.push(...hypeLines);
+    } catch (e) { console.warn('coin hype tick error:', e); }
+
     // YT mini-bank payouts that CLEARED this week — credit wallet + inbox.
     // (Tax was already withheld at transfer time; the net is post-tax.)
+    // NOTE: arrivals are ALSO accumulated into socialBankPayoutsCredited so
+    // the end-of-week money reconciliation (startMoney + net change) can't
+    // wipe them out — they must survive as REAL income.
+    let socialBankPayoutsCredited = 0;
     if ((socialsResult as any).ytPayoutArrivals && (socialsResult as any).ytPayoutArrivals.length > 0) {
       for (const arrival of (socialsResult as any).ytPayoutArrivals) {
         p.money += arrival.net;
+        socialBankPayoutsCredited += arrival.net;
         newInboxMessages.unshift({
           id: `msg_yt_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           category: 'FINANCE',
@@ -1389,6 +1406,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((socialsResult as any).igPayoutArrivals && (socialsResult as any).igPayoutArrivals.length > 0) {
       for (const arrival of (socialsResult as any).igPayoutArrivals) {
         p.money += arrival.net;
+        socialBankPayoutsCredited += arrival.net;
         newInboxMessages.unshift({
           id: `msg_ig_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           category: 'FINANCE',
@@ -1408,6 +1426,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if ((socialsResult as any).twPayoutArrivals && (socialsResult as any).twPayoutArrivals.length > 0) {
       for (const arrival of (socialsResult as any).twPayoutArrivals) {
         p.money += arrival.net;
+        socialBankPayoutsCredited += arrival.net;
         newInboxMessages.unshift({
           id: `msg_tw_payout_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           category: 'FINANCE',
@@ -3091,7 +3110,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       studioIncomeThisWeek +
       hubIncomeThisWeek +
       interviewFeeIncomeThisWeek +
-      bankrollIncomeThisWeek;
+      bankrollIncomeThisWeek +
+      socialBankPayoutsCredited;
 
     // Calculate real mid-week expenses incurred from transaction history during current week
     const midWeekExpensesThisWeek = (networkState.bankAccount?.transactionHistory || [])
