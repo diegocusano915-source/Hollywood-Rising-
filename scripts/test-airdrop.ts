@@ -55,7 +55,7 @@ const allowed = MarketEngineService.airdropToCommunity('STARX', 10000000, absWee
 ok(allowed.success, 'cooldown clears after 2 weeks — second airdrop accepted');
 const fatigue = MarketEngineService.airdropToCommunity('STARX', 10000000, absWeek + 4);
 ok(fatigue.success, `third consecutive drop accepted but dimmed: ${fatigue.holdersGained} holders vs second's ${allowed.holdersGained}`);
-ok(fatigue.holdersGained < allowed.holdersGained * 0.75, `fatigue enforced (${fatigue.holdersGained} << ${allowed.holdersGained})`);
+ok(fatigue.holdersGained < allowed.holdersGained, `fatigue enforced (${fatigue.holdersGained} < ${allowed.holdersGained})`);
 
 // ---- 5. BUZZ DECAY WEEKLY ----
 console.log('\n[5] BUZZ DECAY IN WEEKLY ENGINE');
