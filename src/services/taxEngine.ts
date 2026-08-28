@@ -427,3 +427,46 @@ export function auditRiskScore(record: TaxYearRecord | undefined): number {
   if (!record || record.filingStatus !== 'FILED' || !record.balanceDue || record.liability <= 0) return 0;
   return Math.min(100, Math.round((record.balanceDue / record.liability) * 100));
 }
+
+/**
+ * EMERGENCY CRYPTO AUDIT — fires immediately when the founder dumps a large
+ * chunk of their own fan token. An exchange-scale gain attracts instant
+ * scrutiny: the audit ALWAYS opens (notice), and the penalty depends on
+ * representation — lawyers fight it, elite accountants soften it. The gain
+ * itself is still taxed through the normal weekly crypto withholding.
+ */
+export function flagEmergencyCryptoAudit(input: {
+  week: number;
+  year: number;
+  gainAmount: number;
+  accountantTier?: string;
+  lawyerActive?: boolean;
+  symbol?: string;
+}): { penalty: number; dismissed: boolean; subject: string; body: string } {
+  const tier = input.accountantTier || 'None';
+  const lawyer = !!input.lawyerActive;
+  let penalty = Math.floor(input.gainAmount * 0.18); // base 18% of the flagged gain
+  let dismissed = false;
+  let note: string;
+
+  if (lawyer && Math.random() < 0.7) {
+    penalty = 0;
+    dismissed = true;
+    note = 'Your lawyer contested the assessment on procedural grounds — the penalty was DISMISSED.';
+  } else if (tier === 'Elite Offshore Tax Attorneys') {
+    penalty = Math.floor(penalty * 0.4);
+    note = `Your elite tax attorneys negotiated the assessment down to $${penalty.toLocaleString()}.`;
+  } else if (tier === 'Boutique Firm') {
+    penalty = Math.floor(penalty * 0.7);
+    note = `Your boutique firm negotiated the assessment down to $${penalty.toLocaleString()}.`;
+  } else {
+    note = `Penalty of $${penalty.toLocaleString()} assessed (18% of the flagged gain). A ${tier === 'None' ? 'better accountant' : 'accountant'} or lawyer could have fought this.`;
+  }
+
+  return {
+    penalty,
+    dismissed,
+    subject: `🚨 EMERGENCY TAX AUDIT: ${input.symbol || 'Crypto'} Founder Dump (${input.year})`,
+    body: `IMMEDIATE COMPLIANCE REVIEW — EXCHANGE REPORTING TRIGGER\n\nA founder-scale liquidation of ${input.symbol ? '$' + input.symbol : 'your fan token'} worth $${input.gainAmount.toLocaleString()} in realized gains has triggered an emergency audit.\n\n• Flagged gain: $${input.gainAmount.toLocaleString()}\n• Accountant: ${tier}${lawyer ? ' + Lawyer on retainer' : ''}\n\n${note}\n\nNote: this penalty is separate from the regular weekly withholding on the gain, which still applies.`,
+  };
+}

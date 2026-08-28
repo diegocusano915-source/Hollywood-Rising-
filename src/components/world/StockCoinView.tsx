@@ -16,6 +16,7 @@ import {
   fmtTokens,
 } from '../../services/marketEngineService';
 import { SocialsService } from '../../services/socialsService';
+import { flagEmergencyCryptoAudit } from '../../services/taxEngine';
 
 interface StockCoinViewProps {
   onBack: () => void;
@@ -57,7 +58,7 @@ function hashStr(s: string): number {
 type SortMode = 'HOT' | 'NEW' | 'GAINERS' | 'LOSERS' | 'MCAP' | 'DEGEN';
 
 export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
-  const { player, persistNow } = useGame();
+  const { player, persistNow, saveData, updateSave } = useGame();
 
   const [marketState, setMarketState] = useState<EconomyMarketState>(() => MarketEngineService.getMarketState());
   const [activeTab, setActiveTab] = useState<'MARKET' | 'PORTFOLIO' | 'WHALES' | 'TX'>('MARKET');
@@ -167,11 +168,77 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
       const coinAmt = amountMode === 'usd' ? amtNum / coin.price : amtNum;
       if (coinAmt <= 0) { showFb('❌ Enter an amount first.'); return; }
       if (coinAmt > (coin.playerHoldings || 0) + 1e-9) { showFb(`❌ You only hold ${coin.playerHoldings.toFixed(4)} ${coin.symbol}.`); return; }
+      const prePrice = coin.price;
+      const preTrust = coin.communityStrength;
       const res = MarketEngineService.sellCrypto(coin.symbol, Math.min(coinAmt, coin.playerHoldings));
       if (res.success) {
         player.money += res.totalDollarRevenue;
-        persistNow();
-        showFb(res.message);
+
+        // ---- FOUNDER DUMP CONSEQUENCES (visible, real) ----
+        if (res.dumpReport) {
+          const d = res.dumpReport;
+          // 1. crypto X turns on you: NPC posts + follower dip
+          const chatterLines = SocialsService.spawnFounderDumpChatter({
+            symbol: d.symbol, supplyPct: d.supplyPct, slipPct: d.slipPct, priceBefore: prePrice, priceAfter: d.priceAfter,
+          });
+          // 2. emergency tax audit — exchange reporting flags the LIQUIDATION:
+          //    founder allocation was near-free, so at least 40% of proceeds
+          //    is treated as gain even when slippage crushes spot PnL.
+          const realizedGain = Math.max(0, Math.floor(d.proceeds - d.tokensSold * (coin.playerAvgBuyPrice || 0)));
+          const audit = flagEmergencyCryptoAudit({
+            week: player.dateWeek, year: player.dateYear,
+            gainAmount: Math.max(realizedGain, Math.floor(d.proceeds * 0.4)),
+            accountantTier: (player as any).empire?.taxState?.accountantTier,
+            lawyerActive: !!(player as any).representation?.lawyer?.signed,
+            symbol: d.symbol,
+          });
+          if (audit.penalty > 0) player.money = Math.max(0, player.money - audit.penalty);
+          // 3. fan trust hit — followers watched you dump on them
+          const fansHit = Math.floor(player.fans * Math.min(0.12, d.supplyPct / 400));
+          player.fans = Math.max(0, player.fans - fansHit);
+
+          // 4. inbox: the audit notice + community fallout report
+          try {
+            const dateText = `Week ${player.dateWeek}, ${player.dateYear}`;
+            updateSave({
+              ...saveData,
+              player: { ...player },
+              inbox: [
+                {
+                  id: `msg_dump_audit_${Date.now()}`,
+                  category: 'LEGAL' as any,
+                  sender: 'Internal Revenue Service — Crypto Compliance Desk',
+                  senderRole: 'Emergency Audit Unit',
+                  subject: audit.dismissed ? `⚖️ AUDIT DISMISSED: ${audit.subject.replace('🚨 EMERGENCY TAX AUDIT: ', '')}` : audit.subject,
+                  body: audit.body,
+                  date: dateText,
+                  read: false,
+                  dateWeek: player.dateWeek,
+                  dateYear: player.dateYear,
+                },
+                {
+                  id: `msg_dump_fallout_${Date.now()}`,
+                  category: 'MEDIA' as any,
+                  sender: `${d.coinName} Community Relations`,
+                  senderRole: 'Holder Liaison Office',
+                  subject: `🚨 FOUNDER DUMP FALLOUT: $${d.symbol} holders are in revolt`,
+                  body: `COMMUNITY IMPACT REPORT — founder liquidation of ${d.supplyPct.toFixed(1)}% of supply\n\n• Tokens sold: ${fmtTokens(d.tokensSold)} ($${d.proceeds.toLocaleString()} gross after ${d.slipPct}% slippage)\n• Price: $${d.priceBefore < 1 ? d.priceBefore.toFixed(4) : d.priceBefore.toFixed(2)} → $${d.priceAfter < 1 ? d.priceAfter.toFixed(4) : d.priceAfter.toFixed(2)}\n• Community trust: ${d.trustBefore}/100 → ${d.trustAfter}/100\n• Fans lost: ${fansHit.toLocaleString()} (${(Math.min(12, d.supplyPct / 4)).toFixed(1)}% of your fanbase)\n• X followers: walking out — check your socials, the timeline is brutal.\n\nCrypto X is covered in whale alerts and dump accusations. Trust rebuilds slowly — or never, if you do it again.`,
+                  date: dateText,
+                  read: false,
+                  dateWeek: player.dateWeek,
+                  dateYear: player.dateYear,
+                },
+                ...saveData.inbox,
+              ],
+            });
+          } catch (e) {
+            persistNow();
+          }
+          showFb(`🚨 DUMP FALLOUT: ${chatterLines[0]} ${audit.dismissed ? '⚖️ Audit dismissed — your lawyer fought it off.' : `Penalty $${audit.penalty.toLocaleString()} deducted.`} Fans −${fansHit.toLocaleString()}, trust ${preTrust} → ${d.trustAfter}.`);
+        } else {
+          persistNow();
+          showFb(res.message);
+        }
       } else showFb(`❌ ${res.message}`);
     }
     refreshMarket();

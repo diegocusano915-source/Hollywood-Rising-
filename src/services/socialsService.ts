@@ -1567,6 +1567,53 @@ export class SocialsService {
     return lines;
   }
 
+  /**
+   * FOUNDER DUMP FALLOUT — crypto X turns on the founder after a big sell.
+   * Whale alerts, outrage, audit-detective posts. Real follower dip on X
+   * (holders unfollow a dumper). Returns recap lines for the caller.
+   */
+  public static spawnFounderDumpChatter(report: { symbol: string; supplyPct: number; slipPct: number; priceBefore: number; priceAfter: number }): string[] {
+    const state = this.getState();
+    state.playerPosts.Twitter = state.playerPosts.Twitter || [];
+    const dropPct = ((report.priceBefore - report.priceAfter) / Math.max(0.000001, report.priceBefore)) * 100;
+    const texts = [
+      `🚨 WHALE ALERT: $${report.symbol} founder wallet just moved ${(report.supplyPct).toFixed(1)}% of supply to the exchange. Price ${dropPct >= 0 ? '-' : ''}${dropPct.toFixed(1)}% and falling. Do NOT catch this knife.`,
+      `$${report.symbol} community is FURIOUS right now. Founder ate ${(report.slipPct)}% slippage and still cashed out. Order book was thinner than they thought. 🩸`,
+      `RugDetective here: $${report.symbol} founder dumping ${(report.supplyPct).toFixed(1)}% of supply is NOT a rug (they kept the project alive) — but the trust scores are bleeding. Watch the community metrics before buying dips.`,
+      `Sold my entire $${report.symbol} bag the second I saw the founder wallet move. Learned that lesson on three celebrity tokens last year. Never again.`,
+      `$${report.symbol} down ${dropPct.toFixed(1)}% on founder liquidation. Exchange will be watching this one closely — founder-scale gains don't slip past the tax desk. 🧾`,
+    ];
+    const n = 3 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < n; i++) {
+      const acc = SocialsService.CRYPTO_NPC_ACCOUNTS[Math.floor(Math.random() * SocialsService.CRYPTO_NPC_ACCOUNTS.length)];
+      const views = Math.floor(60000 + Math.random() * 1200000); // dumps travel FASTER than airdrops
+      state.playerPosts.Twitter.unshift({
+        id: `npc_dump_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+        authorName: acc.name,
+        authorHandle: acc.handle,
+        authorAvatar: acc.avatar,
+        badge: acc.badge,
+        platform: 'Twitter',
+        tab: 'NPC_FEED',
+        text: texts[Math.floor(Math.random() * texts.length)],
+        likes: Math.floor(views * (0.05 + Math.random() * 0.06)),
+        comments: Math.floor(views * 0.008),
+        retweets: Math.floor(views * 0.015),
+        shares: Math.floor(views * 0.01),
+        views,
+        timestamp: `${Math.floor(Math.random() * 12) + 1}h ago`,
+        isPlayer: false,
+        isNpc: true,
+        sentiment: 'Criticism',
+      });
+    }
+    // real follower dip — X holders unfollow a founder who dumps on them
+    const dip = Math.floor((state.followers.Twitter || 0) * (0.03 + Math.random() * 0.05));
+    if (dip > 0) state.followers.Twitter = Math.max(0, (state.followers.Twitter || 0) - dip);
+    this.saveState(state);
+    return [`🚨 Crypto X reacts to your $${report.symbol} dump — ${n} posts, mostly critical. ${dip.toLocaleString()} X followers walked.`, `🧾 Exchange reporting flagged the liquidation — expect the tax desk to open an emergency audit.`];
+  }
+
   /** Player manual posting limit per platform per week. */
   public static readonly PLAYER_POSTS_PER_WEEK = 2;
 

@@ -124,6 +124,19 @@ export interface PlayerCoinContext {
   fanCount: number;
 }
 
+export interface FounderDumpReport {
+  symbol: string;
+  coinName: string;
+  tokensSold: number;
+  supplyPct: number;
+  slipPct: number;
+  proceeds: number;
+  priceBefore: number;
+  priceAfter: number;
+  trustBefore: number;
+  trustAfter: number;
+}
+
 /** Token amounts in exchange shorthand: 1.50B / 240.0M / 15.2K */
 export function fmtTokens(n: number): string {
   if (!Number.isFinite(n)) return '0';
@@ -2528,6 +2541,7 @@ export class MarketEngineService {
     success: boolean;
     message: string;
     totalDollarRevenue: number;
+    dumpReport?: FounderDumpReport;
   } {
     const s = this.getMarketState();
     const coin = s.cryptoCoins.find((c) => c.symbol === symbol || c.id === symbol);
@@ -2539,7 +2553,7 @@ export class MarketEngineService {
         success: false,
         message: `Error: You only hold ${owned.toFixed(4)} tokens of $${coin.symbol}.`,
         totalDollarRevenue: 0,
-      };
+      } as any;
     }
 
     // ---- FOUNDER-SIZE DUMP IMPACT on your own fan token ----
@@ -2548,9 +2562,12 @@ export class MarketEngineService {
     // No more free spot-price exits for the founder wallet.
     let fillPrice = coin.price;
     let dumpNote = '';
+    let dumpReport: FounderDumpReport | undefined;
     if (coin.isMyCoin) {
       const frac = coinAmount / Math.max(1, coin.circulatingSupply);
       if (frac > 0.02) {
+        const priceBefore = coin.price;
+        const trustBefore = coin.communityStrength;
         const slip = Math.min(0.55, 0.25 + frac * 5.5);
         fillPrice = coin.price * (1 - slip);
         coin.price = Math.max(0.000001, Math.round(coin.price * (1 - Math.min(0.6, frac * 3)) * 1000000) / 1000000);
@@ -2558,6 +2575,18 @@ export class MarketEngineService {
         coin.communityStrength = Math.max(3, Math.round(coin.communityStrength - frac * 80));
         coin.news = `$${coin.symbol} FOUNDER WALLET DUMP — ${(frac * 100).toFixed(1)}% of supply sold. Community in revolt.`;
         dumpNote = ` Founder dump of ${(frac * 100).toFixed(1)}% of supply: ${(slip * 100).toFixed(0)}% slippage eaten, price crashed to $${coin.price < 1 ? coin.price.toFixed(4) : coin.price.toFixed(2)}, community trust damaged.`;
+        dumpReport = {
+          symbol: coin.symbol,
+          coinName: coin.name,
+          tokensSold: coinAmount,
+          supplyPct: Math.round(frac * 10000) / 100,
+          slipPct: Math.round(slip * 100),
+          proceeds: Math.round(coinAmount * fillPrice),
+          priceBefore,
+          priceAfter: coin.price,
+          trustBefore,
+          trustAfter: coin.communityStrength,
+        };
       }
     }
 
@@ -2603,6 +2632,7 @@ export class MarketEngineService {
       success: true,
           message: `SWAP EXECUTED: Sold ${coinAmount.toFixed(4)} $${coin.symbol} receiving $${totalDollarRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}!${taxNote}${dumpNote}`,
       totalDollarRevenue,
+      dumpReport,
     };
   }
 
