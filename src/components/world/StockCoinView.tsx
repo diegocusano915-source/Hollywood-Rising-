@@ -13,10 +13,7 @@ import {
   MarketEngineService,
   CryptoCoin,
   EconomyMarketState,
-  fmtTokens,
 } from '../../services/marketEngineService';
-import { SocialsService } from '../../services/socialsService';
-import { flagEmergencyCryptoAudit } from '../../services/taxEngine';
 
 interface StockCoinViewProps {
   onBack: () => void;
@@ -73,35 +70,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
 
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // fan token deploy
-  const [showDeploy, setShowDeploy] = useState(false);
-  const [tokenName, setTokenName] = useState('');
-  const [tokenSymbol, setTokenSymbol] = useState('');
-  const [tokenPrice, setTokenPrice] = useState(1.0);
-  // tokenomics — allocation must total 100%
-  const [tokenSupply, setTokenSupply] = useState(1000000000);
-  const [founderPct, setFounderPct] = useState(70);
-  const [airdropPct, setAirdropPct] = useState(15);
-  const [liquidityPct, setLiquidityPct] = useState(15);
-  const tokSum = founderPct + airdropPct + liquidityPct;
-
-  const handleDeployToken = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tokenName || !tokenSymbol) { showFb('❌ Token name and symbol required.'); return; }
-    if (tokSum !== 100) { showFb(`❌ Tokenomics must total 100% — currently ${tokSum}%.`); return; }
-    const res = MarketEngineService.launchPlayerCrypto(tokenName, tokenSymbol, tokenPrice, player.fameXp || 0, player.money, {
-      totalSupply: tokenSupply, founderPct, airdropPct, liquidityPct,
-    });
-    if (res.success) {
-      player.money -= 100000;
-      persistNow();
-      setShowDeploy(false);
-      setTokenName(''); setTokenSymbol('');
-    }
-    showFb(res.message);
-    refreshMarket();
-  };
-
   const refreshMarket = () => setMarketState(MarketEngineService.getMarketState());
   useEffect(() => { refreshMarket(); }, []);
 
@@ -110,7 +78,7 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     setTimeout(() => setFeedback(null), 4500);
   };
 
-  const liveCoins = marketState.cryptoCoins.filter((c) => c.status === 'Active' || c.status === 'TopLeader');
+  const liveCoins = marketState.cryptoCoins.filter((c) => (c.status === 'Active' || c.status === 'TopLeader') && !c.isMyCoin);
   const holdings = marketState.cryptoCoins.filter((c) => c.playerHoldings > 0);
   const totalCryptoValuation = holdings.reduce((sum, c) => sum + c.playerHoldings * c.price, 0);
   const totalCap = liveCoins.reduce((a, c) => a + c.marketCap, 0);
@@ -146,11 +114,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
   const estReceive = orderSide === 'buy'
     ? (amountMode === 'usd' ? amtNum / (coin?.price || 1) : amtNum)
     : (amountMode === 'usd' ? amtNum : amtNum * (coin?.price || 0));
-  // founder-size sell preview: tokens being sold + live slippage estimate
-  const sellTokens = orderSide === 'sell' ? (amountMode === 'usd' ? amtNum / (coin?.price || 1) : amtNum) : 0;
-  const sellImpact = orderSide === 'sell' && coin?.isMyCoin
-    ? MarketEngineService.estimateFounderSellImpact(coin.symbol, sellTokens)
-    : null;
 
   const executeOrder = () => {
     if (!coin) return;
@@ -168,77 +131,11 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
       const coinAmt = amountMode === 'usd' ? amtNum / coin.price : amtNum;
       if (coinAmt <= 0) { showFb('❌ Enter an amount first.'); return; }
       if (coinAmt > (coin.playerHoldings || 0) + 1e-9) { showFb(`❌ You only hold ${coin.playerHoldings.toFixed(4)} ${coin.symbol}.`); return; }
-      const prePrice = coin.price;
-      const preTrust = coin.communityStrength;
       const res = MarketEngineService.sellCrypto(coin.symbol, Math.min(coinAmt, coin.playerHoldings));
       if (res.success) {
         player.money += res.totalDollarRevenue;
-
-        // ---- FOUNDER DUMP CONSEQUENCES (visible, real) ----
-        if (res.dumpReport) {
-          const d = res.dumpReport;
-          // 1. crypto X turns on you: NPC posts + follower dip
-          const chatterLines = SocialsService.spawnFounderDumpChatter({
-            symbol: d.symbol, supplyPct: d.supplyPct, slipPct: d.slipPct, priceBefore: prePrice, priceAfter: d.priceAfter,
-          });
-          // 2. emergency tax audit — exchange reporting flags the LIQUIDATION:
-          //    founder allocation was near-free, so at least 40% of proceeds
-          //    is treated as gain even when slippage crushes spot PnL.
-          const realizedGain = Math.max(0, Math.floor(d.proceeds - d.tokensSold * (coin.playerAvgBuyPrice || 0)));
-          const audit = flagEmergencyCryptoAudit({
-            week: player.dateWeek, year: player.dateYear,
-            gainAmount: Math.max(realizedGain, Math.floor(d.proceeds * 0.4)),
-            accountantTier: (player as any).empire?.taxState?.accountantTier,
-            lawyerActive: !!(player as any).representation?.lawyer?.signed,
-            symbol: d.symbol,
-          });
-          if (audit.penalty > 0) player.money = Math.max(0, player.money - audit.penalty);
-          // 3. fan trust hit — followers watched you dump on them
-          const fansHit = Math.floor(player.fans * Math.min(0.12, d.supplyPct / 400));
-          player.fans = Math.max(0, player.fans - fansHit);
-
-          // 4. inbox: the audit notice + community fallout report
-          try {
-            const dateText = `Week ${player.dateWeek}, ${player.dateYear}`;
-            updateSave({
-              ...saveData,
-              player: { ...player },
-              inbox: [
-                {
-                  id: `msg_dump_audit_${Date.now()}`,
-                  category: 'LEGAL' as any,
-                  sender: 'Internal Revenue Service — Crypto Compliance Desk',
-                  senderRole: 'Emergency Audit Unit',
-                  subject: audit.dismissed ? `⚖️ AUDIT DISMISSED: ${audit.subject.replace('🚨 EMERGENCY TAX AUDIT: ', '')}` : audit.subject,
-                  body: audit.body,
-                  date: dateText,
-                  read: false,
-                  dateWeek: player.dateWeek,
-                  dateYear: player.dateYear,
-                },
-                {
-                  id: `msg_dump_fallout_${Date.now()}`,
-                  category: 'MEDIA' as any,
-                  sender: `${d.coinName} Community Relations`,
-                  senderRole: 'Holder Liaison Office',
-                  subject: `🚨 FOUNDER DUMP FALLOUT: $${d.symbol} holders are in revolt`,
-                  body: `COMMUNITY IMPACT REPORT — founder liquidation of ${d.supplyPct.toFixed(1)}% of supply\n\n• Tokens sold: ${fmtTokens(d.tokensSold)} ($${d.proceeds.toLocaleString()} gross after ${d.slipPct}% slippage)\n• Price: $${d.priceBefore < 1 ? d.priceBefore.toFixed(4) : d.priceBefore.toFixed(2)} → $${d.priceAfter < 1 ? d.priceAfter.toFixed(4) : d.priceAfter.toFixed(2)}\n• Community trust: ${d.trustBefore}/100 → ${d.trustAfter}/100\n• Fans lost: ${fansHit.toLocaleString()} (${(Math.min(12, d.supplyPct / 4)).toFixed(1)}% of your fanbase)\n• X followers: walking out — check your socials, the timeline is brutal.\n\nCrypto X is covered in whale alerts and dump accusations. Trust rebuilds slowly — or never, if you do it again.`,
-                  date: dateText,
-                  read: false,
-                  dateWeek: player.dateWeek,
-                  dateYear: player.dateYear,
-                },
-                ...saveData.inbox,
-              ],
-            });
-          } catch (e) {
-            persistNow();
-          }
-          showFb(`🚨 DUMP FALLOUT: ${chatterLines[0]} ${audit.dismissed ? '⚖️ Audit dismissed — your lawyer fought it off.' : `Penalty $${audit.penalty.toLocaleString()} deducted.`} Fans −${fansHit.toLocaleString()}, trust ${preTrust} → ${d.trustAfter}.`);
-        } else {
-          persistNow();
-          showFb(res.message);
-        }
+        persistNow();
+        showFb(res.message);
       } else showFb(`❌ ${res.message}`);
     }
     refreshMarket();
@@ -259,73 +156,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
     }
   };
 
-  // ---- founder ops (your own fan token) ----
-  const myStatus = coin?.isMyCoin ? MarketEngineService.getMyCoinStatus() : null;
-  const [injectAmt, setInjectAmt] = useState('50000');
-  const [rugStep, setRugStep] = useState(0);
-  const [airdropAmt, setAirdropAmt] = useState('1000000');
-
-  const handleAirdrop = () => {
-    if (!coin) return;
-    const amt = parseFloat(airdropAmt) || 0;
-    const res = MarketEngineService.airdropToCommunity(coin.symbol, amt, player.dateWeek + (player.dateYear * 52));
-    if (res.success) {
-      // broadcast on social — reach converts to platform followers only
-      // (game fans come exclusively from movie releases and awards)
-      const post = SocialsService.postAirdropAnnouncement(player, {
-        symbol: coin.symbol,
-        coinName: coin.name,
-        tokenAmount: amt,
-        fmtAmount: fmtTokens(amt),
-      });
-      if (post.success) {
-        // crypto NPC accounts react: claim posts now + weeks of hype chatter
-        const afterCoin = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
-        SocialsService.igniteCoinHype({ symbol: coin.symbol, coinName: coin.name, holders: (afterCoin?.airdropHolders) || 0 });
-      }
-      persistNow();
-      showFb(`${res.message}${post.success ? ` ${post.message}` : ''}`);
-    } else {
-      showFb(`❌ ${res.message}`);
-    }
-    refreshMarket();
-    const fresh = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
-    if (fresh) setSelectedCoin(fresh);
-  };
-
-  const handleInject = () => {
-    if (!coin) return;
-    const amt = parseFloat(injectAmt) || 0;
-    const res = MarketEngineService.injectCashIntoMyCoin(coin.symbol, amt, player.money);
-    if (res.success) {
-      player.money -= amt;
-      persistNow();
-    }
-    showFb(res.message);
-    refreshMarket();
-    const fresh = MarketEngineService.getMarketState().cryptoCoins.find((c) => c.symbol === coin.symbol);
-    if (fresh) setSelectedCoin(fresh);
-  };
-
-  const handleRug = () => {
-    const res = MarketEngineService.rugPullMyCoin();
-    if (res.success && res.consequences) {
-      const c = res.consequences;
-      const fansBefore = player.fans;
-      player.fans = Math.floor(player.fans * (1 - c.fansLostPct / 100));
-      player.fameXp = Math.max(0, Math.floor(player.fameXp * (1 - c.fameHitPct / 100)));
-      player.publicReputation = Math.max(0, (player.publicReputation || 0) - c.reputationHit);
-      player.industryRespect = Math.max(0, (player.industryRespect || 0) - c.industryRespectHit);
-      player.money = Math.max(0, player.money + res.proceeds - c.fine);
-      persistNow();
-      showFb(`☠️ ${res.message} Fans −${(fansBefore - player.fans).toLocaleString()} (${c.fansLostPct}%), fame −${c.fameHitPct}%, regulators clawed back $${c.fine.toLocaleString()}. You are blacklisted from launching new tokens.`);
-      setRugStep(0);
-      setSelectedCoin(null);
-    } else {
-      showFb(res.message);
-    }
-    refreshMarket();
-  };
 
   // ---- filters ----
   const filtered = liveCoins
@@ -416,126 +246,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
             </div>
           )}
 
-          {/* FOUNDER CONSOLE — your coin, your controls */}
-          {coin.isMyCoin && myStatus && (
-            <div className="mx-4 mb-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <b className="text-[10.5px] text-amber-300 tracking-widest">🎖 FOUNDER CONSOLE</b>
-                <span className="text-[9px] font-mono text-amber-200/70">YOUR COIN · YOUR RULES</span>
-              </div>
-
-              {/* competition rank */}
-              <div className="flex items-center justify-between bg-black/40 rounded-lg px-3 py-2 border border-white/5">
-                <div>
-                  <span className="text-[8.5px] text-[#6b7484] tracking-wider block">EXCHANGE RANK (BY MARKET CAP)</span>
-                  <b className="text-sm text-white font-mono">#{myStatus.rank} <span className="text-[10px] text-[#6b7484]">of {myStatus.totalLive} live coins</span></b>
-                </div>
-                {myStatus.leader && (
-                  <div className="text-right">
-                    <span className="text-[8.5px] text-[#6b7484] tracking-wider block">RIVAL ABOVE</span>
-                    <b className="text-[11px] text-gray-200 font-mono">${myStatus.leader.symbol} · {fmtCap(myStatus.leader.marketCap)}</b>
-                  </div>
-                )}
-              </div>
-
-              {/* community trust meter */}
-              <div>
-                <div className="flex justify-between text-[8.5px] font-black mb-1">
-                  <span className="text-[#6b7484] tracking-wider">COMMUNITY TRUST</span>
-                  <span className={coin.communityStrength < 30 ? 'text-[#ff5b6e]' : 'text-[#3ddc97]'}>{coin.communityStrength}/100{coin.communityStrength < 30 ? ' — FANS ARE TURNING' : ''}</span>
-                </div>
-                <div className="h-1.5 bg-[#0b0e14] rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${coin.communityStrength < 30 ? 'bg-[#ff5b6e]' : 'bg-gradient-to-r from-[#3ddc97] to-[#f5b942]'}`} style={{ width: `${Math.min(100, coin.communityStrength)}%` }} />
-                </div>
-              </div>
-
-              {/* liquidity injection */}
-              <div className="bg-black/40 rounded-lg p-3 border border-white/5 space-y-2">
-                <span className="text-[8.5px] text-[#6b7484] tracking-wider block">💰 PUMP WITH YOUR OWN CASH — liquidity injection</span>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={injectAmt}
-                    onChange={(e) => setInjectAmt(e.target.value)}
-                    min={10000}
-                    step={10000}
-                    className="flex-1 bg-[#0e1117] border border-[#1b212c] rounded-lg px-3 py-2 text-[11px] font-mono text-white outline-none focus:border-amber-400/50"
-                    placeholder="USD (min $10,000)"
-                  />
-                  <button
-                    onClick={handleInject}
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3ddc97] to-[#2aa876] text-[#06251a] text-[10px] font-black cursor-pointer whitespace-nowrap"
-                  >
-                    INJECT 💸
-                  </button>
-                </div>
-                <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
-                  Real cash, real impact: price pumps up to +60% scaled to injection vs market cap. Cash is spent — the market can still fade the pump.
-                </p>
-              </div>
-
-              {/* community airdrop */}
-              <div className="bg-black/40 rounded-lg p-3 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[8.5px] text-[#3ddc97] tracking-wider">🪂 AIRDROP TO THE COMMUNITY — free tokens, real buzz</span>
-                  <span className="text-[8px] font-mono text-[#8b96a8]">{fmtTokens(coin.communityAirdropped || 0)} dropped · {fmtTokens(coin.airdropHolders || 0)} holders</span>
-                </div>
-                <input
-                  type="number"
-                  value={airdropAmt}
-                  onChange={(e) => setAirdropAmt(e.target.value)}
-                  min={1000}
-                  step={1000}
-                  className="w-full bg-[#0e1117] border border-[#1b212c] rounded-lg px-3 py-2 text-[11px] font-mono text-white outline-none focus:border-[#3ddc97]/50"
-                  placeholder="Tokens to airdrop (min 1,000)"
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono text-[#3ddc97]">{fmtTokens(parseFloat(airdropAmt) || 0)} tokens</span>
-                  <div className="flex gap-1.5">
-                    {[
-                      { label: '1K', v: 1000 }, { label: '100K', v: 100000 }, { label: '1M', v: 1000000 },
-                      { label: '10M', v: 10000000 }, { label: 'MAX', v: Math.floor(coin.playerHoldings || 0) },
-                    ].map((c) => (
-                      <button key={c.label} type="button" onClick={() => setAirdropAmt(String(c.v))}
-                        className="px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-400 text-[9px] font-black cursor-pointer hover:border-[#3ddc97]/50 hover:text-[#3ddc97]">
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={handleAirdrop}
-                  className="w-full py-2 rounded-lg bg-gradient-to-r from-[#3ddc97] to-[#2aa876] text-[#06251a] text-[10px] font-black cursor-pointer"
-                >
-                  AIRDROP 🪂 (auto-posts to socials)
-                </button>
-                <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
-                  Tokens leave your founder wallet permanently. New holders, trust and 3 weeks of buzz follow — announced on your X/Telegram where real followers see it. 2-week cooldown; back-to-back drops cause community fatigue.
-                  {(coin.airdropStreak || 0) >= 2 && <span className="text-[#ff5b6e]"> Fatigue streak: {coin.airdropStreak} — diminishing returns active.</span>}
-                  {(coin.buzzWeeksLeft || 0) > 0 && <span className="text-[#f5b942]"> Buzz live: {coin.buzzWeeksLeft} week{(coin.buzzWeeksLeft || 0) === 1 ? '' : 's'} left.</span>}
-                </p>
-              </div>
-
-              {/* rug pull */}
-              <div className={`rounded-lg p-3 border space-y-2 ${rugStep > 0 ? 'bg-rose-500/10 border-rose-400/50' : 'bg-black/40 border-white/5'}`}>
-                <span className="text-[8.5px] text-[#ff5b6e] tracking-wider block">☠️ RUG PULL — dump your founder allocation and exit</span>
-                {rugStep === 0 ? (
-                  <>
-                    <p className="text-[8.5px] text-[#8b96a8] leading-relaxed">
-                      Sell everything at once through massive slippage (35%+ haircut). The coin dies −98%. You keep the cash — but fans (−30-45%), fame (−12-20%), reputation, industry respect and regulators (they claw back half) ALL come for you. One rug = permanent exchange blacklist.
-                    </p>
-                    <button onClick={() => setRugStep(1)} className="w-full py-2 rounded-lg bg-[#1b212c] text-[#ff5b6e] text-[10px] font-black cursor-pointer border border-rose-400/30">I KNOW THE CONSEQUENCES →</button>
-                  </>
-                ) : (
-                  <div className="flex gap-2">
-                    <button onClick={() => setRugStep(0)} className="flex-1 py-2 rounded-lg bg-[#1b212c] text-gray-300 text-[10px] font-black cursor-pointer">CANCEL</button>
-                    <button onClick={handleRug} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-[#ff5b6e] to-[#c73548] text-white text-[10px] font-black cursor-pointer">CONFIRM RUG PULL ☠️</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* stats */}
           <div className="grid grid-cols-3 gap-1.5 px-4">
             {[
@@ -597,22 +307,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
               </b>
             </div>
 
-            {/* founder dump impact — live slippage estimate before you confirm */}
-            {orderSide === 'sell' && coin.isMyCoin && sellImpact && sellImpact.slipPct > 0 && (
-              <div className="mt-2 p-2.5 rounded-lg bg-[#ff5b6e]/10 border border-[#ff5b6e]/40">
-                <div className="flex justify-between text-[9px] font-mono text-[#ff9aa6]">
-                  <span>⚠ FOUNDER DUMP IMPACT</span>
-                  <b>−{sellImpact.slipPct}% SLIPPAGE</b>
-                </div>
-                <div className="flex justify-between text-[9px] font-mono text-[#ff9aa6] mt-1">
-                  <span>REAL FILL ≈</span>
-                  <b>${sellImpact.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({fmtTokens(sellTokens)} tokens)</b>
-                </div>
-                <p className="text-[8px] text-[#8b96a8] mt-1 leading-relaxed">
-                  Dumping more than 2% of supply moves the market against you — the coin crashes after the sale and community trust takes damage.
-                </p>
-              </div>
-            )}
 
             <div className="flex gap-1.5 mt-3">
               {[10, 25, 50, 75, 100].map((p) => (
@@ -673,10 +367,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
                 <h2 className="text-[15px] font-black text-white">⚡ STAR EXCHANGE</h2>
                 <div className="text-[8.5px] text-[#6b7484] tracking-[2px] font-extrabold mt-0.5">LIVING CRYPTO MARKET · {liveCoins.length} COINS · NEW LISTINGS EVERY 10-12 WKS</div>
               </div>
-              <button onClick={() => setShowDeploy(true)}
-                className="px-3 py-2 rounded-xl bg-[#0b0e14] border border-[#f5b942]/40 text-[#f5b942] text-[9.5px] font-black flex items-center gap-1.5 cursor-pointer shrink-0">
-                <Sparkles className="w-3.5 h-3.5" /> Deploy Token
-              </button>
             </div>
             <div className="grid grid-cols-4 gap-1 px-3 py-2 m-3 mt-2 bg-[#0b0e14] rounded-xl border border-[#1b212c] text-center">
               <div><span className="text-[7.5px] text-[#6b7484] tracking-wider block">TOTAL CAP</span><b className="text-[11px] font-mono text-[#3ddc97]">{fmtCap(totalCap)}</b></div>
@@ -895,86 +585,6 @@ export const StockCoinView: React.FC<StockCoinViewProps> = ({ onBack }) => {
         <div className="p-3 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/30 text-[#3ddc97] text-[11px] font-bold text-center">{feedback}</div>
       )}
 
-      {/* Deploy fan token modal */}
-      {showDeploy && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <form onSubmit={handleDeployToken} className="p-5 rounded-2xl bg-[#0e1117] border border-[#f5b942]/40 w-full max-w-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-[#f5b942] flex items-center gap-2"><Sparkles className="w-4 h-4" /> DEPLOY CELEBRITY FAN TOKEN</h3>
-              <button type="button" onClick={() => setShowDeploy(false)} className="text-gray-400 font-black cursor-pointer">✕</button>
-            </div>
-            <p className="text-[10px] text-gray-400 font-bold">Smart contract fee: <span className="text-[#f5b942] font-black">$100,000</span>. Your fame ({(player.fameXp || 0).toLocaleString()} XP) sets the launch valuation.</p>
-            <div>
-              <label className="text-[9px] text-gray-400 block mb-1 font-black">TOKEN NAME</label>
-              <input type="text" value={tokenName} onChange={(e) => setTokenName(e.target.value)} required
-                className="w-full bg-[#0b0e14] text-white p-2.5 rounded-lg border border-[#1b212c] text-xs outline-none" placeholder="e.g. Vance Starlight Token" />
-            </div>
-            <div>
-              <label className="text-[9px] text-gray-400 block mb-1 font-black">SYMBOL ($)</label>
-              <input type="text" maxLength={8} value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value.toUpperCase())} required
-                className="w-full bg-[#0b0e14] text-white p-2.5 rounded-lg border border-[#1b212c] text-xs outline-none uppercase" placeholder="e.g. VANCE" />
-            </div>
-            <div>
-              <label className="text-[9px] text-gray-400 block mb-1 font-black">INITIAL PRICE ($)</label>
-              <input type="number" step="0.1" min="0.1" max="100" value={tokenPrice} onChange={(e) => setTokenPrice(Number(e.target.value))}
-                className="w-full bg-[#0b0e14] text-white p-2.5 rounded-lg border border-[#1b212c] text-xs outline-none" />
-            </div>
-
-            {/* TOKENOMICS — supply + allocation split */}
-            <div className="p-3 rounded-xl bg-[#0b0e14] border border-[#1b212c] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black text-[#f5b942] tracking-wider">TOKENOMICS</span>
-                <span className={`text-[9px] font-black font-mono ${tokSum === 100 ? 'text-[#3ddc97]' : 'text-[#ff5b6e]'}`}>
-                  {tokSum}% / 100%
-                </span>
-              </div>
-              <div>
-                <label className="text-[9px] text-gray-400 block mb-1 font-black">TOTAL SUPPLY — <span className="text-[#3ddc97] font-mono">{fmtTokens(tokenSupply)}</span></label>
-                <input type="number" step={1000000} min={1000000} max={100000000000} value={tokenSupply} onChange={(e) => setTokenSupply(Math.max(1000000, Math.min(100000000000, Number(e.target.value) || 0)))}
-                  className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
-                <div className="flex gap-1.5 mt-1.5">
-                  {[
-                    { label: '1M', v: 1000000 }, { label: '100M', v: 100000000 }, { label: '1B', v: 1000000000 },
-                    { label: '10B', v: 10000000000 }, { label: '100B', v: 100000000000 },
-                  ].map((c) => (
-                    <button key={c.label} type="button" onClick={() => setTokenSupply(c.v)}
-                      className={`flex-1 py-1 rounded text-[9px] font-black cursor-pointer border ${tokenSupply === c.v ? 'bg-[#3ddc97]/20 border-[#3ddc97]/60 text-[#3ddc97]' : 'bg-white/5 border-white/10 text-gray-400'}`}>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[8.5px] text-gray-400 block mb-1 font-black">FOUNDER %</label>
-                  <input type="number" min={10} max={95} value={founderPct} onChange={(e) => setFounderPct(Number(e.target.value) || 0)}
-                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
-                  <span className="text-[8px] text-[#f5b942] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * founderPct / 100))}</span>
-                </div>
-                <div>
-                  <label className="text-[8.5px] text-[#3ddc97] block mb-1 font-black">AIRDROP %</label>
-                  <input type="number" min={0} max={80} value={airdropPct} onChange={(e) => setAirdropPct(Number(e.target.value) || 0)}
-                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
-                  <span className="text-[8px] text-[#3ddc97] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * airdropPct / 100))}</span>
-                </div>
-                <div>
-                  <label className="text-[8.5px] text-[#38bdf8] block mb-1 font-black">LIQUIDITY %</label>
-                  <input type="number" min={0} max={80} value={liquidityPct} onChange={(e) => setLiquidityPct(Number(e.target.value) || 0)}
-                    className="w-full bg-[#0e1117] text-white p-2 rounded-lg border border-[#1b212c] text-xs font-mono outline-none" />
-                  <span className="text-[8px] text-[#38bdf8] font-mono block mt-1">{fmtTokens(Math.floor(tokenSupply * liquidityPct / 100))}</span>
-                </div>
-              </div>
-              <p className="text-[8.5px] text-gray-500 leading-relaxed">
-                Allocation must total exactly 100%. Airdropped tokens go free to the community at launch — more airdrop = more holders, trust and launch buzz, but less founder upside.
-              </p>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setShowDeploy(false)} className="flex-1 py-2.5 rounded-lg bg-white/5 text-white text-[10.5px] font-black cursor-pointer">Cancel</button>
-              <button type="submit" className="flex-1 py-2.5 rounded-lg bg-[#f5b942] text-[#1a1206] text-[10.5px] font-black cursor-pointer">Deploy ($100K)</button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 };
