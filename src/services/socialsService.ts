@@ -244,6 +244,7 @@ export interface TwitterCreatorPost {
   createdWeek: number;
   createdYear: number;
   published?: boolean;
+  writerTier?: number;
   impressions?: number;
   likes?: number;
   reposts?: number;
@@ -1858,6 +1859,7 @@ export class SocialsService {
           isNpc: false,
           sentiment: 'Positive',
           generatedByWriter: true,
+          writerTier: wrTier,
         };
 
         const autoComments = this.generateNpcCommentsForPost(newPost.id, autoPostText, 35, player);
@@ -2352,6 +2354,7 @@ export class SocialsService {
             slotBoost: 1.0,
             slotLabel: 'Standard post',
             algoScore: sc.score,
+            writerTier: (fp as any).writerTier,
             publishWeek: player.dateWeek || 1,
             publishYear: player.dateYear || 2026,
             createdWeek: player.dateWeek || 1,
@@ -2380,9 +2383,13 @@ export class SocialsService {
       const twCapShare = twTier.weeklyImpressionCap / Math.max(1, Math.min(twActive.length, 4));
       let twNewFollowers = 0;
       let twAccrued = 0;
+      // WRITER TIER drives post reach on X: T1 small, T2 = 4x T1, T3 = 6x T1,
+      // T4 = 8x T1. Manual player posts are unaffected (multiplier 1).
+      const WRITER_TIER_IMP_MULT = [0.5, 2, 3, 4];
       for (const post of twActive) {
         const weeksOld = Math.max(0, (player.dateYear || 2026) * 52 + (player.dateWeek || 1) - (post.publishYear * 52 + post.publishWeek));
         let imps = twCapShare * (0.25 + (post.algoScore / 100) * 0.75);
+        if (post.writerTier) imps *= WRITER_TIER_IMP_MULT[Math.min(3, Math.max(0, post.writerTier - 1))] || 1;
         if (post.tweetType === 'HOT_TAKE') imps *= 1.4;
         else if (post.tweetType === 'THREAD' || post.tweetType === 'BTS_CLIP') imps *= 1.2;
         else if (post.tweetType === 'POLL') imps *= 0.85;

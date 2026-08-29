@@ -295,6 +295,8 @@ export interface SocialPost {
   isNpc: boolean;
   sentiment: 'Positive' | 'Neutral' | 'Viral' | 'Criticism';
   generatedByWriter?: boolean;
+  /** Tier of the writer that generated this post (1-4) — drives X creator-engine reach */
+  writerTier?: number;
 }
 
 export interface HiredWriter {

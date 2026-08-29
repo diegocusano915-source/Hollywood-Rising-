@@ -241,88 +241,88 @@ export const FOUNDATION_CAUSES_CATALOG: FoundationCauseOption[] = [
 // Initial Achievements
 export const INITIAL_ACHIEVEMENTS: EmpireAchievement[] = [
   // CAREER (15)
-  { id: 'ach_c_1', title: 'Step Into The Spotlight', description: 'Complete your first audition.', category: 'Career', rewardCash: 2500, rewardFameXp: 50, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_2', title: 'First Acting Role', description: 'Land your very first acting role.', category: 'Career', rewardCash: 5000, rewardFameXp: 100, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_3', title: 'Big Screen Debut', description: 'Star in your first feature film.', category: 'Career', rewardCash: 12500, rewardFameXp: 250, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_4', title: 'Rising Star', description: 'Reach 1,000 Fame XP.', category: 'Career', rewardCash: 25000, rewardFameXp: 500, isUnlocked: false, progress: 0, maxProgress: 1000 },
-  { id: 'ach_c_5', title: 'A-List Powerhouse', description: 'Reach 10,000 Fame XP.', category: 'Career', rewardCash: 75000, rewardFameXp: 1250, isUnlocked: false, progress: 0, maxProgress: 10000 },
-  { id: 'ach_c_6', title: 'Living Legend', description: 'Reach 50,000 Fame XP.', category: 'Career', rewardCash: 250000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 50000 },
-  { id: 'ach_c_7', title: 'Workaholic Actor', description: 'Complete 10 acting roles.', category: 'Career', rewardCash: 37500, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 10 },
-  { id: 'ach_c_8', title: 'Cinema Veteran', description: 'Complete 25 acting roles.', category: 'Career', rewardCash: 100000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 25 },
-  { id: 'ach_c_9', title: 'Filmography Titan', description: 'Complete 50 acting roles.', category: 'Career', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 50 },
-  { id: 'ach_c_10', title: 'Blockbuster Lead', description: 'Star in a film earning $100M+ Box Office.', category: 'Career', rewardCash: 125000, rewardFameXp: 1000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_11', title: 'Billion Dollar Actor', description: 'Accumulate $1 Billion lifetime Box Office.', category: 'Career', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
-  { id: 'ach_c_12', title: "Director's Vision", description: 'Direct your first feature film.', category: 'Career', rewardCash: 75000, rewardFameXp: 1000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_13', title: 'Executive Producer', description: 'Executive produce a feature film.', category: 'Career', rewardCash: 100000, rewardFameXp: 1250, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_14', title: 'Academy Scholar', description: 'Enroll and complete an Acting Academy course.', category: 'Career', rewardCash: 25000, rewardFameXp: 400, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_c_15', title: 'Flawless Masterpiece', description: 'Star in a film rated 90%+ by critics.', category: 'Career', rewardCash: 150000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_1', title: 'Step Into The Spotlight', description: 'Complete your first audition.', category: 'Career', rewardCash: 2500, rewardFameXp: 15, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_2', title: 'First Acting Role', description: 'Land your very first acting role.', category: 'Career', rewardCash: 5000, rewardFameXp: 30, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_3', title: 'Big Screen Debut', description: 'Star in your first feature film.', category: 'Career', rewardCash: 12500, rewardFameXp: 75, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_4', title: 'Rising Star', description: 'Reach 1,000 Fame XP.', category: 'Career', rewardCash: 25000, rewardFameXp: 150, isUnlocked: false, progress: 0, maxProgress: 1000 },
+  { id: 'ach_c_5', title: 'A-List Powerhouse', description: 'Reach 10,000 Fame XP.', category: 'Career', rewardCash: 75000, rewardFameXp: 375, isUnlocked: false, progress: 0, maxProgress: 10000 },
+  { id: 'ach_c_6', title: 'Living Legend', description: 'Reach 50,000 Fame XP.', category: 'Career', rewardCash: 250000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 50000 },
+  { id: 'ach_c_7', title: 'Workaholic Actor', description: 'Complete 10 acting roles.', category: 'Career', rewardCash: 37500, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 10 },
+  { id: 'ach_c_8', title: 'Cinema Veteran', description: 'Complete 25 acting roles.', category: 'Career', rewardCash: 100000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 25 },
+  { id: 'ach_c_9', title: 'Filmography Titan', description: 'Complete 50 acting roles.', category: 'Career', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 50 },
+  { id: 'ach_c_10', title: 'Blockbuster Lead', description: 'Star in a film earning $100M+ Box Office.', category: 'Career', rewardCash: 125000, rewardFameXp: 300, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_11', title: 'Billion Dollar Actor', description: 'Accumulate $1 Billion lifetime Box Office.', category: 'Career', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
+  { id: 'ach_c_12', title: "Director's Vision", description: 'Direct your first feature film.', category: 'Career', rewardCash: 75000, rewardFameXp: 300, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_13', title: 'Executive Producer', description: 'Executive produce a feature film.', category: 'Career', rewardCash: 100000, rewardFameXp: 375, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_14', title: 'Academy Scholar', description: 'Enroll and complete an Acting Academy course.', category: 'Career', rewardCash: 25000, rewardFameXp: 120, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_c_15', title: 'Flawless Masterpiece', description: 'Star in a film rated 90%+ by critics.', category: 'Career', rewardCash: 150000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 1 },
 
   // BUSINESS (10)
-  { id: 'ach_b_1', title: 'First Venture', description: 'Launch your first business venture.', category: 'Business', rewardCash: 25000, rewardFameXp: 250, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_b_2', title: 'Serial Entrepreneur', description: 'Own 3 active business ventures.', category: 'Business', rewardCash: 75000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 3 },
-  { id: 'ach_b_3', title: 'Corporate Empire', description: 'Own 5 active business ventures.', category: 'Business', rewardCash: 150000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 5 },
-  { id: 'ach_b_4', title: 'Holding Conglomerate', description: 'Form your official Holding Company.', category: 'Business', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_b_5', title: 'Wall Street Bell', description: 'Take a business public via an IPO.', category: 'Business', rewardCash: 500000, rewardFameXp: 4000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_b_6', title: '$10M Valuation', description: 'Build a business with $10,000,000 valuation.', category: 'Business', rewardCash: 125000, rewardFameXp: 1250, isUnlocked: false, progress: 0, maxProgress: 10000000 },
-  { id: 'ach_b_7', title: 'Hollywood Unicorn', description: 'Build a business with $100,000,000 valuation.', category: 'Business', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 100000000 },
-  { id: 'ach_b_8', title: 'Billion Dollar Conglomerate', description: 'Reach $1,000,000,000 Holding Company valuation.', category: 'Business', rewardCash: 1250000, rewardFameXp: 10000, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
-  { id: 'ach_b_9', title: 'Passive Cash Engine', description: 'Generate $100,000+ weekly passive business income.', category: 'Business', rewardCash: 250000, rewardFameXp: 2000, isUnlocked: false, progress: 0, maxProgress: 100000 },
-  { id: 'ach_b_10', title: 'Boardroom Titan', description: 'Secure a corporate board seat at a major enterprise.', category: 'Business', rewardCash: 200000, rewardFameXp: 1750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_b_1', title: 'First Venture', description: 'Launch your first business venture.', category: 'Business', rewardCash: 25000, rewardFameXp: 75, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_b_2', title: 'Serial Entrepreneur', description: 'Own 3 active business ventures.', category: 'Business', rewardCash: 75000, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 3 },
+  { id: 'ach_b_3', title: 'Corporate Empire', description: 'Own 5 active business ventures.', category: 'Business', rewardCash: 150000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 5 },
+  { id: 'ach_b_4', title: 'Holding Conglomerate', description: 'Form your official Holding Company.', category: 'Business', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_b_5', title: 'Wall Street Bell', description: 'Take a business public via an IPO.', category: 'Business', rewardCash: 500000, rewardFameXp: 1200, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_b_6', title: '$10M Valuation', description: 'Build a business with $10,000,000 valuation.', category: 'Business', rewardCash: 125000, rewardFameXp: 375, isUnlocked: false, progress: 0, maxProgress: 10000000 },
+  { id: 'ach_b_7', title: 'Hollywood Unicorn', description: 'Build a business with $100,000,000 valuation.', category: 'Business', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 100000000 },
+  { id: 'ach_b_8', title: 'Billion Dollar Conglomerate', description: 'Reach $1,000,000,000 Holding Company valuation.', category: 'Business', rewardCash: 1250000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
+  { id: 'ach_b_9', title: 'Passive Cash Engine', description: 'Generate $100,000+ weekly passive business income.', category: 'Business', rewardCash: 250000, rewardFameXp: 600, isUnlocked: false, progress: 0, maxProgress: 100000 },
+  { id: 'ach_b_10', title: 'Boardroom Titan', description: 'Secure a corporate board seat at a major enterprise.', category: 'Business', rewardCash: 200000, rewardFameXp: 525, isUnlocked: false, progress: 0, maxProgress: 1 },
 
   // AWARDS (10)
-  { id: 'ach_a_1', title: 'First Nomination', description: 'Receive your first major award nomination.', category: 'Awards', rewardCash: 12500, rewardFameXp: 250, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_2', title: 'Golden Statuette', description: 'Win your first major acting award.', category: 'Awards', rewardCash: 50000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_3', title: 'Triple Crown Winner', description: 'Win 3 major acting awards.', category: 'Awards', rewardCash: 125000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 3 },
-  { id: 'ach_a_4', title: 'Trophy Room Overflow', description: 'Win 10 major acting awards.', category: 'Awards', rewardCash: 375000, rewardFameXp: 3750, isUnlocked: false, progress: 0, maxProgress: 10 },
-  { id: 'ach_a_5', title: 'Academy Award Honor', description: 'Win an Oscar for Best Actor.', category: 'Awards', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_6', title: 'Best Director Gold', description: 'Win a Best Director Award.', category: 'Awards', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_7', title: 'Palme d’Or Glory', description: 'Win a prestigious international film festival prize.', category: 'Awards', rewardCash: 175000, rewardFameXp: 2000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_8', title: 'Double Winner', description: 'Win both Acting and Producing awards in the same ceremony.', category: 'Awards', rewardCash: 300000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_9', title: 'Lifetime Achievement', description: 'Receive the Hollywood Lifetime Achievement Award.', category: 'Awards', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_a_10', title: 'Dominant Dynasty', description: 'Accumulate 20+ career awards and honors.', category: 'Awards', rewardCash: 750000, rewardFameXp: 7500, isUnlocked: false, progress: 0, maxProgress: 20 },
+  { id: 'ach_a_1', title: 'First Nomination', description: 'Receive your first major award nomination.', category: 'Awards', rewardCash: 12500, rewardFameXp: 75, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_2', title: 'Golden Statuette', description: 'Win your first major acting award.', category: 'Awards', rewardCash: 50000, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_3', title: 'Triple Crown Winner', description: 'Win 3 major acting awards.', category: 'Awards', rewardCash: 125000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 3 },
+  { id: 'ach_a_4', title: 'Trophy Room Overflow', description: 'Win 10 major acting awards.', category: 'Awards', rewardCash: 375000, rewardFameXp: 1125, isUnlocked: false, progress: 0, maxProgress: 10 },
+  { id: 'ach_a_5', title: 'Academy Award Honor', description: 'Win an Oscar for Best Actor.', category: 'Awards', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_6', title: 'Best Director Gold', description: 'Win a Best Director Award.', category: 'Awards', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_7', title: 'Palme d’Or Glory', description: 'Win a prestigious international film festival prize.', category: 'Awards', rewardCash: 175000, rewardFameXp: 600, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_8', title: 'Double Winner', description: 'Win both Acting and Producing awards in the same ceremony.', category: 'Awards', rewardCash: 300000, rewardFameXp: 900, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_9', title: 'Lifetime Achievement', description: 'Receive the Hollywood Lifetime Achievement Award.', category: 'Awards', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_a_10', title: 'Dominant Dynasty', description: 'Accumulate 20+ career awards and honors.', category: 'Awards', rewardCash: 750000, rewardFameXp: 2250, isUnlocked: false, progress: 0, maxProgress: 20 },
 
   // EMPIRE (10)
-  { id: 'ach_e_1', title: 'Prime Property', description: 'Purchase your first commercial real estate property.', category: 'Empire', rewardCash: 50000, rewardFameXp: 500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_2', title: 'Studio Production Lot', description: 'Acquire a full Hollywood Film Production Lot.', category: 'Empire', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_3', title: 'Real Estate Baron', description: 'Own 5 commercial properties.', category: 'Empire', rewardCash: 375000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 5 },
-  { id: 'ach_e_4', title: 'Bel-Air Elite', description: 'Join the exclusive Hollywood Elite Club.', category: 'Empire', rewardCash: 125000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_5', title: 'Philanthropic Legacy', description: 'Establish your Global Philanthropic Foundation.', category: 'Empire', rewardCash: 150000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_6', title: '$1M Benefactor', description: 'Donate over $1,000,000 to charity causes.', category: 'Empire', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1000000 },
-  { id: 'ach_e_7', title: 'International Footprint', description: 'Build your first overseas regional office.', category: 'Empire', rewardCash: 20000, rewardFameXp: 200, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_8', title: 'Global Hegemony', description: 'Build regional hubs in 3 continents.', category: 'Empire', rewardCash: 75000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 3 },
-  { id: 'ach_e_9', title: 'Acting Conservatory', description: 'Found the Hollywood Acting Academy.', category: 'Empire', rewardCash: 175000, rewardFameXp: 1750, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_e_10', title: 'Terrazzo Star', description: 'Unveil your Walk of Fame Star on Hollywood Blvd.', category: 'Empire', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_1', title: 'Prime Property', description: 'Purchase your first commercial real estate property.', category: 'Empire', rewardCash: 50000, rewardFameXp: 150, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_2', title: 'Studio Production Lot', description: 'Acquire a full Hollywood Film Production Lot.', category: 'Empire', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_3', title: 'Real Estate Baron', description: 'Own 5 commercial properties.', category: 'Empire', rewardCash: 375000, rewardFameXp: 900, isUnlocked: false, progress: 0, maxProgress: 5 },
+  { id: 'ach_e_4', title: 'Bel-Air Elite', description: 'Join the exclusive Hollywood Elite Club.', category: 'Empire', rewardCash: 125000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_5', title: 'Philanthropic Legacy', description: 'Establish your Global Philanthropic Foundation.', category: 'Empire', rewardCash: 150000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_6', title: '$1M Benefactor', description: 'Donate over $1,000,000 to charity causes.', category: 'Empire', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1000000 },
+  { id: 'ach_e_7', title: 'International Footprint', description: 'Build your first overseas regional office.', category: 'Empire', rewardCash: 20000, rewardFameXp: 60, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_8', title: 'Global Hegemony', description: 'Build regional hubs in 3 continents.', category: 'Empire', rewardCash: 75000, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 3 },
+  { id: 'ach_e_9', title: 'Acting Conservatory', description: 'Found the Hollywood Acting Academy.', category: 'Empire', rewardCash: 175000, rewardFameXp: 525, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_e_10', title: 'Terrazzo Star', description: 'Unveil your Walk of Fame Star on Hollywood Blvd.', category: 'Empire', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
 
   // SOCIAL MEDIA (10)
-  { id: 'ach_s_1', title: '100K Followers', description: 'Reach 100,000 social media followers.', category: 'Social Media', rewardCash: 12500, rewardFameXp: 250, isUnlocked: false, progress: 0, maxProgress: 100000 },
-  { id: 'ach_s_2', title: '1M Followers', description: 'Reach 1,000,000 social media followers.', category: 'Social Media', rewardCash: 50000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1000000 },
-  { id: 'ach_s_3', title: '10M Followers', description: 'Reach 10,000,000 social media followers.', category: 'Social Media', rewardCash: 150000, rewardFameXp: 2000, isUnlocked: false, progress: 0, maxProgress: 10000000 },
-  { id: 'ach_s_4', title: '100M Super Icon', description: 'Reach 100,000,000 social media followers.', category: 'Social Media', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 100000000 },
-  { id: 'ach_s_5', title: '1 Billion Followers', description: 'Reach 1 Billion global social media followers.', category: 'Social Media', rewardCash: 2500000, rewardFameXp: 12500, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
-  { id: 'ach_s_6', title: '#1 World Trend', description: 'Trend #1 worldwide on social media.', category: 'Social Media', rewardCash: 100000, rewardFameXp: 1250, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_s_7', title: 'Viral Sensationalist', description: 'Post content receiving over 10M engagements.', category: 'Social Media', rewardCash: 175000, rewardFameXp: 1750, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_s_8', title: 'Blue Checkmark Elite', description: 'Achieve verified status across all networks.', category: 'Social Media', rewardCash: 25000, rewardFameXp: 500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_s_9', title: 'PR Controversy Master', description: 'Defuse a major public media scandal.', category: 'Social Media', rewardCash: 125000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_s_10', title: 'Global Fan Army', description: 'Mobilize 500,000 registered fan club members.', category: 'Social Media', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 500000 },
+  { id: 'ach_s_1', title: '100K Followers', description: 'Reach 100,000 social media followers.', category: 'Social Media', rewardCash: 12500, rewardFameXp: 75, isUnlocked: false, progress: 0, maxProgress: 100000 },
+  { id: 'ach_s_2', title: '1M Followers', description: 'Reach 1,000,000 social media followers.', category: 'Social Media', rewardCash: 50000, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 1000000 },
+  { id: 'ach_s_3', title: '10M Followers', description: 'Reach 10,000,000 social media followers.', category: 'Social Media', rewardCash: 150000, rewardFameXp: 600, isUnlocked: false, progress: 0, maxProgress: 10000000 },
+  { id: 'ach_s_4', title: '100M Super Icon', description: 'Reach 100,000,000 social media followers.', category: 'Social Media', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 100000000 },
+  { id: 'ach_s_5', title: '1 Billion Followers', description: 'Reach 1 Billion global social media followers.', category: 'Social Media', rewardCash: 2500000, rewardFameXp: 3750, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
+  { id: 'ach_s_6', title: '#1 World Trend', description: 'Trend #1 worldwide on social media.', category: 'Social Media', rewardCash: 100000, rewardFameXp: 375, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_s_7', title: 'Viral Sensationalist', description: 'Post content receiving over 10M engagements.', category: 'Social Media', rewardCash: 175000, rewardFameXp: 525, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_s_8', title: 'Blue Checkmark Elite', description: 'Achieve verified status across all networks.', category: 'Social Media', rewardCash: 25000, rewardFameXp: 150, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_s_9', title: 'PR Controversy Master', description: 'Defuse a major public media scandal.', category: 'Social Media', rewardCash: 125000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_s_10', title: 'Global Fan Army', description: 'Mobilize 500,000 registered fan club members.', category: 'Social Media', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 500000 },
 
   // MONEY (10)
-  { id: 'ach_m_1', title: 'Six-Figure Bankroll', description: 'Accumulate $100,000 in liquid cash.', category: 'Money', rewardCash: 10000, rewardFameXp: 150, isUnlocked: false, progress: 0, maxProgress: 100000 },
-  { id: 'ach_m_2', title: 'Liquid Millionaire', description: 'Accumulate $1,000,000 in liquid cash.', category: 'Money', rewardCash: 50000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1000000 },
-  { id: 'ach_m_3', title: '$10M Cash Reserve', description: 'Accumulate $10,000,000 in liquid cash.', category: 'Money', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 10000000 },
-  { id: 'ach_m_4', title: '$100M Warchest', description: 'Accumulate $100,000,000 in liquid cash.', category: 'Money', rewardCash: 1000000, rewardFameXp: 7500, isUnlocked: false, progress: 0, maxProgress: 100000000 },
-  { id: 'ach_m_5', title: 'Billionaire Status', description: 'Reach $1 Billion total net worth.', category: 'Money', rewardCash: 5000000, rewardFameXp: 25000, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
-  { id: 'ach_m_6', title: 'Forbes 100 List', description: 'Secure a spot on the Forbes Richest Celebrities list.', category: 'Money', rewardCash: 500000, rewardFameXp: 5000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_m_7', title: 'Forbes #1 Rank', description: 'Reach #1 Richest Celebrity on Forbes.', category: 'Money', rewardCash: 2500000, rewardFameXp: 12500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_m_8', title: 'Mega Acting Payday', description: 'Earn $10M+ from a single movie contract.', category: 'Money', rewardCash: 375000, rewardFameXp: 3750, isUnlocked: false, progress: 0, maxProgress: 10000000 },
-  { id: 'ach_m_9', title: 'High Tax Shield', description: 'Save $250,000+ in taxes through elite CPA planning.', category: 'Money', rewardCash: 150000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 250000 },
-  { id: 'ach_m_10', title: 'Half-Million Weekly Cashflow', description: 'Generate $500,000+ total weekly income.', category: 'Money', rewardCash: 750000, rewardFameXp: 6000, isUnlocked: false, progress: 0, maxProgress: 500000 },
+  { id: 'ach_m_1', title: 'Six-Figure Bankroll', description: 'Accumulate $100,000 in liquid cash.', category: 'Money', rewardCash: 10000, rewardFameXp: 45, isUnlocked: false, progress: 0, maxProgress: 100000 },
+  { id: 'ach_m_2', title: 'Liquid Millionaire', description: 'Accumulate $1,000,000 in liquid cash.', category: 'Money', rewardCash: 50000, rewardFameXp: 225, isUnlocked: false, progress: 0, maxProgress: 1000000 },
+  { id: 'ach_m_3', title: '$10M Cash Reserve', description: 'Accumulate $10,000,000 in liquid cash.', category: 'Money', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 10000000 },
+  { id: 'ach_m_4', title: '$100M Warchest', description: 'Accumulate $100,000,000 in liquid cash.', category: 'Money', rewardCash: 1000000, rewardFameXp: 2250, isUnlocked: false, progress: 0, maxProgress: 100000000 },
+  { id: 'ach_m_5', title: 'Billionaire Status', description: 'Reach $1 Billion total net worth.', category: 'Money', rewardCash: 5000000, rewardFameXp: 7500, isUnlocked: false, progress: 0, maxProgress: 1000000000 },
+  { id: 'ach_m_6', title: 'Forbes 100 List', description: 'Secure a spot on the Forbes Richest Celebrities list.', category: 'Money', rewardCash: 500000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_m_7', title: 'Forbes #1 Rank', description: 'Reach #1 Richest Celebrity on Forbes.', category: 'Money', rewardCash: 2500000, rewardFameXp: 3750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_m_8', title: 'Mega Acting Payday', description: 'Earn $10M+ from a single movie contract.', category: 'Money', rewardCash: 375000, rewardFameXp: 1125, isUnlocked: false, progress: 0, maxProgress: 10000000 },
+  { id: 'ach_m_9', title: 'High Tax Shield', description: 'Save $250,000+ in taxes through elite CPA planning.', category: 'Money', rewardCash: 150000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 250000 },
+  { id: 'ach_m_10', title: 'Half-Million Weekly Cashflow', description: 'Generate $500,000+ total weekly income.', category: 'Money', rewardCash: 750000, rewardFameXp: 1800, isUnlocked: false, progress: 0, maxProgress: 500000 },
 
   // SECRET / HIDDEN (5)
-  { id: 'ach_h_1', title: 'Arch Enemy Feud', description: 'Escalate a rivalry to Arch Rival or Legendary Rival status.', category: 'Secret', rewardCash: 125000, rewardFameXp: 1500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_h_2', title: 'Bestselling Memoir', description: 'Publish your autobiography "Rise of the Mogul".', category: 'Secret', rewardCash: 150000, rewardFameXp: 1750, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_h_3', title: 'Peace Summit Diplomat', description: 'Successfully end an Arch Rivalry via Chateau Marmont truce.', category: 'Secret', rewardCash: 200000, rewardFameXp: 2000, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_h_4', title: 'Tax Optimization Wizard', description: 'Achieve 0% effective tax rate with offshore attorneys.', category: 'Secret', rewardCash: 250000, rewardFameXp: 2500, isUnlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'ach_h_5', title: 'Hollywood Overlord', description: 'Reach 50,000+ Hall of Fame Legacy points.', category: 'Secret', rewardCash: 1000000, rewardFameXp: 10000, isUnlocked: false, progress: 0, maxProgress: 50000 },
+  { id: 'ach_h_1', title: 'Arch Enemy Feud', description: 'Escalate a rivalry to Arch Rival or Legendary Rival status.', category: 'Secret', rewardCash: 125000, rewardFameXp: 450, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_h_2', title: 'Bestselling Memoir', description: 'Publish your autobiography "Rise of the Mogul".', category: 'Secret', rewardCash: 150000, rewardFameXp: 525, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_h_3', title: 'Peace Summit Diplomat', description: 'Successfully end an Arch Rivalry via Chateau Marmont truce.', category: 'Secret', rewardCash: 200000, rewardFameXp: 600, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_h_4', title: 'Tax Optimization Wizard', description: 'Achieve 0% effective tax rate with offshore attorneys.', category: 'Secret', rewardCash: 250000, rewardFameXp: 750, isUnlocked: false, progress: 0, maxProgress: 1 },
+  { id: 'ach_h_5', title: 'Hollywood Overlord', description: 'Reach 50,000+ Hall of Fame Legacy points.', category: 'Secret', rewardCash: 1000000, rewardFameXp: 3000, isUnlocked: false, progress: 0, maxProgress: 50000 },
 ];
 
 // Initial Global Regions
@@ -714,6 +714,16 @@ export class EmpireService {
       const data = localStorage.getItem(EMPIRE_STORAGE_KEY);
       if (data) {
         const parsed = JSON.parse(data);
+
+        // ONE-TIME MIGRATION v2: achievement fame rewards cut 70% (slow-burn).
+        // Re-price rewards in EXISTING saves; unlocked achievements already
+        // paid their old XP — only future payouts use the new values.
+        if ((parsed as any).achievementPayoutVersion !== 2) {
+          (parsed.achievements || []).forEach((ach: any) => {
+            if (ach && typeof ach.rewardFameXp === 'number') ach.rewardFameXp = Math.max(5, Math.round(ach.rewardFameXp * 0.3));
+          });
+          (parsed as any).achievementPayoutVersion = 2;
+        }
 
         // Deep merge: overwrite only the keys that exist in parsed,
         // but keep default structure for any missing section.
@@ -1233,15 +1243,16 @@ export class EmpireService {
 
     // ONE-TIME BACKPAY: achievements unlocked before the payout engine existed
     // were displayed with rewards that never reached the player. Pay them all
-    // once (real money + XP), then flag the migration so it never repeats.
-    if ((state as any).achievementPayoutVersion !== 1) {
+    // once (real money + XP at the CURRENT cut-down fame values), then flag
+    // the migration so it never repeats. (v2 = fame slow-burn pricing)
+    if ((state as any).achievementPayoutVersion !== 2) {
       (state.achievements || []).forEach((ach) => {
         if (ach?.isUnlocked) {
           achievementsCash += ach.rewardCash || 0;
           achievementsXp += ach.rewardFameXp || 0;
         }
       });
-      (state as any).achievementPayoutVersion = 1;
+      (state as any).achievementPayoutVersion = 2;
       if (achievementsCash > 0) {
         logMessages.push(`🏆 ACHIEVEMENT BACKPAY: ${(state.achievements || []).filter((a) => a?.isUnlocked).length} unlocked achievement rewards paid out (+$${Math.floor(achievementsCash * 0.5).toLocaleString()} / +${Math.max(1, Math.floor(achievementsXp * FAME_XP_MULTIPLIER))} XP).`);
       }
