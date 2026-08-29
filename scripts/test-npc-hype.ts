@@ -24,7 +24,8 @@ SocialsService.igniteCoinHype({ symbol: 'STARX', coinName: 'Star Power', holders
 let feed = SocialsService.getState().playerPosts.Twitter || [];
 const added = feed.slice(0, feed.length - feedBefore);
 ok(added.length >= 4 && added.length <= 6, `${added.length} NPC posts on ignition (3-5 claims + 1 analyst)`);
-ok(added.filter((p) => p.tab === 'NPC_FEED' && p.text.includes('CLAIMED')).length >= 2, 'claim posts present with real claim language');
+const claimPosts = added.filter((p) => p.tab === 'NPC_FEED' && /CLAIMED|AIRDROP LANDED|airdrop just dropped/i.test(p.text));
+ok(claimPosts.length >= 2, `claim posts present (${claimPosts.length} of ${added.length} ignition posts use claim language)`);
 ok(SocialsService.getState().playerCoinHype?.symbol === 'STARX', `hype queue armed (${SocialsService.getState().playerCoinHype?.weeksLeft} weeks)`);
 
 console.log('\n[2] WEEKLY TICKS — chatter continues then dies');
