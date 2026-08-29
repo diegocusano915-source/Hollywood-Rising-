@@ -2203,14 +2203,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const audienceRating = Math.min(100, Math.max(25, Math.floor(35 + (actingTalent * 0.4) + (starRatingPct * 0.25) + Math.random() * 10)));
       const criticRating = Math.min(100, Math.max(20, Math.floor(30 + (dramaTalent * 0.45) + (starRatingPct * 0.25) + Math.random() * 12)));
 
-      // RELEASE FAME HALVED (user request): raw pool value, still subject
-      // to the global slow-burn multiplier at the end of the week
-      const releaseFame = book.roleType === 'Lead' ? 22 : book.roleType === 'Principal' ? 16 : 10;
-      fameGainedThisWeek += releaseFame;
-
+      // RELEASE FAME (slow burn): raw pool value, still subject to the global
+      // slow-burn multiplier at the end of the week. Sequels/seasons DIVIDE
+      // the fame by their part number — Part 2 pays 1/2, Part 3 pays 1/3...
+      // the fame curve must come from NEW stories, not re-releases.
       const currentPart = book.franchisePart || 1;
       const currentSeason = book.tvSeason || 1;
       const isTv = book.isTvSeries || book.category === 'TV Series';
+      const installmentNo = isTv ? currentSeason : currentPart;
+      const baseReleaseFame = book.roleType === 'Lead' ? 22 : book.roleType === 'Principal' ? 16 : 10;
+      const releaseFame = Math.max(2, Math.floor(baseReleaseFame / installmentNo));
+      fameGainedThisWeek += releaseFame;
 
       const newReleasedMovie: ReleasedMovie = {
         id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
