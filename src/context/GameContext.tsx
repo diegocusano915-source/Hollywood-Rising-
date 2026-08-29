@@ -2669,9 +2669,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (isTv) {
         const nextSeason = currentSeason + 1;
-        // Renewal pay scales with the SHOW's budget, not just the old paycheck:
-        // 35% raise over last season, floored at 2% of the production budget
-        const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2500000) * 1.35), Math.floor(baseBudget * 0.02));
+        // RENEWAL PAY — no flat raise: the network pays by (a) how the season
+        // performed vs target, (b) a raise that GROWS with each new season,
+        // (c) real negotiation spread. Two identical shows renew differently.
+        const tvRatio = (movie.worldwideGross || 0) / Math.max(1, baseBudget * 1.8); // 1.0 = just hit target
+        const tvHeat = Math.min(2.5, Math.max(0.8, tvRatio));
+        const tvRaise = 1.10 + 0.08 * nextSeason; // S2 +18%, S3 +26%, S4 +34%...
+        const studioSalary = Math.max(
+          Math.floor((movie.playerEarnings || 2500000) * tvRaise * tvHeat * (0.9 + Math.random() * 0.25)),
+          Math.floor(baseBudget * 0.02)
+        );
         const salary = managerSigned ? Math.floor(studioSalary * 1.2) : studioSalary;
         const shootWeeks = 6 + Math.floor(Math.random() * 3);
         const renewedProject: BookedProject = {
@@ -2727,9 +2734,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const subtitle = nextPart === 2 ? 'The Sequel' : nextPart === 3 ? 'Trilogy Climax' : nextPart === 4 ? 'Resurgence' : 'The Grand Finale';
       const nextFranchiseTitle = `${movie.parentMovieTitle || movie.movieTitle} (Part ${nextPart}: ${subtitle})`;
       const nextBudget = Math.floor(baseBudget * 1.4);
-      // Sequel pay scales with the FRANCHISE's budget, not just the old paycheck:
-      // 50% raise over the original, floored at 3% of the (bigger) sequel budget
-      const studioSalary = Math.max(Math.floor((movie.playerEarnings || 2000000) * 1.5), Math.floor(nextBudget * 0.03));
+      // SEQUEL PAY — no flat raise: the studio pays by (a) box office heat
+      // (gross vs greenlight target), (b) a raise that grows with each part,
+      // (c) real negotiation spread. Two franchises never pay the same.
+      const boxRatio = (movie.worldwideGross || 0) / Math.max(1, baseBudget * 1.8); // 1.0 = just hit target
+      const franchiseHeat = Math.min(2.5, Math.max(0.8, boxRatio));
+      const installmentRaise = 1.20 + 0.12 * nextPart; // P2 +44%, P3 +56%, P4 +68%, P5 +80%
+      const studioSalary = Math.max(
+        Math.floor((movie.playerEarnings || 2000000) * installmentRaise * franchiseHeat * (0.9 + Math.random() * 0.25)),
+        Math.floor(nextBudget * 0.03)
+      );
       const salary = managerSigned ? Math.floor(studioSalary * 1.25) : studioSalary;
       const shootWeeks = 6 + Math.floor(Math.random() * 4);
       const backend = managerSigned ? 5.0 : 3.5;
