@@ -58,17 +58,12 @@ export class RoyaltyEngineService {
       // Sanity cap: $1,000 - $15,000 / week depending on role and weekly gross
       residuals = Math.min(15000 * roleMultiplier, Math.max(500, residuals));
     } else {
-      // Post-Theatrical / Long-Tail Residuals
-      if (worldwideGross >= 500000000) {
-        // Blockbuster Classic: Long-tail residual $1,500 - $3,500/week for years!
-        residuals = Math.round((1500 + Math.random() * 2000) * roleMultiplier);
-      } else if (worldwideGross >= 150000000) {
-        // Successful Mid-Budget Hit: $300 - $800/week
-        residuals = Math.round((300 + Math.random() * 500) * roleMultiplier);
-      } else {
-        // Small / Niche: $25 - $100/week
-        residuals = Math.round((25 + Math.random() * 75) * roleMultiplier);
-      }
+      // Post-Theatrical long tail — derived from the movie's REAL gross and
+      // decaying weekly. No random faucets: a flop trickles out fast, a
+      // blockbuster classic keeps paying for years. Below $20/wk it ends.
+      const tailDecay = Math.pow(0.9, Math.max(0, weeksInCinemas - 8));
+      residuals = Math.floor(worldwideGross * 0.000004 * roleMultiplier * tailDecay);
+      if (residuals < 20) residuals = 0;
     }
 
     // 2. BACKEND PROFIT SHARE / BOX OFFICE BONUSES
@@ -96,22 +91,34 @@ export class RoyaltyEngineService {
     let streamingRoyalties = 0;
     const isStreamingOrVOD = (movie as any).category === 'Streaming Original' || weeksInCinemas > 6 || !inTheaters;
     if (isStreamingOrVOD) {
-      const audienceRating = movie.audienceRating || 75;
-      const baseStreaming = audienceRating > 85 ? 4500 : audienceRating > 70 ? 2500 : 1000;
-      streamingRoyalties = Math.round(baseStreaming * roleMultiplier);
+      // Payout scales with what the movie ACTUALLY earned and its rating,
+      // decaying weekly — no flat weekly faucet.
+      const audienceRating = movie.audienceRating || 50;
+      const streamDecay = Math.pow(0.94, Math.max(0, weeksInCinemas - 8));
+      streamingRoyalties = Math.floor(
+        worldwideGross * 0.000008 * (audienceRating / 100) * roleMultiplier * streamDecay
+      );
+      if (streamingRoyalties < 15) streamingRoyalties = 0;
     }
 
     // 4. MERCHANDISE ROYALTIES
     let merchandiseRoyalties = 0;
     const merchGenres = ['Action', 'Sci-Fi', 'Animation', 'Fantasy', 'Adventure'];
     if (worldwideGross >= 300000000 && merchGenres.includes(movie.genre || '')) {
-      merchandiseRoyalties = Math.round((1200 + Math.random() * 1800) * roleMultiplier);
+      // Franchise merch only pays while the property is hot — decays weekly.
+      const merchDecay = Math.pow(0.9, Math.max(0, weeksInCinemas - 8));
+      merchandiseRoyalties = Math.floor(worldwideGross * 0.000005 * roleMultiplier * merchDecay);
+      if (merchandiseRoyalties < 25) merchandiseRoyalties = 0;
     }
 
     // 5. TV SYNDICATION & INTERNATIONAL DISTRIBUTION
     let syndicationRoyalties = 0;
     if (movie.category === 'TV Series' || (movie as any).isTvSeries) {
-      syndicationRoyalties = Math.round((2500 + Math.random() * 3000) * roleMultiplier);
+      // Syndication deals are struck off the show's production value and
+      // decay as the library ages — never a flat random weekly check.
+      const synDecay = Math.pow(0.93, Math.max(0, weeksInCinemas - 8));
+      syndicationRoyalties = Math.floor(budget * 0.0004 * roleMultiplier * synDecay);
+      if (syndicationRoyalties < 20) syndicationRoyalties = 0;
     }
 
     let internationalRoyalties = 0;
