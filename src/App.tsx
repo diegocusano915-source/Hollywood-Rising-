@@ -3,8 +3,9 @@
  * Pure Clean Architecture, Riverpod state context, Hive storage, Phase 1 Grounded Aesthetics.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
+import { installOfflineImageInterceptor } from './services/assetManager';
 import { DeviceFrame } from './components/common/DeviceFrame';
 import { SplashScreen } from './components/screens/SplashScreen';
 import { DisclaimerScreen } from './components/screens/DisclaimerScreen';
@@ -63,6 +64,10 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const AppContent: React.FC = () => {
   const { currentScreen, activeModal, isProcessingWeek, selectedFycMovieId, releasedMovies, awardCeremonyData, setAwardCeremonyData, taxStatementData, setTaxStatementData, setActiveModal, toasts, dismissToast } = useGame();
+
+  // Invisible offline asset manager: every picture renders from the bundled
+  // pack, never the network.
+  useEffect(() => { installOfflineImageInterceptor(); }, []);
 
   const fycMovie = releasedMovies.find((m) => m.id === selectedFycMovieId) || releasedMovies[0];
 
