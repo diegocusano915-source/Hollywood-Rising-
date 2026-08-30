@@ -92,6 +92,18 @@ const ID_TO_LOCAL: Record<string, string> = (() => {
       if (m) map[m[1]] = p;
     }
   }
+  // DEAD-ID FALLBACKS: these 7 remote photos 404 even online (two are typo'd
+  // ids in old code). Each maps to a context-matched bundled image.
+  const dead: Record<string, string> = {
+    '583008082980': 'assets/offline/houses/houses_00f18fb6b3ea.jpg',   // real-estate property
+    'a4c8a383392d': 'assets/offline/extras/extras_2ee91cede3ba.jpg',   // studio casting poster
+    'a4c8a383392e': 'assets/offline/extras/extras_2ee91cede3ba.jpg',   // (typo twin)
+    'a3fb3927b6a0': 'assets/offline/extras/extras_152d9b164e26.jpg',   // studio casting poster
+    'a3fb3927b675': 'assets/offline/extras/extras_152d9b164e26.jpg',   // (typo twin)
+    '26b21557b4a7': 'assets/offline/extras/extras_47ba0277781c.jpg',   // streaming platform
+    '0b3b00cc82ee': 'assets/offline/extras/extras_04bf5292ceea.jpg',   // sports radio station
+  };
+  Object.assign(map, dead);
   return map;
 })();
 
