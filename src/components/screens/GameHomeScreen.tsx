@@ -24,6 +24,7 @@ import {
   Award,
   History,
   Bell,
+  Cake,
 } from 'lucide-react';
 import { THEMES } from '../../theme/colors';
 import { FameService } from '../../services/fameService';
@@ -115,6 +116,9 @@ export const GameHomeScreen: React.FC = () => {
                   <p className="text-[11px] text-amber-400 font-semibold flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     Week {player.dateWeek}, Year {player.dateYear}
+                    <span className="text-gray-400">·</span>
+                    <Cake className="w-3.5 h-3.5 text-pink-400" />
+                    <span className="text-pink-300 font-bold">{player.age || 21} yrs</span>
                   </p>
                 </div>
               </div>

@@ -986,10 +986,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 1. Advance Calendar Date by 7 Calendar Days
+    const prevYear = p.dateYear;
     const nextWeekRaw = p.dateWeek + 1;
     const dateInfo = formatCalendarDate(nextWeekRaw, p.dateYear);
     const newWeek = dateInfo.week;
     const newYear = dateInfo.year;
+
+    // HAPPY BIRTHDAY: crossing into a new calendar year ages the character
+    // by one year (age is set at character creation, default 21).
+    let birthdayThisWeek = false;
+    if (newYear > prevYear) {
+      p.age = (p.age || 21) + 1;
+      birthdayThisWeek = true;
+    }
 
     p.dateWeek = newWeek;
     p.dateYear = newYear;
@@ -3356,6 +3365,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     p.money = Math.max(0, startMoney + netWeeklyChange);
     p.fans = startFans + fansGainedThisWeek;
     p.fameXp = startFame + fameGainedThisWeek;
+
+    // Birthday announcement on the week the year rolls over
+    if (birthdayThisWeek) {
+      worldNews.push(`🎂 HAPPY BIRTHDAY, ${p.firstName}! You turned ${p.age} this week.`);
+    }
 
     // Achievement rewards are REAL income — paid on top of the weekly total,
     // at reduced rates: fame at the global slow-burn fraction, cash at half
