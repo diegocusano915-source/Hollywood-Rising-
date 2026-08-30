@@ -63,7 +63,6 @@ import { AwardCeremonyResult } from '../types/game';
 import { FameService, FAME_XP_MULTIPLIER } from '../services/fameService';
 import { HollywoodInsiderService } from '../services/hollywoodInsiderService';
 import { notificationService } from '../services/notificationService';
-import { collectNotificationItems } from '../services/notificationEngine';
 import { processTaxWeek, charityDeltaThisWeek, studioExpenseDeltaThisWeek, ensureTaxBaselines, loadTaxState, getTaxRecord } from '../services/taxEngine';
 import { loadBankrollState, saveBankrollState, processBankrollWeek, ensureBankrollInit } from '../services/bankrollEngine';
 import { RelationshipEngine } from '../services/relationshipService';
@@ -110,7 +109,7 @@ type ModalType =
   | 'notification_history'
   | 'retainer_management'
   | 'award_ceremony'
-  | 'notification_center';
+
 
 interface GameContextType {
   // Navigation & Main Tabs
@@ -122,7 +121,6 @@ interface GameContextType {
   // Active Modal & Processing
   activeModal: ModalType;
   setActiveModal: (modal: ModalType) => void;
-  openNotificationCenter: () => void;
   isProcessingWeek: boolean;
   lastWeeklyRecap: WeeklyRecapData | null;
 
@@ -433,27 +431,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // phone (first ping 40-60 min after leaving, then hourly, all real events).
   // In-app, the Notification Center only shows LIVE alerts while playing.
 
-  // Open the Notification Center and mark everything as seen
-  const openNotificationCenter = useCallback(() => {
-    setActiveModal('notification_center');
-    try {
-      setSaveData((prev) => {
-        const tags = collectNotificationItems(prev).map((i) => i.tag);
-        const nc = prev.notificationCenter || { digest: [], seenTags: [] };
-        const next = {
-          ...prev,
-          notificationCenter: {
-            ...nc,
-            seenTags: Array.from(new Set([...nc.seenTags, ...tags])),
-            digest: (nc.digest || []).map((d) => ({ ...d, read: true })),
-            lastSeenAt: Date.now(),
-          },
-        };
-        StorageService.saveGameData(next, next.slotNumber || 1);
-        return next;
-      });
-    } catch {}
-  }, []);
 
   useEffect(() => {
     // MUSIC IS CONTINUOUS: the soundtrack plays on without restarting when the
@@ -4121,7 +4098,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveMainTab,
         activeModal,
         setActiveModal,
-        openNotificationCenter,
         isProcessingWeek,
         lastWeeklyRecap,
         selectedNpcId,

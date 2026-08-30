@@ -41,7 +41,6 @@ import { PhotoModeModal } from './components/modals/PhotoModeModal';
 import { NotificationHistoryModal } from './components/modals/NotificationHistoryModal';
 import { CareerHandbookModal } from './components/modals/CareerHandbookModal';
 import { RetainerManagementModal } from './components/modals/RetainerManagementModal';
-import { NotificationCenterModal } from './components/modals/NotificationCenterModal';
 
 // Footer & Information Modals
 import {
@@ -121,7 +120,6 @@ const AppContent: React.FC = () => {
       {activeModal === 'completion_tracker' && <CompletionTrackerModal />}
       {activeModal === 'photo_mode' && <PhotoModeModal />}
       {activeModal === 'notification_history' && <NotificationHistoryModal />}
-      {activeModal === 'notification_center' && <NotificationCenterModal />}
       {activeModal === 'help_center' && <CareerHandbookModal />}
       {activeModal === 'retainer_management' && <RetainerManagementModal />}
 
